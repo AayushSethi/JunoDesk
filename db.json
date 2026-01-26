@@ -1,0 +1,146 @@
+{
+  "calls": [
+    {
+      "id": 1768952825041,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1768940339278,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1768940337107,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1768940333078,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1768939176751,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1768938343792,
+      "name": "New Caller",
+      "number": "(555) 019-2834",
+      "time": "Just now",
+      "status": "unread",
+      "type": "test",
+      "details": [
+        "Recording started..."
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Shazor (Canada)",
+      "number": "(226) 339-0047",
+      "time": "3 days ago • 10:00 AM",
+      "status": "read",
+      "details": [
+        "Caller engaged with Diane"
+      ],
+      "summary": "Shazor left a message for Aayish to pick him up from Montreal airport, Terminal 2, on the 8th of March at 5 PM.",
+      "analysis": "This call had a Mixed tone - Initially inappropriate comments followed by a clear request.",
+      "actionItems": [
+        "Inform Aayish of Shazor's arrival details at Montreal airport."
+      ],
+      "transcript": [
+        {
+          "role": "receptionist",
+          "text": "Hey Shazor, this is Aayush's receptionist. How can I help you?"
+        },
+        {
+          "role": "receptionist",
+          "text": "Sure, what's the message?"
+        },
+        {
+          "role": "caller",
+          "text": "I needed to leave a message for him."
+        },
+        {
+          "role": "receptionist",
+          "text": "I can't help with that, but let's keep it friendly. What message would you like me to pass to Aayish?"
+        },
+        {
+          "role": "receptionist",
+          "text": "That's inappropriate. I'm here to help with messages for Aayish. Is there anything else I can assist you with?"
+        },
+        {
+          "role": "caller",
+          "text": "Yes, if you can let him know that I'm going to be reaching the Montreal airport at 5pm."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "(917) 540-8793",
+      "number": "Test call",
+      "time": "5 days ago • 2:09 PM",
+      "status": "unread",
+      "type": "test"
+    }
+  ],
+  "texts": [
+    {
+      "id": 1,
+      "name": "Sarah Client",
+      "number": "(415) 555-0123",
+      "lastMessage": "Does 3pm work for the consultation?",
+      "time": "10:45 AM",
+      "unread": true,
+      "history": [
+        {
+          "sender": "them",
+          "text": "Hi, I saw your ad.",
+          "time": "10:30 AM"
+        },
+        {
+          "sender": "us",
+          "text": "Thanks for reaching out! How can I help?",
+          "time": "10:32 AM"
+        },
+        {
+          "sender": "them",
+          "text": "Does 3pm work for the consultation?",
+          "time": "10:45 AM"
+        }
+      ]
+    }
+  ]
+}
