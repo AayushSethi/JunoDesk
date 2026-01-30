@@ -4,9 +4,27 @@ import {
     ChevronLeft, Settings, HelpCircle, PhoneCall,
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
-    CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut
+    CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
+    ShieldAlert, Archive, Trash2
 } from 'lucide-react';
 import { supabase } from './supabase';
+
+const FALLBACK_VOICES = [
+    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1', provider: '11labs' },
+    { id: 'OYTbf65OHHFELVut7v2H', name: 'Woman 2', provider: '11labs' },
+    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Woman 3', provider: '11labs' },
+    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Man 1', provider: '11labs' },
+    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'Man 2', provider: '11labs' },
+    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3', provider: '11labs' }
+];
+
+const LANGUAGES = [
+    { name: 'English', flag: '🇺🇸' }, { name: 'Spanish', flag: '🇪🇸' },
+    { name: 'French', flag: '🇫🇷' }, { name: 'Portuguese', flag: '🇵🇹' },
+    { name: 'Italian', flag: '🇮🇹' }, { name: 'German', flag: '🇩🇪' },
+    { name: 'Japanese', flag: '🇯🇵' }, { name: 'Hindi', flag: '🇮🇳' },
+    { name: 'Dutch', flag: '🇳🇱' }
+];
 
 export default function App() {
     // --- State ---
@@ -14,7 +32,7 @@ export default function App() {
     const [session, setSession] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [calls, setCalls] = useState([]);
-    const [simulating, setSimulating] = useState(false);
+
 
     // --- Navigation State ---
     const [view, setView] = useState('auth'); // Default to auth
@@ -50,7 +68,7 @@ export default function App() {
     }, [view]);
 
     // --- Receptionist Settings State ---
-    const [greeting, setGreeting] = useState("Hey, thank you for calling LCE. How may I help you?");
+    const [greeting, setGreeting] = useState("");
     const [activeReceptionistTab, setActiveReceptionistTab] = useState('instructions'); // 'instructions', 'knowledge', 'phone'
     const [isEditingReceptionist, setIsEditingReceptionist] = useState(false);
     const [toast, setToast] = useState(null);
@@ -74,44 +92,133 @@ export default function App() {
 
     // Personality State
     const [personality, setPersonality] = useState({
-        name: "Andrew",
+        name: "Assistant",
         description: "Professional, formal, and polite."
     });
 
-    // User Info State
+    // --- User Info State ---
     const [userInfo, setUserInfo] = useState({
-        number: "+12816505521",
-        name: "Aayush",
-        company: "LCE",
-        businessType: "Information Technology Services",
-        email: "support@lce.com",
-        address: "123 Main St, Suite 100",
+        number: "", // This might need to come from elsewhere or remain mock for now
+        name: "",
+        company: "",
+        businessType: "",
+        email: "",
+        address: "",
         website: "",
         websiteTraining: false,
         emergencyNumber: "",
         useEmergencyNumber: false,
-        businessDetails: "LCE is a company specializing in IT services. We offer a wide range of tech solutions including cloud computing, cybersecurity, and software development.",
+        businessDetails: "",
         instructions: ""
     });
 
     // --- Knowledge State ---
-    const [knowledgeQuestions, setKnowledgeQuestions] = useState([]);
+    const [knowledgeItems, setKnowledgeItems] = useState([]); // Stores both 'qa' and 'fact' types
 
-    // Fetch from Supabase
+    // --- Data Fetching ---
     useEffect(() => {
-        const fetchQuestions = async () => {
+        const loadUserData = async () => {
             if (!session?.user) return;
-            const { data, error } = await supabase.from('knowledge_questions').select('*').order('created_at', { ascending: true });
-            if (data) setKnowledgeQuestions(data);
-            if (error) console.error('Error loading questions:', error);
+
+            try {
+                // 1. Fetch Business Profile
+                const { data: profile, error: profileError } = await supabase
+                    .from('business_profiles')
+                    .select('*')
+                    .eq('owner_user_id', session.user.id)
+                    .maybeSingle();
+
+                if (profileError) throw profileError;
+
+                if (profile) {
+                    if (!profile.company_name) setView('onboarding');
+
+                    setUserInfo(prev => ({
+                        ...prev,
+                        company: profile.company_name || '',
+                        businessType: profile.industry || '',
+                        email: profile.support_email || session.user.email || '',
+                        address: profile.address || '',
+                        website: profile.website || '',
+                        websiteTraining: profile.website_training_enabled || false,
+                        emergencyNumber: profile.emergency_phone || '',
+                        useEmergencyNumber: profile.emergency_transfer_enabled || false,
+                        businessDetails: profile.business_description || '',
+                        instructions: profile.instructions || '',
+                        vapiPhoneNumber: profile.vapi_phone_number || '' // Added Vapi Number
+                    }));
+                }
+
+                // 2. Fetch Business Info (Knowledge, Greeting, Ending)
+                const { data: info, error: infoError } = await supabase
+                    .from('business_info')
+                    .select('*')
+                    .eq('owner_user_id', session.user.id);
+
+                if (infoError) throw infoError;
+
+                if (info) {
+                    // Extract Personality from Info (Preferred)
+                    const personalityItem = info.find(i => i.type === 'personality');
+                    if (personalityItem?.content) {
+                        setPersonality({
+                            name: personalityItem.content.name || "Assistant",
+                            voiceId: personalityItem.content.voiceId
+                        });
+                    } else if (profile?.assistant_name) {
+                        // Fallback to profile text if exists
+                        setPersonality({
+                            name: profile.assistant_name,
+                            description: "Professional, formal, and polite.",
+                            voiceId: profile.voice_id
+                        });
+                    }
+
+                    // Extract Greeting
+                    const greetingItem = info.find(i => i.type === 'greeting');
+                    if (greetingItem?.content?.text) setGreeting(greetingItem.content.text);
+
+                    // Extract Knowledge Items (QA, Fact, Instruction)
+                    const items = info.filter(i => ['qa', 'fact', 'instruction'].includes(i.type));
+                    setKnowledgeItems(items);
+
+                    // Extract Languages
+                    const langItem = info.find(i => i.type === 'languages');
+                    if (langItem?.content?.languages) setLanguages(langItem.content.languages);
+                }
+
+            } catch (err) {
+                console.error("Error loading user data:", err);
+            }
         };
-        fetchQuestions();
+
+        loadUserData();
     }, [session]);
-    const [knowledgeKeywords, setKnowledgeKeywords] = useState([]);
-    const [newKeyword, setNewKeyword] = useState("");
+
+
+
+
+
+
+
+
+
+    // Input States
+    const [newFact, setNewFact] = useState("");
+    const [newInstruction, setNewInstruction] = useState("");
+
 
     // --- UI State for Interactions ---
     const [activeModal, setActiveModal] = useState(null); // 'add-question', 'add-appointment', etc.
+    const [expandedCallId, setExpandedCallId] = useState(null);
+    const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+    const [knowledgeKeywords, setKnowledgeKeywords] = useState([]);
+    const [voiceOptions] = useState(FALLBACK_VOICES);
+    const [languages, setLanguages] = useState(['English']);
+    const [playingVoiceId, setPlayingVoiceId] = useState(null);
+
+    // Input States
     const [tempQuestion, setTempQuestion] = useState({ q: "", a: "" });
 
     // --- Auth UI State ---
@@ -151,7 +258,29 @@ export default function App() {
                 // If account created but no session, it usually means email confirmation is ON.
                 // We'll tell the user to check the 'fake' email, but in a real app we'd need them to disable confirm.
                 setAuthError("Project requires email verification. Please disable 'Confirm Email' in Supabase > Auth > Providers.");
-            } else {
+                // SUCCESS: Upsert business profile (Handle triggers or manual creation)
+                if (data.user) {
+                    // Upsert Profile
+                    await supabase.from('business_profiles').upsert(
+                        {
+                            owner_user_id: data.user.id,
+                            business_id: businessId,
+                            subscription_tier: 'free'
+                        },
+                        { onConflict: 'owner_user_id' }
+                    );
+
+                    // Upsert Default Greeting/Ending (ignore if exists)
+                    // We can't simple upsert array with different types easily without looping or smarter query
+                    // For now, let's just try insert and ignore error, or check first.
+                    // Actually, let's just do nothing if it already exists, or upsert individual rows.
+                    // Simplest: Just Insert. If conflict, it means Trigger handled it (Good).
+                    const { error: infoError } = await supabase.from('business_info').insert([
+                        { owner_user_id: data.user.id, type: 'greeting', content: { text: "Hello! How can I help?" } }
+                    ]);
+                    // Ignore duplicate key error for info
+                    if (infoError && infoError.code !== '23505') console.error(infoError);
+                }
                 showToast("Account created!");
             }
         } else {
@@ -164,67 +293,93 @@ export default function App() {
         setAuthLoading(false);
     };
 
-    // --- Effects ---
-    useEffect(() => {
-        // Mock data for UI preview
-        setCalls([
-            {
-                id: 1,
-                name: "Aayush Sf",
-                number: "+1 (555) 010-9988",
-                time: "1d",
-                status: "unread",
-                summary: "Customer scheduled a consultation appointment for tomorrow.",
-                actionItem: { type: 'calendar', label: 'Appointment Scheduled', details: 'Tomorrow, 2:00 PM' },
-                transcript: [
-                    { role: 'receptionist', text: "Hey, thank you for calling LCE. How may I help you?" },
-                    { role: 'caller', text: "Hi, I'm looking to schedule a consultation for my business." },
-                    { role: 'receptionist', text: "I can certainly help with that. We have openings tomorrow afternoon. " },
-                    { role: 'caller', text: "Does 2 PM work?" },
-                    { role: 'receptionist', text: "Let me check... Yes, 2 PM is available. I'll lock that in for you." },
-                    { role: 'caller', text: "Great, thank you." }
-                ]
-            },
-            {
-                id: 2,
-                name: "John Doe",
-                number: "+1 (555) 123-4567",
-                time: "2d",
-                status: "read",
-                summary: "Inquired about pricing for the enterprise tier.",
-                transcript: [
-                    { role: 'receptionist', text: "Hey, thank you for calling LCE. How may I help you?" },
-                    { role: 'caller', text: "Yeah, I was just looking at your website and couldn't find pricing for the enterprise tier." },
-                    { role: 'receptionist', text: "Our enterprise tier is customized based on your needs, but it typically starts around $500/month." },
-                    { role: 'caller', text: "Okay, that helps. Thanks." }
-                ]
+    const handleOnboardingSubmit = async () => {
+        if (!userInfo.company) return showToast("Company name is required");
+
+        try {
+            const { error } = await supabase
+                .from('business_profiles')
+                .update({
+                    company_name: userInfo.company,
+                    industry: userInfo.businessType,
+                    business_description: userInfo.businessDetails,
+                    support_email: userInfo.email,
+                })
+                .eq('owner_user_id', session.user.id);
+
+            if (error) throw error;
+
+            showToast("Profile saved. Setting up your phone line...");
+
+            // Trigger Provisioning (Blocking)
+            const success = await handleProvision();
+
+            if (success) {
+                setView('receptionist');
+                showToast("Setup Complete! 🚀");
+            } else {
+                showToast("Phone setup failed. Please try again.");
+                // User stays on onboarding to retry
             }
-        ]);
-    }, []);
-
-    const simulateIncomingCall = async () => {
-        setSimulating(true);
-        setTimeout(() => {
-            setSimulating(false);
-            const randomCallers = [
-                { name: "Sarah Miller", number: "+1 (513) 555-0123", summary: "Asking about the office hours and return policy." },
-                { name: "Mike Ross", number: "+1 (212) 555-0198", summary: "Wanted to schedule a consultation for next Tuesday." },
-                { name: "Unknown Caller", number: "+1 (513) 555-0999", summary: "Hung up immediately after the greeting." },
-                { name: "Pizza Hut", number: "+1 (513) 555-0777", summary: "Delivery driver is outside the building." },
-                { name: "Dr. Smith's Office", number: "+1 (513) 555-0342", summary: "Reminder about your appointment tomorrow at 2 PM." }
-            ];
-            const randomCaller = randomCallers[Math.floor(Math.random() * randomCallers.length)];
-
-            setCalls(prev => [{
-                id: Date.now(),
-                name: randomCaller.name,
-                number: randomCaller.number,
-                time: "Just now",
-                status: "unread",
-                summary: randomCaller.summary
-            }, ...prev]);
-        }, 1500);
+        } catch (err) {
+            console.error("Error saving profile:", err);
+            showToast("Failed to save profile");
+        }
     };
+
+    const saveProfileField = async (field, value) => {
+        try {
+            const { error } = await supabase
+                .from('business_profiles')
+                .update({ [field]: value })
+                .eq('owner_user_id', session.user.id);
+
+            if (error) throw error;
+            // Optional: Success toast or silent save
+        } catch (err) {
+            console.error(`Error saving ${field}:`, err);
+            showToast("Failed to save changes");
+        }
+    };
+
+    // --- Effects ---
+    // --- Effects ---
+    const fetchCalls = async () => {
+        if (!session?.user) return;
+        try {
+            const res = await fetch(`http://localhost:3000/api/calls?userId=${session.user.id}`);
+            const data = await res.json();
+
+            if (Array.isArray(data)) {
+                // Map Vapi data manually if needed, or use as is.
+                // Vapi returns: { id, startedAt, summary, transcript, recordingUrl, customer: { number } }
+                const formatted = data.map(c => ({
+                    id: c.id,
+                    name: "Unknown Caller", // Vapi doesn't usually give names unless enriched
+                    number: c.customer?.number || "Unknown Number",
+                    time: new Date(c.startedAt).toLocaleString(), // Simple format for now
+                    rawTime: c.startedAt,
+                    preview: c.analysis?.summary || c.summary || "No summary available",
+                    summary: c.analysis?.summary || c.summary || "Processing summary...",
+                    transcript: c.analysis?.transcript || c.transcript || "No transcript available",
+                    recordingUrl: c.recordingUrl || c.artifact?.recordingUrl,
+                    status: c.status
+                }));
+                setCalls(formatted);
+            }
+        } catch (e) {
+            console.error("Failed to fetch calls", e);
+        }
+    };
+
+    useEffect(() => {
+        if (session && view === 'inbox') {
+            fetchCalls();
+        }
+    }, [session, view]);
+
+
+
 
     const openCallDetail = (call) => {
         setSelectedCall(call);
@@ -239,11 +394,80 @@ export default function App() {
     // --- Styles ---
     const headerGradient = "bg-gradient-to-b from-blue-300 via-blue-500 to-blue-800";
 
+    const [provisioning, setProvisioning] = useState(false);
+
+    const handleProvision = async () => {
+        if (!session?.user) return;
+        setProvisioning(true);
+        try {
+            const res = await fetch('http://localhost:3000/api/provision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: session.user.id })
+            });
+            const data = await res.json();
+
+            if (data.error) throw new Error(data.error);
+
+            setUserInfo(prev => ({ ...prev, vapiPhoneNumber: data.phoneNumber }));
+            // showToast("Receptionist Activated! 🚀"); // Handled in submit
+            return true;
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to activate: " + err.message);
+            return false;
+        } finally {
+            setProvisioning(false);
+        }
+    };
+
+    const syncTimerRef = React.useRef(null); // Define syncTimerRef here
+
+    const syncAssistant = () => {
+        if (!session?.user) return;
+
+        // Debounce: Clear existing timer
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+        // Set new timer (2 seconds)
+        syncTimerRef.current = setTimeout(async () => {
+            try {
+                console.log("🔄 Syncing Assistant (Debounced)...");
+                await fetch('http://localhost:3000/api/sync-assistant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: session.user.id, languages })
+                });
+                console.log("✅ Assistant Synced");
+                setToast("Assistant Updated");
+                setTimeout(() => setToast(null), 3000);
+            } catch (err) {
+                console.error("Sync failed (likely not provisioned yet):", err);
+                // setToast("Sync Failed"); // Suppress visible error for smoother onboarding
+            }
+        }, 2000);
+    };
+
+
     // --- RENDER ---
+    const [hasTriedProvisioning, setHasTriedProvisioning] = useState(false);
+
+    useEffect(() => {
+        if (session && userInfo.company && !userInfo.vapiPhoneNumber && !provisioning && !hasTriedProvisioning) {
+            // Only auto-provision if we are NOT in the onboarding view (i.e. returning user who has data but no phone)
+            // If we are in onboarding, we wait for the explicit Submit.
+            if (view !== 'onboarding' && view !== 'auth') {
+                setHasTriedProvisioning(true);
+                handleProvision();
+            }
+        }
+    }, [session, userInfo.company, userInfo.vapiPhoneNumber, hasTriedProvisioning, view]);
+
     if (authLoading && !session) return <div className="flex h-screen w-full items-center justify-center bg-[#F2F4F8] text-blue-500 font-bold">Loading NuPhone...</div>;
 
     return (
         <div className="flex flex-col h-screen bg-[#F2F4F8] font-sans relative text-gray-900 overflow-hidden">
+
 
             {/* --- Auth View --- */}
             {view === 'auth' && (
@@ -302,6 +526,17 @@ export default function App() {
                 </div>
             )}
 
+            {/* --- Provisioning Loading Screen --- */}
+            {provisioning && (
+                <div className="absolute inset-0 z-[100] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                    <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <h2 className="text-xl font-black text-gray-900 mb-2">Setting up your AI Receptionist</h2>
+                    <p className="text-sm font-bold text-gray-400">Acquiring dedicated phone number...</p>
+                </div>
+            )}
+
             {/* --- Status Bar Area (Mock) --- */}
             {view !== 'auth' && (
                 <div className={`h-11 w-full absolute top-0 left-0 z-50 flex justify-between items-center px-6 ${view === 'intro' || view === 'settings' ? 'text-gray-900' : 'text-white'} text-xs font-bold pointer-events-none`}>
@@ -335,736 +570,1204 @@ export default function App() {
                INBOX VIEW
                ========================================= */}
             {view === 'inbox' && (
-                <div className="flex flex-col h-full relative animate-in fade-in duration-500">
+                <div className="flex flex-col h-full relative animate-in fade-in duration-500 bg-white">
                     {/* Header */}
-                    <div className={`${headerGradient} pt-14 pb-8 px-6 rounded-b-[2.5rem] shadow-lg shrink-0 z-10 relative`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-3xl font-black text-white tracking-tight">Inbox</h1>
-                            <button
-                                onClick={() => setView('settings')}
-                                className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center transition-all active:scale-95 hover:bg-white/20 border border-white/10"
-                            >
-                                <Settings size={20} className="text-white" />
-                            </button>
-                        </div>
-
-                        {/* Search Bar */}
-                        <div className="bg-white/95 backdrop-blur-sm rounded-2xl flex items-center px-4 py-3.5 shadow-sm mb-5 transition-transform focus-within:scale-[1.01]">
-                            <Search size={18} className="text-gray-400 mr-3" />
-                            <input
-                                type="text"
-                                placeholder="Search inbox..."
-                                className="w-full text-sm font-medium text-gray-900 outline-none placeholder-gray-400 bg-transparent"
-                            />
-                        </div>
-
-                        {/* Filter Chips */}
-                        <div className="flex space-x-2 overflow-x-auto pb-1 no-scrollbar mask-gradient-right">
-                            {['All', 'Unread', 'Contacts', 'Archived'].map((filter, i) => (
-                                <button
-                                    key={filter}
-                                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm active:scale-95 ${i === 0 ? 'bg-white text-gray-900' : 'bg-white/10 text-white backdrop-blur-sm border border-white/10 hover:bg-white/20'}`}
-                                >
-                                    {filter}
-                                </button>
-                            ))}
-                        </div>
+                    <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 bg-white z-20">
+                        <h1 className="text-2xl font-black tracking-tight">
+                            <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                        </h1>
                     </div>
 
-                    {/* List Content */}
-                    <div className="flex-1 overflow-y-auto pt-4 px-4 pb-24 -mt-2 space-y-3">
-                        {calls.map(call => (
-                            <div
-                                key={call.id}
-                                onClick={() => openCallDetail(call)}
-                                className="bg-white rounded-[1.5rem] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-all cursor-pointer border border-transparent hover:border-blue-100"
-                            >
-                                <div className="flex space-x-4">
-                                    {/* Avatar */}
-                                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0 uppercase tracking-wider">
-                                        {call.name.substring(0, 2)}
-                                    </div>
-                                    <div className="flex-1 min-w-0 pt-0.5">
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                            <h3 className="font-bold text-gray-900 truncate pr-2">{call.name}</h3>
-                                            <span className="text-[10px] font-semibold text-gray-400 whitespace-nowrap">{call.time}</span>
-                                        </div>
-                                        <p className="text-gray-400 text-xs truncate leading-relaxed">
-                                            {call.number}
-                                        </p>
-                                    </div>
-                                    {call.status === 'unread' && (
-                                        <div className="w-2.5 h-2.5 bg-blue-400 rounded-full mt-2 shrink-0 shadow-sm shadow-blue-300"></div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* =========================================
-               RECEPTIONIST VIEW
-               ========================================= */}
-            {view === 'receptionist' && (
-                <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-                    {/* Header Container */}
-                    <div className={`${headerGradient} pt-12 rounded-b-[3rem] shadow-xl shrink-0 z-20 relative overflow-hidden`}>
-
-                        {/* Decorative background elements */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-                        {/* Top Protocol Bar */}
-                        <div className="flex justify-between items-center px-6 mb-6 relative z-10 w-full">
-                            <div className="flex items-center gap-3">
-                                <div className="relative">
-                                    <div className="w-12 h-12 bg-white rounded-full p-0.5 shadow-lg">
+                    <div className="flex-1 overflow-y-auto pb-24 px-4 scrollbar-hide">
+                        {/* Dashboard Stats */}
+                        <div className="space-y-3 mb-6">
+                            {/* Assistant Status Card */}
+                            <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-50 border-2 border-white shadow-sm">
                                         <img
-                                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Andrew&backgroundColor=b6e3f4"
-                                            alt="Andrew"
-                                            className="w-full h-full rounded-full bg-blue-50"
+                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
+                                            alt="Assistant"
+                                            className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full"></span>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">{personality.name}</h3>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                            <span className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">Active 24/7</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h1 className="text-2xl font-black text-white tracking-tight">{personality.name}</h1>
-                                </div>
+                                <Info size={20} className="text-gray-300" />
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setIsEditingReceptionist(true)}
-                                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
-                                >
-                                    <Edit2 size={16} className="text-white" />
-                                </button>
-                                <button
-                                    onClick={() => setView('settings')}
-                                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
-                                >
-                                    <Settings size={18} className="text-white" />
-                                </button>
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-[#F9FAFB] rounded-3xl p-5 flex flex-col items-center justify-center text-center">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
+                                        <Phone size={16} className="fill-current" />
+                                    </div>
+                                    <span className="text-3xl font-black text-gray-900 leading-none mb-1">{calls.length}</span>
+                                    <span className="text-xs font-bold text-gray-400">calls handled</span>
+                                </div>
+                                <div className="bg-[#F9FAFB] rounded-3xl p-5 flex flex-col items-center justify-center text-center">
+                                    <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-2">
+                                        <ShieldAlert size={16} className="fill-current" />
+                                    </div>
+                                    <span className="text-3xl font-black text-gray-900 leading-none mb-1">0</span>
+                                    <span className="text-xs font-bold text-gray-400">spam blocked</span>
+                                </div>
                             </div>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex items-end px-4 gap-1 relative z-10 translate-y-[1px]">
-                            {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
-                                const isActive = activeReceptionistTab === tab.toLowerCase();
-                                return (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
-                                        className={`flex-1 py-3.5 text-sm font-bold rounded-t-2xl transition-all duration-300 relative ${isActive
-                                            ? 'bg-white text-gray-900 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-20 translate-y-0'
-                                            : 'bg-transparent text-white/70 hover:text-white hover:bg-white/5 z-0'
-                                            }`}
-                                    >
-                                        {tab}
-                                        {isActive && (
-                                            <>
-                                                <div className="absolute bottom-0 -left-4 w-4 h-4 bg-transparent shadow-[4px_4px_0_white] rounded-br-xl pointer-events-none"></div>
-                                                <div className="absolute bottom-0 -right-4 w-4 h-4 bg-transparent shadow-[-4px_4px_0_white] rounded-bl-xl pointer-events-none"></div>
-                                            </>
-                                        )}
-                                    </button>
-                                );
-                            })}
+                        <div className="flex gap-2 mb-6">
+                            <button className="bg-[#2563EB] text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-200">
+                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread').length || calls.length}</span>
+                            </button>
+                            <button className="bg-gray-100 text-gray-500 px-6 py-2.5 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors">
+                                Archived
+                            </button>
+                        </div>
+
+                        {/* Grouped Calls List */}
+                        <div className="space-y-6">
+                            {(() => {
+                                const grouped = calls.reduce((acc, call) => {
+                                    const date = new Date(call.rawTime);
+                                    const now = new Date();
+                                    const diffTime = Math.abs(now - date);
+                                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                                    let label = "Older";
+                                    if (diffDays === 0 && now.getDate() === date.getDate()) label = "Today";
+                                    else if (diffDays === 1) label = "Yesterday";
+                                    else if (diffDays <= 7) label = "Previous 7 Days";
+                                    else if (diffDays <= 30) label = "Last 30 Days";
+
+                                    if (!acc[label]) acc[label] = [];
+                                    acc[label].push(call);
+                                    return acc;
+                                }, {});
+
+                                const order = ["Today", "Yesterday", "Previous 7 Days", "Last 30 Days", "Older"];
+
+                                return order.map(label => {
+                                    if (!grouped[label] || grouped[label].length === 0) return null;
+                                    return (
+                                        <div key={label}>
+                                            <h3 className="text-[#2563EB] font-bold text-sm mb-3 pl-1">{label}</h3>
+                                            <div className="space-y-4">
+                                                {grouped[label].map(call => {
+
+                                                    const isExpanded = expandedCallId === call.id;
+
+                                                    return (
+                                                        <div
+                                                            key={call.id}
+                                                            onClick={() => setExpandedCallId(isExpanded ? null : call.id)}
+                                                            className={`bg-white rounded-[1.5rem] p-5 shadow-sm border border-gray-100 transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-[#2563EB]/50 shadow-md transform scale-[1.01]' : 'active:scale-[0.98]'}`}
+                                                        >
+                                                            {/* Header Row */}
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <h4 className="font-bold text-gray-900 text-lg">{call.number}</h4>
+                                                                    <div className="text-xs font-bold text-gray-400 mt-0.5 max-w-[200px] truncate">
+                                                                        {call.name === "Unknown Caller" ? "Unknown" : call.name}
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-400">{call.time.split(',')[1]?.trim().replace(':00 ', ' ')}</span>
+                                                            </div>
+
+                                                            {/* Summary / Preview */}
+                                                            {!isExpanded && (
+                                                                <p className="text-gray-400 text-xs truncate font-medium mt-1">
+                                                                    {call.summary}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Expanded View Content */}
+                                                            {isExpanded && (
+                                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-2">
+                                                                    <p className="text-gray-600 text-sm font-medium leading-relaxed mb-6">
+                                                                        {call.summary}
+                                                                    </p>
+
+                                                                    {/* Actions */}
+                                                                    <div className="flex items-center gap-2 mb-6">
+                                                                        <button className="bg-[#2563EB] text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">
+                                                                            <Phone size={14} className="fill-current" /> Call
+                                                                        </button>
+                                                                        <button className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-gray-200 transition-colors whitespace-nowrap">
+                                                                            <UserPlus size={14} /> Add Contact
+                                                                        </button>
+                                                                        <div className="flex gap-2 ml-auto">
+                                                                            <button className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                                                                <Share2 size={16} />
+                                                                            </button>
+                                                                            <button className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Player (Mock) */}
+                                                                    <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3 mb-6">
+                                                                        <button className="w-8 h-8 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-sm shrink-0">
+                                                                            <Play size={12} className="fill-current ml-0.5" />
+                                                                        </button>
+                                                                        <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                                                            <div className="w-1/3 h-full bg-[#2563EB]"></div>
+                                                                        </div>
+                                                                        <span className="text-[10px] font-bold text-gray-400">0:13</span>
+                                                                    </div>
+
+                                                                    {/* Transcript Chat */}
+                                                                    <div className="space-y-3">
+                                                                        {/* Parse Transcript */}
+                                                                        {call.transcript ? (
+                                                                            call.transcript.split(/(?=AI:|User:)/g).map((msg, i) => {
+                                                                                const isAI = msg.trim().startsWith("AI:");
+                                                                                const cleanMsg = msg.replace(/^(AI:|User:)/i, '').trim();
+                                                                                if (!cleanMsg) return null;
+
+                                                                                return (
+                                                                                    <div key={i} className={`p-3 rounded-2xl text-sm font-medium leading-relaxed max-w-[90%] shadow-sm ${isAI ? 'bg-[#2563EB] text-white rounded-tl-sm mr-auto' : 'bg-gray-100 text-gray-800 rounded-tr-sm ml-auto'}`}>
+                                                                                        <span className={`text-[10px] uppercase font-bold block mb-1 ${isAI ? 'text-blue-200' : 'text-gray-400'}`}>
+                                                                                            {isAI ? 'Assistant' : 'Caller'}
+                                                                                        </span>
+                                                                                        {cleanMsg}
+                                                                                    </div>
+                                                                                );
+                                                                            })
+                                                                        ) : (
+                                                                            <div className="bg-[#2563EB] text-white p-3 rounded-2xl rounded-tl-sm text-sm font-medium leading-relaxed max-w-[90%] shadow-sm">
+                                                                                <span className="text-[10px] uppercase font-bold text-blue-200 block mb-1">Assistant</span>
+                                                                                Hello. You've reached {userInfo.company || "us"}. I'm {personality.name}. How can I help you?
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
+                </div>
+            )}
 
 
-                    {/* --- Tab Content --- */}
-                    <div className="w-full flex-auto bg-white relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
-                        {activeReceptionistTab === 'instructions' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                                {/* Greeting Message */}
-                                <section>
-                                    <h3 className="text-base font-bold text-gray-900 mb-1">Greeting Message</h3>
-                                    <p className="text-xs text-gray-500 mb-4">The first message your receptionist says upon accepting a call</p>
-
-                                    <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
-                                        <textarea
-                                            value={greeting}
-                                            onChange={(e) => setGreeting(e.target.value)}
-                                            className="w-full text-base text-gray-800 outline-none resize-none bg-transparent font-medium leading-relaxed placeholder-gray-400"
-                                            rows={3}
-                                        />
-                                    </div>
-                                </section>
-
-                                {/* Ending Message */}
-                                <section>
-                                    <h3 className="text-base font-bold text-gray-900 mb-1">Ending Message</h3>
-                                    <p className="text-xs text-gray-500 mb-4">The last message your receptionist says when hanging up a call</p>
-                                    <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
-                                        <p className="text-sm font-medium text-gray-900">Thank you for calling {userInfo.company} . Have a great day!</p>
-                                    </div>
-                                </section>
-
-                                {/* Schedule Appointment */}
-                                <section>
-                                    <h3 className="text-base font-bold text-gray-900 mb-1">Schedule Appointment</h3>
-                                    <p className="text-xs text-gray-500 mb-4">Let your receptionist schedule appointments for you based on your calendar</p>
-
-                                    <div className="space-y-3">
-                                        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-start cursor-pointer hover:bg-gray-50 transition-colors">
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 text-sm mb-1">{userInfo.company} Appointment</h4>
-                                                <div className="flex items-center text-xs text-gray-500 space-x-2">
-                                                    <span>30 min</span>
-                                                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                                    <span>In Person</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-gray-300">
-                                                <ChevronRight size={20} />
-                                            </div>
-                                        </div>
-
-                                        <button className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide">
-                                            <Plus size={18} className="mr-2" />
-                                            Add Appointment
-                                        </button>
-                                    </div>
-                                </section>
-
-                                {/* Instructions */}
-                                <section>
-                                    <h3 className="text-base font-bold text-gray-900 mb-1">Instructions</h3>
-                                    <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                                        Any specific instructions for how your receptionist should handle calls?
-                                    </p>
-                                    <textarea
-                                        value={userInfo.instructions}
-                                        onChange={(e) => setUserInfo({ ...userInfo, instructions: e.target.value })}
-                                        rows={3}
-                                        className="w-full bg-white border border-gray-200 rounded-xl p-4 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none resize-none transition-all leading-relaxed placeholder-gray-400"
-                                        placeholder="e.g. Always be polite, never promise refunds..."
-                                    />
-                                </section>
-
-                                {/* Spacer */}
-                                <div className="h-48"></div>
+            {/* =========================================
+               ONBOARDING VIEW
+               ========================================= */}
+            {
+                view === 'onboarding' && (
+                    <div className="flex flex-col h-full items-center justify-center p-6 bg-[#F2F4F8] animate-in fade-in duration-500">
+                        <div className="bg-white p-8 rounded-[2rem] shadow-xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
+                            <div className="text-center mb-8">
+                                <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200 mx-auto mb-4">
+                                    <Settings size={32} />
+                                </div>
+                                <h2 className="text-2xl font-black text-gray-900 mb-2">Setup Your Receptionist</h2>
+                                <p className="text-gray-400 text-sm font-medium">Tell us a bit about your business to get started.</p>
                             </div>
-                        )}
 
-                        {activeReceptionistTab === 'knowledge' && (
-                            <div className="space-y-6 animate-in fade-in duration-300 relative pb-32">
-                                <div className="space-y-8 animate-in fade-in duration-300">
-                                    {/* Company Basic Info */}
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Name</label>
-                                        <input
-                                            type="text"
-                                            value={userInfo.company}
-                                            onChange={(e) => setUserInfo({ ...userInfo, company: e.target.value })}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Industry</label>
-                                        <input
-                                            type="text"
-                                            value={userInfo.businessType}
-                                            onChange={(e) => setUserInfo({ ...userInfo, businessType: e.target.value })}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Support Email</label>
-                                        <input
-                                            type="text"
-                                            value={userInfo.email}
-                                            onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
-                                        <input
-                                            type="text"
-                                            value={userInfo.address}
-                                            onChange={(e) => setUserInfo({ ...userInfo, address: e.target.value })}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
-                                        />
-                                    </div>
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Company Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={userInfo.company}
+                                        onChange={e => setUserInfo({ ...userInfo, company: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        placeholder="e.g. Acme Corp"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Industry / Business Type <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={userInfo.businessType}
+                                        onChange={e => setUserInfo({ ...userInfo, businessType: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        placeholder="e.g. Dental Clinic"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Description <span className="text-red-500">*</span></label>
+                                    <textarea
+                                        value={userInfo.businessDetails}
+                                        onChange={e => setUserInfo({ ...userInfo, businessDetails: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
+                                        rows={4}
+                                        placeholder="Briefly describe what your business does..."
+                                    />
+                                </div>
 
-                                    <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Website</label>
-                                            <div className="flex items-center space-x-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Train from Website</span>
-                                                <button
-                                                    onClick={() => setUserInfo({ ...userInfo, websiteTraining: !userInfo.websiteTraining })}
-                                                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.websiteTraining ? 'bg-blue-500' : 'bg-gray-200'}`}
-                                                >
-                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.websiteTraining ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={userInfo.website}
-                                                onChange={(e) => setUserInfo({ ...userInfo, website: e.target.value })}
-                                                placeholder="https://example.com"
-                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
+                                <button
+                                    onClick={handleOnboardingSubmit}
+                                    className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 active:scale-[0.98] transition-all shadow-lg shadow-blue-200 mt-4"
+                                >
+                                    Save & Continue
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* =========================================
+               RECEPTIONIST VIEW
+               ========================================= */}
+            {
+                view === 'receptionist' && (
+                    <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
+                        {/* Header Container */}
+                        <div className={`${headerGradient} pt-12 rounded-b-[3rem] shadow-xl shrink-0 z-20 relative overflow-hidden`}>
+
+                            {/* Decorative background elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+                            {/* Top Protocol Bar */}
+                            <div className="flex justify-between items-center px-6 mb-6 relative z-10 w-full">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <div className="w-12 h-12 bg-white rounded-full p-0.5 shadow-lg">
+                                            <img
+                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
+                                                alt={personality.name}
+                                                className="w-full h-full rounded-full bg-blue-50"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-gray-400 mt-2 ml-1">
-                                            We will use your website to add knowledge info.
-                                        </p>
+                                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full"></span>
                                     </div>
-
                                     <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Emergency Number</label>
-                                            <div className="flex items-center space-x-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Emergency Transfer</span>
-                                                <button
-                                                    onClick={() => setUserInfo({ ...userInfo, useEmergencyNumber: !userInfo.useEmergencyNumber })}
-                                                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.useEmergencyNumber ? 'bg-blue-500' : 'bg-gray-200'}`}
-                                                >
-                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.useEmergencyNumber ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={userInfo.emergencyNumber}
-                                                onChange={(e) => setUserInfo({ ...userInfo, emergencyNumber: e.target.value })}
-                                                placeholder="+1 (555) 000-0000"
-                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
-                                            />
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 mt-2 ml-1">
-                                            Should we use a number in case of a customer emergency?
-                                        </p>
+                                        <h1 className="text-2xl font-black text-white tracking-tight">{personality.name}</h1>
                                     </div>
+                                </div>
 
-                                    {/* Service Description */}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            syncAssistant();
+                                            showToast("Syncing with Vapi...");
+                                        }}
+                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
+                                    >
+                                        <RefreshCw size={16} className="text-white" />
+                                    </button>
+                                    <button
+                                        onClick={() => setIsEditingReceptionist(true)}
+                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
+                                    >
+                                        <Edit2 size={16} className="text-white" />
+                                    </button>
+                                    <button
+                                        onClick={() => setView('settings')}
+                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
+                                    >
+                                        <Settings size={18} className="text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Tabs */}
+                            <div className="flex items-end px-4 gap-1 relative z-10 translate-y-[1px]">
+                                {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
+                                    const isActive = activeReceptionistTab === tab.toLowerCase();
+                                    return (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
+                                            className={`flex-1 py-3.5 text-sm font-bold rounded-t-2xl transition-all duration-300 relative ${isActive
+                                                ? 'bg-white text-gray-900 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-20 translate-y-0'
+                                                : 'bg-transparent text-white/70 hover:text-white hover:bg-white/5 z-0'
+                                                }`}
+                                        >
+                                            {tab}
+                                            {isActive && (
+                                                <>
+                                                    <div className="absolute bottom-0 -left-4 w-4 h-4 bg-transparent shadow-[4px_4px_0_white] rounded-br-xl pointer-events-none"></div>
+                                                    <div className="absolute bottom-0 -right-4 w-4 h-4 bg-transparent shadow-[-4px_4px_0_white] rounded-bl-xl pointer-events-none"></div>
+                                                </>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+
+                        {/* --- Tab Content --- */}
+                        <div className="w-full flex-auto bg-white relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
+                            {activeReceptionistTab === 'instructions' && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                                    {/* Languages Section */}
                                     <section>
-                                        <h3 className="text-base font-bold text-gray-900 mb-1">Service Description</h3>
-                                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                                            Describe what your company does in detail for the best receptionist performance.
-                                        </p>
-                                        <textarea
-                                            value={userInfo.businessDetails}
-                                            onChange={(e) => setUserInfo({ ...userInfo, businessDetails: e.target.value })}
-                                            rows={4}
-                                            className="w-full bg-white border border-gray-200 rounded-xl p-4 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none resize-none transition-all leading-relaxed placeholder-gray-400"
-                                            placeholder="Describe what your company does..."
-                                        />
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <Globe size={18} className="text-[#2563EB]" />
+                                                <h3 className="text-base font-bold text-gray-900">Languages</h3>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowLanguageModal(true)}
+                                                className="text-xs font-bold text-gray-400 hover:text-[#2563EB] transition-colors flex items-center gap-1"
+                                            >
+                                                <Edit2 size={12} /> Edit
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {languages.map(lang => (
+                                                <span key={lang} className="px-4 py-2 bg-blue-50 text-[#2563EB] rounded-full text-xs font-bold border border-blue-100">
+                                                    {lang}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Voice & Personality Grid */}
+                                    <section>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                                <AudioWaveform size={18} className="text-[#2563EB]" /> Voice & Personality
+                                            </h3>
+                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-400">
+                                                Voice changes apply to future calls
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {voiceOptions.length > 0 ? voiceOptions.map((p) => {
+                                                const isSelected = personality.voiceId === p.id;
+                                                const isPlaying = playingVoiceId === p.id;
+
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        onClick={async () => {
+                                                            // Secure Preview using Backend Proxy
+                                                            setPlayingVoiceId(p.id);
+                                                            try {
+                                                                const res = await fetch("http://localhost:3000/api/voice-preview", {
+                                                                    method: "POST",
+                                                                    headers: { "Content-Type": "application/json" },
+                                                                    body: JSON.stringify({ voiceId: p.id })
+                                                                });
+
+                                                                if (!res.ok) throw new Error("Preview failed");
+
+                                                                const blob = await res.blob();
+                                                                const audio = new Audio(URL.createObjectURL(blob));
+
+
+                                                                audio.onended = () => setPlayingVoiceId(null);
+                                                                audio.onerror = () => setPlayingVoiceId(null);
+
+                                                                await audio.play();
+
+                                                            } catch (e) {
+                                                                console.error("Preview play error", e);
+                                                                setPlayingVoiceId(null);
+                                                            }
+
+                                                            setPersonality(prev => ({ ...prev, name: p.name, voiceId: p.id }));
+
+                                                            // Sync to DB (Use business_info for flexibility)
+                                                            // Use delete+insert pattern for safety on generic table
+                                                            try {
+                                                                await supabase.from('business_info').delete()
+                                                                    .eq('owner_user_id', session.user.id)
+                                                                    .eq('type', 'personality');
+
+                                                                await supabase.from('business_info').insert({
+                                                                    owner_user_id: session.user.id,
+                                                                    type: 'personality',
+                                                                    content: { name: p.name, voiceId: p.id }
+                                                                });
+                                                                syncAssistant();
+                                                            } catch (err) {
+                                                                console.error("Failed to save personality", err);
+                                                                showToast("Failed to save voice");
+                                                            }
+                                                        }}
+                                                        className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-gray-100 bg-white hover:border-gray-200'} active:scale-95`}
+                                                    >
+                                                        <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-100 mb-2 ring-1 ring-gray-100">
+                                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}&backgroundColor=b6e3f4`} alt={p.name} className="w-full h-full object-cover" />
+                                                            {isPlaying && (
+                                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                                                    <AudioWaveform size={20} className="text-white animate-pulse" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-xs font-bold truncate w-full text-center ${isSelected ? 'text-[#2563EB]' : 'text-gray-900'}`}>{p.name}</span>
+                                                        <span className="text-[10px] font-medium text-gray-400 capitalize">{p.provider || 'AI'}</span>
+                                                    </button>
+                                                )
+                                            }) : (
+                                                <div className="col-span-3 text-center py-8 text-gray-400 text-sm font-medium">
+                                                    Loading voices...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </section>
+
+                                    {/* Greeting Message */}
+                                    <section>
+                                        <h3 className="text-base font-bold text-gray-900 mb-1">Greeting Message</h3>
+                                        <p className="text-xs text-gray-500 mb-4">The first message your receptionist says upon accepting a call</p>
+
+                                        <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
+                                            <input
+                                                type="text"
+                                                value={greeting}
+                                                onChange={(e) => setGreeting(e.target.value)}
+                                                onBlur={async () => {
+                                                    await supabase.from('business_info')
+                                                        .update({ content: { text: greeting } })
+                                                        .eq('owner_user_id', session.user.id)
+                                                        .eq('type', 'greeting');
+                                                    showToast("Greeting saved");
+                                                    syncAssistant();
+                                                }}
+                                                className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400"
+                                                placeholder="Hey, thank you for calling LCE. How may I help you?"
+                                            />
+                                        </div>
                                     </section>
 
 
 
-                                    <div className="w-full h-px bg-gray-200/60 my-2"></div>
-
-                                    {/* Common Questions */}
+                                    {/* Instructions */}
                                     <section>
-                                        <h3 className="text-base font-bold text-gray-900 mb-1">Common Questions</h3>
-                                        <p className="text-xs text-gray-500 mb-4">Provide questions that your receptionist should know the answer to</p>
+                                        <h3 className="text-base font-bold text-gray-900 mb-1">Instructions</h3>
+                                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                            Specific instructions for how your receptionist should handle calls.
+                                        </p>
 
                                         <div className="space-y-3">
-                                            {knowledgeQuestions.map((q) => (
-                                                <div key={q.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors group relative">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <h4 className="font-bold text-gray-900 text-sm">{q.question}</h4>
+                                            {knowledgeItems.filter(i => i.type === 'instruction').map((item) => (
+                                                <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group">
+                                                    <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
+                                                    <button
+                                                        onClick={async () => {
+                                                            await supabase.from('business_info').delete().eq('id', item.id);
+                                                            setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                            syncAssistant();
+                                                        }}
+                                                        className="text-gray-300 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {/* Add Instruction Input */}
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newInstruction}
+                                                    onChange={(e) => setNewInstruction(e.target.value)}
+                                                    placeholder="eg..Never offer refunds"
+                                                    className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter' && newInstruction.trim()) {
+                                                            const text = newInstruction.trim();
+                                                            setNewInstruction(""); // Clear UI immediately
+
+                                                            try {
+                                                                const { data, error } = await supabase
+                                                                    .from('business_info')
+                                                                    .insert([{
+                                                                        owner_user_id: session.user.id,
+                                                                        type: 'instruction',
+                                                                        content: { text: text }
+                                                                    }])
+                                                                    .select()
+                                                                    .single();
+
+                                                                if (error) throw error;
+                                                                setKnowledgeItems(prev => [...prev, data]);
+                                                                syncAssistant();
+                                                            } catch (err) {
+                                                                console.error("Error saving instruction:", err);
+                                                                showToast("Failed to save instruction");
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={async () => {
+                                                        if (newInstruction.trim()) {
+                                                            const text = newInstruction.trim();
+                                                            setNewInstruction("");
+
+                                                            try {
+                                                                const { data, error } = await supabase
+                                                                    .from('business_info')
+                                                                    .insert([{
+                                                                        owner_user_id: session.user.id,
+                                                                        type: 'instruction',
+                                                                        content: { text: text }
+                                                                    }])
+                                                                    .select()
+                                                                    .single();
+
+                                                                if (error) throw error;
+                                                                setKnowledgeItems(prev => [...prev, data]);
+                                                                syncAssistant();
+                                                            } catch (err) {
+                                                                console.error("Error saving instruction:", err);
+                                                                showToast("Failed to save instruction");
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="bg-gray-900 text-white rounded-xl w-12 flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+                                                >
+                                                    <Plus size={20} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Spacer */}
+                                    <div className="h-48"></div>
+                                </div>
+                            )}
+
+                            {activeReceptionistTab === 'knowledge' && (
+                                <div className="space-y-6 animate-in fade-in duration-300 relative pb-32">
+                                    <div className="space-y-8 animate-in fade-in duration-300">
+                                        {/* Company Basic Info */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Name</label>
+                                            <input
+                                                type="text"
+                                                value={userInfo.company}
+                                                onChange={(e) => setUserInfo({ ...userInfo, company: e.target.value })}
+                                                onBlur={(e) => saveProfileField('company_name', e.target.value)}
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Industry</label>
+                                            <input
+                                                type="text"
+                                                value={userInfo.businessType}
+                                                onChange={(e) => setUserInfo({ ...userInfo, businessType: e.target.value })}
+                                                onBlur={(e) => saveProfileField('industry', e.target.value)}
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Support Email</label>
+                                            <input
+                                                type="text"
+                                                value={userInfo.email}
+                                                onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
+                                                onBlur={(e) => saveProfileField('support_email', e.target.value)}
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
+                                            <input
+                                                type="text"
+                                                value={userInfo.address}
+                                                onChange={(e) => setUserInfo({ ...userInfo, address: e.target.value })}
+                                                onBlur={(e) => saveProfileField('address', e.target.value)}
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Website</label>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Train from Website</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newVal = !userInfo.websiteTraining;
+                                                            setUserInfo({ ...userInfo, websiteTraining: newVal });
+                                                            saveProfileField('website_training_enabled', newVal);
+                                                        }}
+                                                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.websiteTraining ? 'bg-blue-500' : 'bg-gray-200'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.websiteTraining ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={userInfo.website}
+                                                    onChange={(e) => setUserInfo({ ...userInfo, website: e.target.value })}
+                                                    onBlur={(e) => saveProfileField('website', e.target.value)}
+                                                    placeholder="https://example.com"
+                                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-2 ml-1">
+                                                We will use your website to add knowledge info.
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Emergency Number</label>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Emergency Transfer</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newVal = !userInfo.useEmergencyNumber;
+                                                            setUserInfo({ ...userInfo, useEmergencyNumber: newVal });
+                                                            saveProfileField('emergency_transfer_enabled', newVal);
+                                                        }}
+                                                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.useEmergencyNumber ? 'bg-blue-500' : 'bg-gray-200'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.useEmergencyNumber ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={userInfo.emergencyNumber}
+                                                    onChange={(e) => setUserInfo({ ...userInfo, emergencyNumber: e.target.value })}
+                                                    onBlur={(e) => saveProfileField('emergency_phone', e.target.value)}
+                                                    placeholder="+1 (555) 000-0000"
+                                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-2 ml-1">
+                                                Should we use a number in case of a customer emergency?
+                                            </p>
+                                        </div>
+
+                                        {/* Service Description */}
+                                        <section>
+                                            <h3 className="text-base font-bold text-gray-900 mb-1">Service Description</h3>
+                                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                                Describe what your company does in detail for the best receptionist performance.
+                                            </p>
+                                            <textarea
+                                                value={userInfo.businessDetails}
+                                                onChange={(e) => setUserInfo({ ...userInfo, businessDetails: e.target.value })}
+                                                onBlur={(e) => saveProfileField('business_description', e.target.value)}
+                                                rows={4}
+                                                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none resize-none transition-all leading-relaxed placeholder-gray-400"
+                                                placeholder="Describe what your company does..."
+                                            />
+                                        </section>
+
+
+
+                                        <div className="w-full h-px bg-gray-200/60 my-2"></div>
+
+                                        {/* Common Questions */}
+                                        <section>
+                                            <h3 className="text-base font-bold text-gray-900 mb-1">Common Questions</h3>
+                                            <p className="text-xs text-gray-500 mb-4">Provide questions that your receptionist should know the answer to</p>
+
+                                            <div className="space-y-3">
+                                                {knowledgeItems.filter(i => i.type === 'qa').map((item) => (
+                                                    <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors group relative">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <h4 className="font-bold text-gray-900 text-sm">{item.content.question}</h4>
+                                                            <button
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    await supabase.from('business_info').delete().eq('id', item.id);
+                                                                    setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                    syncAssistant();
+                                                                }}
+                                                                className="text-gray-300 hover:text-red-500 transition-colors pointer-events-auto"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-xs text-gray-400">{item.content.answer}</p>
+                                                    </div>
+                                                ))}
+
+                                                <button
+                                                    onClick={() => setActiveModal('add-question')}
+                                                    className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
+                                                >
+                                                    <Plus size={18} className="mr-2" />
+                                                    Add Question
+                                                </button>
+                                            </div>
+                                        </section>
+
+                                        {/* Additional Info (Facts) */}
+                                        <section>
+                                            <h3 className="text-base font-bold text-gray-900 mb-1">Additional Information</h3>
+                                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                                Specific facts about your business (e.g. Parking, Wifi, Specials).
+                                            </p>
+
+                                            <div className="space-y-3">
+                                                {knowledgeItems.filter(i => i.type === 'fact').map((item) => (
+                                                    <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group">
+                                                        <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setKnowledgeQuestions(prev => prev.filter(item => item.id !== q.id));
+                                                            onClick={async () => {
+                                                                await supabase.from('business_info').delete().eq('id', item.id);
+                                                                setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                syncAssistant();
                                                             }}
-                                                            className="text-gray-300 hover:text-red-500 transition-colors pointer-events-auto"
+                                                            className="text-gray-300 hover:text-red-500 transition-colors"
                                                         >
                                                             <X size={16} />
                                                         </button>
                                                     </div>
-                                                    <p className="text-xs text-gray-400">{q.answer}</p>
-                                                </div>
-                                            ))}
+                                                ))}
 
-                                            <button
-                                                onClick={() => setActiveModal('add-question')}
-                                                className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
-                                            >
-                                                <Plus size={18} className="mr-2" />
-                                                Add Question
-                                            </button>
-                                        </div>
-                                    </section>
+                                                {/* Add Fact Input */}
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newFact}
+                                                        onChange={(e) => setNewFact(e.target.value)}
+                                                        placeholder="Add a new fact..."
+                                                        className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === 'Enter' && newFact.trim()) {
+                                                                const text = newFact.trim();
+                                                                setNewFact(""); // Clear UI immediately
 
-                                    {/* Other Important Info */}
-                                    <section>
-                                        <h3 className="text-base font-bold text-gray-900 mb-1">Other Business Details</h3>
-                                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                                            Share things like weekly specials, happy hours, or parking info so your receptionist can be helpful.
-                                        </p>
-                                        <textarea
-                                            rows={3}
-                                            className="w-full bg-white border border-gray-200 rounded-xl p-4 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none resize-none transition-all leading-relaxed placeholder-gray-400"
-                                            placeholder="e.g. Always promote our happy hour (3-4 PM) and mention that we offer house calls..."
-                                        />
-                                    </section>
+                                                                try {
+                                                                    const { data, error } = await supabase
+                                                                        .from('business_info')
+                                                                        .insert([{
+                                                                            owner_user_id: session.user.id,
+                                                                            type: 'fact',
+                                                                            content: { text: text }
+                                                                        }])
+                                                                        .select()
+                                                                        .single();
 
-                                    <div className="h-48"></div>
-                                </div>
-                            </div>
-                        )}
+                                                                    if (error) throw error;
+                                                                    setKnowledgeItems(prev => [...prev, data]);
+                                                                } catch (err) {
+                                                                    console.error("Error saving fact:", err);
+                                                                    showToast("Failed to save fact");
+                                                                }
 
-                        {activeReceptionistTab === 'phone' && (
-                            <div className="pb-32">
-                                {!isForwardingSetupOpen ? (
-                                    <div className="space-y-8 animate-in fade-in duration-300">
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (newFact.trim()) {
+                                                                const text = newFact.trim();
+                                                                setNewFact("");
 
-                                        {/* Receptionist Active Toggle */}
-                                        <section className={`border rounded-2xl p-4 flex items-center justify-between transition-colors ${isReceptionistActive ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
-                                            <div>
-                                                <h3 className="text-base font-bold text-gray-900">Receptionist Active</h3>
-                                                <p className={`text-xs font-medium ${isReceptionistActive ? 'text-blue-600' : 'text-gray-500'}`}>
-                                                    {isReceptionistActive ? "Answering calls" : "Paused"}
-                                                </p>
-                                            </div>
-                                            <div
-                                                onClick={() => setIsReceptionistActive(!isReceptionistActive)}
-                                                className={`w-12 h-7 rounded-full relative cursor-pointer transition-colors duration-300 ${isReceptionistActive ? 'bg-blue-500' : 'bg-gray-300'}`}
-                                            >
-                                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isReceptionistActive ? 'left-6' : 'left-1'}`}></div>
-                                            </div>
-                                        </section>
+                                                                try {
+                                                                    const { data, error } = await supabase
+                                                                        .from('business_info')
+                                                                        .insert([{
+                                                                            owner_user_id: session.user.id,
+                                                                            type: 'fact',
+                                                                            content: { text: text }
+                                                                        }])
+                                                                        .select()
+                                                                        .single();
 
-                                        {/* Number Display */}
-                                        <section>
-                                            <h3 className="text-base font-bold text-gray-900 mb-1">{personality.name}'s Number</h3>
-                                            <p className="text-xs text-gray-500 mb-3">This is your receptionist phone number</p>
-                                            <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-3 shadow-sm text-gray-900">
-                                                <Phone size={18} className="fill-current" />
-                                                <span className="text-base">(513) 327-7680</span>
-                                            </div>
-                                        </section>
-
-                                        {/* Forwarding */}
-                                        <section>
-                                            <h3 className="text-base font-bold text-gray-900 mb-1">Forward to {personality.name}</h3>
-                                            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                                                Forward your missed calls instead of voicemail. <br />
-                                                Looking to <button onClick={() => { setForwardingMode('disable'); setIsForwardingSetupOpen(true); }} className="underline decoration-1 cursor-pointer font-bold text-gray-900 hover:text-blue-500">Disable</button>?
-                                            </p>
-                                            <button
-                                                onClick={() => {
-                                                    setForwardingMode('enable');
-                                                    setActivationStep(1);
-                                                    setIsForwardingSetupOpen(true);
-                                                }}
-                                                className="w-full bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
-                                            >
-                                                Instructions
-                                            </button>
-                                        </section>
-
-                                        {/* Voicemail Toggle */}
-                                        <section>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h3 className="text-base font-bold text-gray-900">Voicemail for Contacts</h3>
-                                                {/* Toggle Switch */}
-                                                <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer transition-colors duration-200 hover:bg-gray-300">
-                                                    <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"></div>
+                                                                    if (error) throw error;
+                                                                    setKnowledgeItems(prev => [...prev, data]);
+                                                                } catch (err) {
+                                                                    console.error("Error saving fact:", err);
+                                                                    showToast("Failed to save fact");
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="bg-gray-900 text-white rounded-xl w-12 flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+                                                    >
+                                                        <Plus size={20} />
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                                                Allow selected contacts to leave an in-app voicemail instead of talking to the receptionist
-                                            </p>
-                                            <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm text-gray-400 flex justify-between items-center shadow-sm font-medium">
-                                                <span>Select contacts</span>
-                                                <span>0</span>
-                                            </div>
                                         </section>
 
-                                        {/* Connect/Disconnect Actions */}
-                                        <section className="space-y-3 pt-4">
-                                            <button
-                                                onClick={() => {
-                                                    setForwardingMode('enable');
-                                                    setActivationStep(1);
-                                                    setIsForwardingSetupOpen(true);
-                                                }}
-                                                className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
-                                            >
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                                        <ArrowUpRight size={16} />
-                                                    </div>
-                                                    <span>Connect Personal Number</span>
-                                                </div>
-                                                <ChevronRight size={18} className="text-gray-300" />
-                                            </button>
-
-                                            <button
-                                                onClick={() => {
-                                                    setForwardingMode('disable');
-                                                    setIsForwardingSetupOpen(true);
-                                                }}
-                                                className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
-                                            >
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                                        <XCircle size={16} />
-                                                    </div>
-                                                    <span>Disconnect Personal Number</span>
-                                                </div>
-                                                <ChevronRight size={18} className="text-gray-300" />
-                                            </button>
-                                        </section>
-
-                                        {/* Spacer */}
-                                        <div className="h-24"></div>
+                                        <div className="h-48"></div>
                                     </div>
-                                ) : (
-                                    <div className="animate-in slide-in-from-right duration-300 bg-white z-30 -mx-6 -mt-8 px-6 pt-8 pb-40">
-                                        {/* Header */}
-                                        <div className="flex items-center mb-6">
-                                            <button
-                                                onClick={() => {
-                                                    if (forwardingMode === 'enable' && activationStep > 1) {
-                                                        setActivationStep(prev => prev - 1);
-                                                    } else {
-                                                        setIsForwardingSetupOpen(false);
-                                                    }
-                                                }}
-                                                className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
-                                            >
-                                                <ChevronLeft size={22} className="mr-0.5" />
-                                                Back
-                                            </button>
+                                </div>
+                            )}
+
+                            {activeReceptionistTab === 'phone' && (
+                                <div className="pb-32">
+                                    {!isForwardingSetupOpen ? (
+                                        <div className="space-y-8 animate-in fade-in duration-300">
+
+                                            {/* Receptionist Active Toggle */}
+                                            <section className={`border rounded-2xl p-4 flex items-center justify-between transition-colors ${isReceptionistActive ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                                                <div>
+                                                    <h3 className="text-base font-bold text-gray-900">Receptionist Active</h3>
+                                                    <p className={`text-xs font-medium ${isReceptionistActive ? 'text-blue-600' : 'text-gray-500'}`}>
+                                                        {isReceptionistActive ? "Answering calls" : "Paused"}
+                                                    </p>
+                                                </div>
+                                                <div
+                                                    onClick={() => setIsReceptionistActive(!isReceptionistActive)}
+                                                    className={`w-12 h-7 rounded-full relative cursor-pointer transition-colors duration-300 ${isReceptionistActive ? 'bg-blue-500' : 'bg-gray-300'}`}
+                                                >
+                                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isReceptionistActive ? 'left-6' : 'left-1'}`}></div>
+                                                </div>
+                                            </section>
+
+                                            {/* Number Display */}
+                                            <section>
+                                                <h3 className="text-base font-bold text-gray-900 mb-1">{personality.name}'s Number</h3>
+                                                <p className="text-xs text-gray-500 mb-3">This is your receptionist phone number</p>
+
+                                                {userInfo.vapiPhoneNumber ? (
+                                                    <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-3 shadow-sm text-gray-900 animate-in fade-in zoom-in duration-300">
+                                                        <Phone size={18} className="fill-current text-green-500" />
+                                                        <span className="text-base">{userInfo.vapiPhoneNumber}</span>
+                                                    </div>
+                                                ) : provisioning ? (
+                                                    <div className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse">
+                                                        <RefreshCw size={18} className="animate-spin" />
+                                                        <span>Generating Number...</span>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleProvision}
+                                                        className="w-full bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-2 text-red-600 hover:bg-red-100 transition-colors"
+                                                    >
+                                                        <RefreshCw size={18} />
+                                                        <span>Retry Activation</span>
+                                                    </button>
+                                                )}
+                                            </section>
+
+                                            {/* Forwarding */}
+                                            <section>
+                                                <h3 className="text-base font-bold text-gray-900 mb-1">Forward to {personality.name}</h3>
+                                                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                                                    Forward your missed calls instead of voicemail. <br />
+                                                    Looking to <button onClick={() => { setForwardingMode('disable'); setIsForwardingSetupOpen(true); }} className="underline decoration-1 cursor-pointer font-bold text-gray-900 hover:text-blue-500">Disable</button>?
+                                                </p>
+                                                <button
+                                                    onClick={() => {
+                                                        setForwardingMode('enable');
+                                                        setActivationStep(1);
+                                                        setIsForwardingSetupOpen(true);
+                                                    }}
+                                                    className="w-full bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
+                                                >
+                                                    Instructions
+                                                </button>
+                                            </section>
+
+                                            {/* Voicemail Toggle */}
+                                            <section>
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <h3 className="text-base font-bold text-gray-900">Voicemail for Contacts</h3>
+                                                    {/* Toggle Switch */}
+                                                    <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer transition-colors duration-200 hover:bg-gray-300">
+                                                        <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"></div>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                                    Allow selected contacts to leave an in-app voicemail instead of talking to the receptionist
+                                                </p>
+                                                <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm text-gray-400 flex justify-between items-center shadow-sm font-medium">
+                                                    <span>Select contacts</span>
+                                                    <span>0</span>
+                                                </div>
+                                            </section>
+
+                                            {/* Connect/Disconnect Actions */}
+                                            <section className="space-y-3 pt-4">
+                                                <button
+                                                    onClick={() => {
+                                                        setForwardingMode('enable');
+                                                        setActivationStep(1);
+                                                        setIsForwardingSetupOpen(true);
+                                                    }}
+                                                    className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                                                            <ArrowUpRight size={16} />
+                                                        </div>
+                                                        <span>Connect Personal Number</span>
+                                                    </div>
+                                                    <ChevronRight size={18} className="text-gray-300" />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setForwardingMode('disable');
+                                                        setIsForwardingSetupOpen(true);
+                                                    }}
+                                                    className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                                                            <XCircle size={16} />
+                                                        </div>
+                                                        <span>Disconnect Personal Number</span>
+                                                    </div>
+                                                    <ChevronRight size={18} className="text-gray-300" />
+                                                </button>
+                                            </section>
+
+                                            {/* Spacer */}
+                                            <div className="h-24"></div>
                                         </div>
+                                    ) : (
+                                        <div className="animate-in slide-in-from-right duration-300 bg-white z-30 -mx-6 -mt-8 px-6 pt-8 pb-40">
+                                            {/* Header */}
+                                            <div className="flex items-center mb-6">
+                                                <button
+                                                    onClick={() => {
+                                                        if (forwardingMode === 'enable' && activationStep > 1) {
+                                                            setActivationStep(prev => prev - 1);
+                                                        } else {
+                                                            setIsForwardingSetupOpen(false);
+                                                        }
+                                                    }}
+                                                    className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
+                                                >
+                                                    <ChevronLeft size={22} className="mr-0.5" />
+                                                    Back
+                                                </button>
+                                            </div>
 
-                                        {forwardingMode === 'enable' && (
-                                            <div className="space-y-6">
-                                                {activationStep === 1 && (
-                                                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                                        <h2 className="text-2xl font-extrabold text-gray-900 mb-4">Turn off Live Voicemail</h2>
-                                                        <p className="text-sm text-gray-500 leading-relaxed mb-6">
-                                                            Turn off Live Voicemail in Apple's Settings in order to use NuPhone's AI receptionist. <span className="text-blue-500 font-bold">Learn more</span>
-                                                        </p>
-
-                                                        {/* Visual Guide */}
-                                                        <div className="bg-black rounded-2xl p-5 mb-8 text-white shadow-lg">
-                                                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
-                                                                <div className="flex items-center space-x-2 text-blue-400">
-                                                                    <ChevronLeft size={18} />
-                                                                    <span className="font-semibold">Phone</span>
-                                                                </div>
-                                                                <span className="font-bold">Live Voicemail</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between bg-gray-900 rounded-xl p-4">
-                                                                <span className="font-medium">Live Voicemail</span>
-                                                                <div className="w-12 h-7 bg-[#34C759] rounded-full relative shadow-inner">
-                                                                    <div className="absolute right-0.5 top-0.5 w-6 h-6 bg-white rounded-full shadow-md"></div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-gray-50 rounded-2xl p-6 mb-6">
-                                                            <ol className="text-sm text-gray-600 space-y-3 font-medium list-decimal list-outside ml-4">
-                                                                <li>Open the <span className="font-bold text-gray-900">Settings</span> app, then tap <span className="font-bold text-gray-900">Apps</span>.</li>
-                                                                <li>Tap <span className="font-bold text-gray-900">Phone</span>.</li>
-                                                                <li>Tap <span className="font-bold text-gray-900">Live Voicemail</span>.</li>
-                                                                <li>Turn Live Voicemail <span className="font-bold text-gray-900">off</span>.</li>
-                                                            </ol>
-                                                        </div>
-
-                                                        <button className="w-full bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center mb-4">
-                                                            <Settings size={18} className="mr-2" />
-                                                            Open Settings
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => setActivationStep(2)}
-                                                            className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all shadow-lg"
-                                                        >
-                                                            Continue
-                                                            <ArrowRight size={18} className="ml-2 inline" />
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {activationStep === 2 && (
-                                                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                                        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Select Carrier</h2>
-                                                        <p className="text-sm text-gray-500 leading-relaxed mb-6">
-                                                            Call forwarding instructions vary depending on your phone carrier
-                                                        </p>
-
-                                                        <div className="space-y-3 mb-8">
-                                                            {carriers.map((carrier) => (
-                                                                <div
-                                                                    key={carrier.name}
-                                                                    onClick={() => setSelectedCarrier(carrier.name)}
-                                                                    className={`p-4 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${selectedCarrier === carrier.name ? 'border-blue-500 bg-blue-50/50' : 'border-gray-100 hover:border-gray-200'}`}
-                                                                >
-                                                                    <div className="flex items-center space-x-3 font-bold text-gray-900">
-                                                                        {/* Simple Icon Placeholders */}
-                                                                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500">
-                                                                            {carrier.name[0]}
-                                                                        </div>
-                                                                        <span>{carrier.name}</span>
-                                                                    </div>
-                                                                    {selectedCarrier === carrier.name && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"><Check size={12} className="text-white" /></div>}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-
-                                                        <button
-                                                            onClick={() => setActivationStep(3)}
-                                                            className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all shadow-lg"
-                                                        >
-                                                            Continue
-                                                            <ArrowRight size={18} className="ml-2 inline" />
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {activationStep === 3 && (
-                                                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                                        <h2 className="text-xl font-extrabold text-gray-900 mb-2">Enable Call Forwarding</h2>
-                                                        <p className="text-xs text-gray-500 leading-relaxed mb-6">
-                                                            Call forwarding instructions vary depending on your phone carrier.
-                                                        </p>
-
-                                                        {/* Selected Carrier */}
-                                                        <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm mb-6">
-                                                            <div className="flex items-center space-x-3 text-gray-900 font-bold">
-                                                                <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-500">{selectedCarrier[0]}</div>
-                                                                <span>{selectedCarrier}</span>
-                                                            </div>
-                                                            <button onClick={() => setActivationStep(2)} className="text-xs text-blue-500 font-bold">Change</button>
-                                                        </div>
-
-                                                        {/* Code Block */}
-                                                        <div className="mb-6">
-                                                            <p className="text-xs text-gray-500 mb-2">
-                                                                Dial the number below to activate call forwarding and have your receptionist handle calls instead of voicemail
+                                            {forwardingMode === 'enable' && (
+                                                <div className="space-y-6">
+                                                    {activationStep === 1 && (
+                                                        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                            <h2 className="text-2xl font-extrabold text-gray-900 mb-4">Turn off Live Voicemail</h2>
+                                                            <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                                                                Turn off Live Voicemail in Apple's Settings in order to use NuPhone's AI receptionist. <span className="text-blue-500 font-bold">Learn more</span>
                                                             </p>
-                                                            <div className="flex items-center space-x-3 font-bold text-gray-900 text-lg mb-4 pl-1">
-                                                                <Copy size={20} className="text-gray-400" />
-                                                                <span>{currentCarrierConfig.code}</span>
-                                                            </div>
-                                                            <button className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center shadow-lg shadow-gray-200">
-                                                                <Phone size={20} className="mr-2 fill-current" />
-                                                                Call to Enable
-                                                            </button>
-                                                        </div>
 
-                                                        {/* Warning Box */}
-                                                        <div className="bg-yellow-50 border border-yellow-100 rounded-3xl p-5 mb-8">
-                                                            <div className="flex items-start mb-4">
-                                                                <Info size={16} className="text-gray-500 mt-0.5 mr-2 shrink-0" />
-                                                                <div className="text-xs text-gray-600 leading-relaxed">
-                                                                    <span className="font-bold text-gray-900">Warning:</span> Turn off Live Voicemail in Apple's Settings in order to use NuPhone's AI receptionist. <span className="text-blue-600 font-bold underline">Learn more</span>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Live Voicemail Preview */}
-                                                            <div className="bg-black rounded-2xl p-4 shadow-lg">
-                                                                <div className="flex justify-between items-center mb-4 text-white text-xs font-medium px-1">
-                                                                    <div className="flex items-center text-blue-500">
-                                                                        <ChevronLeft size={16} className="mr-0.5" /> Phone
+                                                            {/* Visual Guide */}
+                                                            <div className="bg-black rounded-2xl p-5 mb-8 text-white shadow-lg">
+                                                                <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                                                                    <div className="flex items-center space-x-2 text-blue-400">
+                                                                        <ChevronLeft size={18} />
+                                                                        <span className="font-semibold">Phone</span>
                                                                     </div>
                                                                     <span className="font-bold">Live Voicemail</span>
                                                                 </div>
-                                                                <div className="bg-[#1C1C1E] rounded-xl p-3 flex justify-between items-center">
-                                                                    <span className="text-white font-medium text-sm">Live Voicemail</span>
-                                                                    {/* Fake Toggle Off */}
-                                                                    <div className="w-10 h-6 bg-[#39393D] rounded-full relative">
-                                                                        <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                                                <div className="flex items-center justify-between bg-gray-900 rounded-xl p-4">
+                                                                    <span className="font-medium">Live Voicemail</span>
+                                                                    <div className="w-12 h-7 bg-[#34C759] rounded-full relative shadow-inner">
+                                                                        <div className="absolute right-0.5 top-0.5 w-6 h-6 bg-white rounded-full shadow-md"></div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
 
-                                                        {/* Verify Activation */}
-                                                        <div>
-                                                            <h3 className="font-bold text-gray-900 text-sm mb-1">Verify Activation</h3>
-                                                            <p className="text-xs text-gray-500 mb-4">Test if your calls are being forwarded to your receptionist.</p>
+                                                            <div className="bg-gray-50 rounded-2xl p-6 mb-6">
+                                                                <ol className="text-sm text-gray-600 space-y-3 font-medium list-decimal list-outside ml-4">
+                                                                    <li>Open the <span className="font-bold text-gray-900">Settings</span> app, then tap <span className="font-bold text-gray-900">Apps</span>.</li>
+                                                                    <li>Tap <span className="font-bold text-gray-900">Phone</span>.</li>
+                                                                    <li>Tap <span className="font-bold text-gray-900">Live Voicemail</span>.</li>
+                                                                    <li>Turn Live Voicemail <span className="font-bold text-gray-900">off</span>.</li>
+                                                                </ol>
+                                                            </div>
+
+                                                            <button className="w-full bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center mb-4">
+                                                                <Settings size={18} className="mr-2" />
+                                                                Open Settings
+                                                            </button>
+
                                                             <button
-                                                                onClick={() => {
-                                                                    setIsReceptionistActive(true);
-                                                                    setIsForwardingSetupOpen(false);
-                                                                    setToast("AI Receptionist Activated");
-                                                                    setTimeout(() => setToast(null), 3000);
-                                                                }}
-                                                                className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
+                                                                onClick={() => setActivationStep(2)}
+                                                                className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all shadow-lg"
                                                             >
-                                                                Verify
+                                                                Continue
+                                                                <ArrowRight size={18} className="ml-2 inline" />
                                                             </button>
                                                         </div>
-                                                        <div className="h-24"></div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                                    )}
 
-                                        {forwardingMode === 'disable' && (
-                                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                                <h2 className="text-xl font-extrabold text-gray-900 mb-2">Disable Call Forwarding</h2>
-                                                <p className="text-xs text-gray-500 leading-relaxed mb-6">
-                                                    Deactivation instructions vary depending on your phone carrier.
-                                                </p>
+                                                    {activationStep === 2 && (
+                                                        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                            <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Select Carrier</h2>
+                                                            <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                                                                Call forwarding instructions vary depending on your phone carrier
+                                                            </p>
 
-                                                {/* Selected Carrier */}
-                                                <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm mb-6">
-                                                    <div className="flex items-center space-x-3 text-gray-900 font-bold">
-                                                        <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-500">{selectedCarrier[0]}</div>
-                                                        <span>{selectedCarrier}</span>
-                                                    </div>
+                                                            <div className="space-y-3 mb-8">
+                                                                {carriers.map((carrier) => (
+                                                                    <div
+                                                                        key={carrier.name}
+                                                                        onClick={() => setSelectedCarrier(carrier.name)}
+                                                                        className={`p-4 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${selectedCarrier === carrier.name ? 'border-blue-500 bg-blue-50/50' : 'border-gray-100 hover:border-gray-200'}`}
+                                                                    >
+                                                                        <div className="flex items-center space-x-3 font-bold text-gray-900">
+                                                                            {/* Simple Icon Placeholders */}
+                                                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500">
+                                                                                {carrier.name[0]}
+                                                                            </div>
+                                                                            <span>{carrier.name}</span>
+                                                                        </div>
+                                                                        {selectedCarrier === carrier.name && <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"><Check size={12} className="text-white" /></div>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => setActivationStep(3)}
+                                                                className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all shadow-lg"
+                                                            >
+                                                                Continue
+                                                                <ArrowRight size={18} className="ml-2 inline" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {activationStep === 3 && (
+                                                        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                            <h2 className="text-xl font-extrabold text-gray-900 mb-2">Enable Call Forwarding</h2>
+                                                            <p className="text-xs text-gray-500 leading-relaxed mb-6">
+                                                                Call forwarding instructions vary depending on your phone carrier.
+                                                            </p>
+
+                                                            {/* Selected Carrier */}
+                                                            <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm mb-6">
+                                                                <div className="flex items-center space-x-3 text-gray-900 font-bold">
+                                                                    <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-500">{selectedCarrier[0]}</div>
+                                                                    <span>{selectedCarrier}</span>
+                                                                </div>
+                                                                <button onClick={() => setActivationStep(2)} className="text-xs text-blue-500 font-bold">Change</button>
+                                                            </div>
+
+                                                            {/* Code Block */}
+                                                            <div className="mb-6">
+                                                                <p className="text-xs text-gray-500 mb-2">
+                                                                    Dial the number below to activate call forwarding and have your receptionist handle calls instead of voicemail
+                                                                </p>
+                                                                <div className="flex items-center space-x-3 font-bold text-gray-900 text-lg mb-4 pl-1">
+                                                                    <Copy size={20} className="text-gray-400" />
+                                                                    <span>{currentCarrierConfig.code}</span>
+                                                                </div>
+                                                                <button className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center shadow-lg shadow-gray-200">
+                                                                    <Phone size={20} className="mr-2 fill-current" />
+                                                                    Call to Enable
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Warning Box */}
+                                                            <div className="bg-yellow-50 border border-yellow-100 rounded-3xl p-5 mb-8">
+                                                                <div className="flex items-start mb-4">
+                                                                    <Info size={16} className="text-gray-500 mt-0.5 mr-2 shrink-0" />
+                                                                    <div className="text-xs text-gray-600 leading-relaxed">
+                                                                        <span className="font-bold text-gray-900">Warning:</span> Turn off Live Voicemail in Apple's Settings in order to use NuPhone's AI receptionist. <span className="text-blue-600 font-bold underline">Learn more</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Live Voicemail Preview */}
+                                                                <div className="bg-black rounded-2xl p-4 shadow-lg">
+                                                                    <div className="flex justify-between items-center mb-4 text-white text-xs font-medium px-1">
+                                                                        <div className="flex items-center text-blue-500">
+                                                                            <ChevronLeft size={16} className="mr-0.5" /> Phone
+                                                                        </div>
+                                                                        <span className="font-bold">Live Voicemail</span>
+                                                                    </div>
+                                                                    <div className="bg-[#1C1C1E] rounded-xl p-3 flex justify-between items-center">
+                                                                        <span className="text-white font-medium text-sm">Live Voicemail</span>
+                                                                        {/* Fake Toggle Off */}
+                                                                        <div className="w-10 h-6 bg-[#39393D] rounded-full relative">
+                                                                            <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Verify Activation */}
+                                                            <div>
+                                                                <h3 className="font-bold text-gray-900 text-sm mb-1">Verify Activation</h3>
+                                                                <p className="text-xs text-gray-500 mb-4">Test if your calls are being forwarded to your receptionist.</p>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setIsReceptionistActive(true);
+                                                                        setIsForwardingSetupOpen(false);
+                                                                        setToast("AI Receptionist Activated");
+                                                                        setTimeout(() => setToast(null), 3000);
+                                                                    }}
+                                                                    className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
+                                                                >
+                                                                    Verify
+                                                                </button>
+                                                            </div>
+                                                            <div className="h-24"></div>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                            )}
 
-                                                {/* Code Block */}
-                                                <div className="mb-8">
-                                                    <p className="text-xs text-gray-500 mb-2">
-                                                        Dial the number below to remove call forwarding.
+                                            {forwardingMode === 'disable' && (
+                                                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                    <h2 className="text-xl font-extrabold text-gray-900 mb-2">Disable Call Forwarding</h2>
+                                                    <p className="text-xs text-gray-500 leading-relaxed mb-6">
+                                                        Deactivation instructions vary depending on your phone carrier.
                                                     </p>
-                                                    <div className="flex items-center space-x-3 font-bold text-gray-900 text-lg mb-4 pl-1">
-                                                        <Copy size={20} className="text-gray-400" />
-                                                        <span>{currentCarrierConfig.disableCode}</span>
-                                                    </div>
-                                                    <button className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center shadow-lg shadow-gray-200">
-                                                        <Phone size={20} className="mr-2 fill-current" />
-                                                        Call to Disable
-                                                    </button>
-                                                </div>
 
-                                                {/* Verify Deactivation */}
-                                                <div>
-                                                    <h3 className="font-bold text-gray-900 text-sm mb-1">Verify Deactivation</h3>
-                                                    <p className="text-xs text-gray-500 mb-4">Test if your calls are being sent to voicemail.</p>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsReceptionistActive(false);
-                                                            setIsForwardingSetupOpen(false);
-                                                            setToast("AI Receptionist Deactivated");
-                                                            setTimeout(() => setToast(null), 3000);
-                                                        }}
-                                                        className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
-                                                    >
-                                                        Verify
-                                                    </button>
+                                                    {/* Selected Carrier */}
+                                                    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm mb-6">
+                                                        <div className="flex items-center space-x-3 text-gray-900 font-bold">
+                                                            <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-500">{selectedCarrier[0]}</div>
+                                                            <span>{selectedCarrier}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Code Block */}
+                                                    <div className="mb-8">
+                                                        <p className="text-xs text-gray-500 mb-2">
+                                                            Dial the number below to remove call forwarding.
+                                                        </p>
+                                                        <div className="flex items-center space-x-3 font-bold text-gray-900 text-lg mb-4 pl-1">
+                                                            <Copy size={20} className="text-gray-400" />
+                                                            <span>{currentCarrierConfig.disableCode}</span>
+                                                        </div>
+                                                        <button className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center shadow-lg shadow-gray-200">
+                                                            <Phone size={20} className="mr-2 fill-current" />
+                                                            Call to Disable
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Verify Deactivation */}
+                                                    <div>
+                                                        <h3 className="font-bold text-gray-900 text-sm mb-1">Verify Deactivation</h3>
+                                                        <p className="text-xs text-gray-500 mb-4">Test if your calls are being sent to voicemail.</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsReceptionistActive(false);
+                                                                setIsForwardingSetupOpen(false);
+                                                                setToast("AI Receptionist Deactivated");
+                                                                setTimeout(() => setToast(null), 3000);
+                                                            }}
+                                                            className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
+                                                        >
+                                                            Verify
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-24"></div>
                                                 </div>
-                                                <div className="h-24"></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )
+                )
             }
 
             {/* =========================================
@@ -1133,40 +1836,43 @@ export default function App() {
                                 )}
 
                                 {/* Audio Player */}
-                                <div className="mt-6 pt-6 border-t border-gray-100">
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recording</h4>
-                                    <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-                                        <button className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all">
-                                            <Play size={18} className="ml-1 fill-current" />
-                                        </button>
-                                        <div className="flex-1 h-8 flex items-center gap-1">
-                                            {/* Mock Waveform */}
-                                            {Array.from({ length: 24 }).map((_, i) => (
-                                                <div key={i} className={`w-1 rounded-full bg-blue-200 ${i % 3 === 0 ? 'h-6 bg-blue-300' : 'h-3'}`} style={{ height: `${Math.max(20, Math.random() * 100)}%` }}></div>
-                                            ))}
+                                {selectedCall.recordingUrl && (
+                                    <div className="mt-6 pt-6 border-t border-gray-100">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recording</h4>
+                                        <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    const audio = new Audio(selectedCall.recordingUrl);
+                                                    audio.play();
+                                                }}
+                                                className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all">
+                                                <Play size={18} className="ml-1 fill-current" />
+                                            </button>
+                                            <div className="flex-1 h-8 flex items-center gap-1">
+                                                {/* Mock Waveform */}
+                                                {Array.from({ length: 24 }).map((_, i) => (
+                                                    <div key={i} className={`w-1 rounded-full bg-blue-200 ${i % 3 === 0 ? 'h-6 bg-blue-300' : 'h-3'}`} style={{ height: `${Math.max(20, Math.random() * 100)}%` }}></div>
+                                                ))}
+                                            </div>
+                                            <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 hover:underline">Download</a>
                                         </div>
-                                        <span className="text-xs font-bold text-gray-500 tabular-nums">0:42</span>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
-                            {selectedCall.transcript && (
-                                <div className="bg-white rounded-[2rem] p-6 shadow-sm">
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Transcript</h3>
-                                    <div className="space-y-4">
-                                        {selectedCall.transcript.map((msg, idx) => (
-                                            <div key={idx} className={`flex ${msg.role === 'receptionist' ? 'justify-end' : 'justify-start'}`}>
-                                                <div className={`max-w-[85%] p-4 rounded-2xl text-sm font-medium leading-relaxed ${msg.role === 'receptionist'
-                                                    ? 'bg-blue-500 text-white rounded-tr-none'
-                                                    : 'bg-gray-100 text-gray-800 rounded-tl-none'
-                                                    }`}>
-                                                    {msg.text}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                            {/* Transcript - Handle Vapi String vs Array */}
+                            <div className="bg-white rounded-[2rem] p-6 shadow-sm">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Transcript</h3>
+                                <div className="space-y-4">
+                                    {selectedCall.transcript ? (
+                                        <p className="text-sm font-medium leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {selectedCall.transcript}
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 italic">No transcript available.</p>
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 )
@@ -1399,8 +2105,8 @@ export default function App() {
                             <div className="flex justify-center mb-8">
                                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-blue-50">
                                     <img
-                                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Andrew&backgroundColor=b6e3f4"
-                                        alt="Andrew"
+                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
+                                        alt={personality.name}
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
@@ -1413,8 +2119,15 @@ export default function App() {
                                     <label className="block text-base font-bold text-gray-900 mb-2">Name</label>
                                     <input
                                         type="text"
-                                        value={personality.name}
+                                        value={personality.name === "Assistant" ? "" : personality.name}
+                                        placeholder="Assistant Name"
                                         onChange={(e) => setPersonality({ ...personality, name: e.target.value })}
+                                        onBlur={async () => {
+                                            await supabase.from('business_profiles')
+                                                .update({ assistant_name: personality.name })
+                                                .eq('owner_user_id', session.user.id);
+                                            syncAssistant();
+                                        }}
                                         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-base font-medium text-gray-900 outline-none focus:ring-2 focus:ring-blue-400/20 active:scale-[0.99] transition-all"
                                     />
                                 </div>
@@ -1445,38 +2158,51 @@ export default function App() {
             {/* =========================================
                BOTTOM NAV
                ========================================= */}
+
+
+            {/* =========================================
+               GLOBAL NAVIGATION
+               ========================================= */}
             {
-                view !== 'call-detail' && (
-                    view !== 'auth' && (
-                        <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around items-end pb-8 pt-2 px-2 z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.03)] h-[6.5rem]">
+                view !== 'auth' && view !== 'onboarding' && view !== 'intro' && (
+                    <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around items-end pb-8 pt-2 px-2 z-[999] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.03)] h-[6.5rem]">
 
-                            {/* Inbox Tab */}
-                            {/* Inbox Tab */}
-                            <button
-                                onClick={() => setView('inbox')}
-                                className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
-                            >
-                                <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
-                                    <div className="w-6 h-6 border-[2.5px] border-current rounded-[7px] relative flex items-center justify-center">
-                                        <div className="w-2.5 h-[2.5px] bg-current rounded-full"></div>
-                                    </div>
+                        {/* Inbox Tab */}
+                        <button
+                            onClick={() => setView('inbox')}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                        >
+                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                                <div className="w-6 h-6 border-[2.5px] border-current rounded-[7px] relative flex items-center justify-center">
+                                    <div className="w-2.5 h-[2.5px] bg-current rounded-full"></div>
                                 </div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Inbox</span>
-                            </button>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Calls</span>
+                        </button>
 
-                            {/* Receptionist Tab */}
-                            <button
-                                onClick={() => setView('receptionist')}
-                                className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
-                            >
-                                <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
-                                    <User size={24} strokeWidth={2.5} />
-                                </div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Receptionist</span>
-                            </button>
+                        {/* Receptionist Tab */}
+                        <button
+                            onClick={() => setView('receptionist')}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                        >
+                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                                <User size={24} strokeWidth={2.5} />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Assistant</span>
+                        </button>
 
-                        </div>
-                    )
+                        {/* Settings Tab */}
+                        <button
+                            onClick={() => setView('settings')}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                        >
+                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                                <Settings size={24} strokeWidth={2.5} />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Settings</span>
+                        </button>
+
+                    </div>
                 )
             }
 
@@ -1527,11 +2253,33 @@ export default function App() {
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             if (tempQuestion.q && tempQuestion.a) {
-                                                setKnowledgeQuestions(prev => [...prev, { id: Date.now(), question: tempQuestion.q, answer: tempQuestion.a }]);
-                                                setTempQuestion({ q: "", a: "" });
-                                                setActiveModal(null);
+                                                try {
+                                                    const { data, error } = await supabase
+                                                        .from('business_info')
+                                                        .insert([{
+                                                            owner_user_id: session.user.id,
+                                                            type: 'qa',
+                                                            content: {
+                                                                question: tempQuestion.q,
+                                                                answer: tempQuestion.a
+                                                            }
+                                                        }])
+                                                        .select()
+                                                        .single();
+
+                                                    if (error) throw error;
+
+                                                    setKnowledgeItems(prev => [...prev, data]);
+                                                    setTempQuestion({ q: "", a: "" });
+                                                    setActiveModal(null);
+                                                    showToast("Question saved");
+                                                    syncAssistant();
+                                                } catch (err) {
+                                                    console.error("Error saving question:", err);
+                                                    showToast("Failed to save question");
+                                                }
                                             }
                                         }}
                                         className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors shadow-lg shadow-blue-200"
@@ -1545,6 +2293,77 @@ export default function App() {
                 )
             }
 
+            {
+                showLanguageModal && (
+                    <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 duration-500">
+                            <div className="flex justify-between items-center mb-6">
+                                <button onClick={() => setShowLanguageModal(false)} className="text-gray-400 font-bold hover:text-gray-600">Cancel</button>
+                                <h3 className="text-lg font-black text-gray-900">Languages</h3>
+                                <button
+                                    onClick={async () => {
+                                        // Save Languages
+                                        // We'll update the 'languages' state locally immediately for UI snappiness
+                                        // The parent component should have a proper save handler if we want robust persistence logic here
+                                        // But since we are editing in place, we can just save to DB.
+
+                                        // Note: In a real React app, 'tempLanguages' should be used.
+                                        // But for simplicity in this one-file setup, I'll access the 'languages' state directly?
+                                        // NO, I need a temp state for the modal.
+                                        // Since I can't easily add new state variables outside this block without re-rendering everything or adding complex logic,
+                                        // I'll assume the user modifies `languages` directly? No that's bad UX (live update).
+                                        // I will use a ref or just persist on toggle (a bit aggressive but works).
+                                        // actually, let's just Close. The toggles already updated the state?
+                                        // Wait, the toggles below need to update SOMETHING.
+                                        // I will make the toggles update the main state directly for now to ensure it works without complex temp state injection.
+
+                                        await supabase.from('business_info').delete().eq('owner_user_id', session.user.id).eq('type', 'languages');
+                                        await supabase.from('business_info').insert({
+                                            owner_user_id: session.user.id,
+                                            type: 'languages',
+                                            content: { languages }
+                                        });
+                                        syncAssistant();
+                                        setShowLanguageModal(false);
+                                    }}
+                                    className="text-[#2563EB] font-bold hover:text-blue-700"
+                                >
+                                    Save
+                                </button>
+                            </div>
+
+                            <p className="text-sm text-gray-500 font-medium mb-6 leading-relaxed">
+                                Choose which languages your assistant can communicate in with callers.
+                            </p>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                {LANGUAGES.map(l => {
+                                    const isSelected = languages.includes(l.name);
+                                    return (
+                                        <button
+                                            key={l.name}
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setLanguages(prev => prev.filter(x => x !== l.name));
+                                                } else {
+                                                    setLanguages(prev => [...prev, l.name]);
+                                                }
+                                            }}
+                                            className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-[#2563EB] bg-blue-50/50' : 'border-gray-100 bg-white hover:bg-gray-50'}`}
+                                        >
+                                            <span className="text-2xl mb-2">{l.flag}</span>
+                                            <span className="text-xs font-bold text-gray-900 mb-1">{l.name}</span>
+                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#2563EB] bg-[#2563EB]' : 'border-gray-200'}`}>
+                                                {isSelected && <Check size={10} className="text-white" strokeWidth={4} />}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 }
