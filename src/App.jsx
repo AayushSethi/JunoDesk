@@ -1086,9 +1086,7 @@ export default function App() {
                                             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                                                 <AudioWaveform size={18} className="text-[#2563EB]" /> Voice
                                             </h3>
-                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-600">
-                                                Voice changes apply to future calls
-                                            </span>
+
                                         </div>
                                         <div className="grid grid-cols-3 gap-3">
                                             {voiceOptions.length > 0 ? voiceOptions.map((p) => {
