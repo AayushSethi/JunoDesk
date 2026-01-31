@@ -158,21 +158,14 @@ export default function App() {
                 if (infoError) throw infoError;
 
                 if (info) {
-                    // Extract Personality from Info (Preferred)
+                    // Extract Personality (Prioritize Profile for Voice)
                     const personalityItem = info.find(i => i.type === 'personality');
-                    if (personalityItem?.content) {
-                        setPersonality({
-                            name: personalityItem.content.name || "Assistant",
-                            voiceId: personalityItem.content.voiceId
-                        });
-                    } else if (profile?.assistant_name) {
-                        // Fallback to profile text if exists
-                        setPersonality({
-                            name: profile.assistant_name,
-                            description: "Professional, formal, and polite.",
-                            voiceId: profile.voice_id
-                        });
-                    }
+
+                    setPersonality({
+                        name: profile?.assistant_name || personalityItem?.content?.name || "Assistant",
+                        description: "Professional, formal, and polite.",
+                        voiceId: profile?.voice_id || personalityItem?.content?.voiceId // Prioritize profile voice_id
+                    });
 
                     // Extract Greeting
                     const greetingItem = info.find(i => i.type === 'greeting');
@@ -423,7 +416,7 @@ export default function App() {
 
     const syncTimerRef = React.useRef(null); // Define syncTimerRef here
 
-    const syncAssistant = () => {
+    const syncAssistant = (overrideVoiceId = null) => {
         if (!session?.user) return;
 
         // Debounce: Clear existing timer
@@ -436,7 +429,7 @@ export default function App() {
                 await fetch('http://localhost:3000/api/sync-assistant', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: session.user.id, languages })
+                    body: JSON.stringify({ userId: session.user.id, languages, voiceId: overrideVoiceId })
                 });
                 console.log("✅ Assistant Synced");
                 setToast("Assistant Updated");
@@ -980,19 +973,23 @@ export default function App() {
 
                                                             setPersonality(prev => ({ ...prev, name: p.name, voiceId: p.id }));
 
-                                                            // Sync to DB (Use business_info for flexibility)
-                                                            // Use delete+insert pattern for safety on generic table
+                                                            // Sync to DB (business_profiles is source of truth for voice)
                                                             try {
-                                                                await supabase.from('business_info').delete()
-                                                                    .eq('owner_user_id', session.user.id)
-                                                                    .eq('type', 'personality');
+                                                                await supabase
+                                                                    .from('business_profiles')
+                                                                    .update({ voice_id: p.id })
+                                                                    .eq('owner_user_id', session.user.id);
 
-                                                                await supabase.from('business_info').insert({
-                                                                    owner_user_id: session.user.id,
-                                                                    type: 'personality',
-                                                                    content: { name: p.name, voiceId: p.id }
-                                                                });
-                                                                syncAssistant();
+                                                                // Also update personality name in business_profiles if needed, or keep using business_info for non-core stuff?
+                                                                // For now, only voice_id is mandated to move. 
+                                                                // But we might want to update the name in profile too if that's where we want it.
+                                                                // The user prompt only specified voice_id.
+
+                                                                // Legacy cleanup: Remove voiceId from business_info if it exists there to avoid confusion?
+                                                                // User said: "Remove any writes of voiceId to business_info". 
+                                                                // We won't delete the whole personality item because it might store the Name.
+
+                                                                syncAssistant(p.id);
                                                             } catch (err) {
                                                                 console.error("Failed to save personality", err);
                                                                 showToast("Failed to save voice");
@@ -2135,10 +2132,63 @@ export default function App() {
                                 {/* Voice Selection */}
                                 <div>
                                     <label className="block text-base font-bold text-gray-900 mb-2">Voice</label>
-                                    <button className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 flex items-center justify-center gap-3 text-base font-bold text-gray-900 hover:bg-gray-50 active:scale-[0.99] transition-all">
-                                        <AudioWaveform size={20} className="text-gray-400" />
-                                        Select Voice
-                                    </button>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {voiceOptions.map(v => (
+                                            <button
+                                                key={v.id}
+                                                onClick={async () => {
+                                                    // 1. Update (Optimistic) UI
+                                                    setPersonality(prev => ({ ...prev, voiceId: v.id }));
+
+                                                    // 2. Play Preview
+                                                    try {
+                                                        const res = await fetch('http://localhost:3000/api/voice-preview', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ voiceId: v.id, text: "Hello! I am your new receptionist." })
+                                                        });
+                                                        if (res.ok) {
+                                                            const blob = await res.blob();
+                                                            const audio = new Audio(URL.createObjectURL(blob));
+                                                            audio.play();
+                                                        }
+                                                    } catch (e) {
+                                                        console.error("Preview failed", e);
+                                                    }
+
+                                                    // 3. PERSIST via Server (Trusted)
+                                                    console.log("Saving voice_id via Backend API...", v.id);
+                                                    try {
+                                                        const persistRes = await fetch('http://localhost:3000/api/save-voice', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ userId: session.user.id, voiceId: v.id })
+                                                        });
+                                                        const pData = await persistRes.json();
+                                                        if (!persistRes.ok) console.error("Persist API Failed:", pData);
+                                                        else console.log("✅ DB Persisted via Server");
+                                                    } catch (persistErr) {
+                                                        console.error("Persist Network Error:", persistErr);
+                                                    }
+
+                                                    // 4. SYNC to Vapi
+                                                    // Now that DB is updated, tell server to push to Vapi
+                                                    syncAssistant(v.id);
+                                                }}
+                                                className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden ${personality.voiceId === v.id ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                            >
+                                                <div className="font-bold text-gray-900 text-sm mb-0.5 relative z-10">{v.name}</div>
+                                                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider relative z-10">
+                                                    {v.provider === '11labs' ? 'Standard' : 'Premium'}
+                                                </div>
+                                                {personality.voiceId === v.id && (
+                                                    <div className="absolute top-2 right-2 text-blue-500 z-10">
+                                                        <div className="w-2 h-2 rounded-full bg-current shadow-sm animate-pulse" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {/* Demo Section */}

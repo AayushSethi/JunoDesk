@@ -70,7 +70,7 @@ async function getContextForUser(userId) {
     const instructions = info.filter(i => i.type === 'instruction').map(i => i.content.text);
     const knowledge = info.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content);
     const personalityItem = info.find(i => i.type === 'personality');
-    const voiceId = personalityItem?.content?.voiceId || profile.voice_id;
+    const voiceId = profile.voice_id || personalityItem?.content?.voiceId;
 
     return { profile, greeting, instructions, knowledge, voiceId };
 }
@@ -354,7 +354,10 @@ app.get('/api/calls', async (req, res) => {
 // 2. Update Assistant (Sync DB -> Vapi)
 app.post('/api/sync-assistant', async (req, res) => {
     try {
-        const { userId, languages } = req.body;
+        const { userId, languages, voiceId: reqVoiceId, voice_id: reqVoiceIdUnderscore } = req.body;
+        const explicitVoiceId = reqVoiceId || reqVoiceIdUnderscore;
+
+        console.log("📥 Sync Request Body:", JSON.stringify(req.body, null, 2));
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
         const { profile, greeting, instructions, knowledge, voiceId } = await getContextForUser(userId);
@@ -376,15 +379,45 @@ app.post('/api/sync-assistant', async (req, res) => {
         console.log("----------------------\n");
 
         const assistantName = profile.assistant_name || `${profile.company_name} Receptionist`;
-        // Default to Woman 2 if no voice found
-        // Use extracted voiceId or default
-        const activeVoiceId = voiceId || "OYTbf65OHHFELVut7v2H";
+        // Use explicit ID if provided, otherwise fallback to DB, then default.
+        const activeVoiceId = explicitVoiceId || voiceId || "OYTbf65OHHFELVut7v2H";
+
+        // PERSISTENCE FIX: Robsut Save to DB from server-side
+        if (explicitVoiceId) {
+            console.log(`💾 Persisting Voice ID ${activeVoiceId} to Supabase...`);
+
+            // Fetch profile first to ensure we target the right row
+            const { data: profiles, error: fetchErr } = await supabase
+                .from('business_profiles')
+                .select('id')
+                .eq('owner_user_id', userId);
+
+            if (fetchErr) console.error("❌ Fetch Profile Error:", fetchErr);
+
+            if (profiles && profiles.length > 0) {
+                const { error: saveErr } = await supabase
+                    .from('business_profiles')
+                    .update({ voice_id: activeVoiceId })
+                    .eq('id', profiles[0].id);
+
+                if (saveErr) console.error("❌ Failed to save voice_id to DB:", saveErr);
+                else console.log("✅ Voice ID saved to DB.");
+            } else {
+                console.error("❌ No profile found to save voice_id.");
+            }
+        }
+
+        // Log the voice ID to be sure
+        console.log(`🎙️ Syncing Voice ID: ${activeVoiceId}`);
 
         const updatedPayload = {
             name: assistantName,
             voice: {
                 provider: "11labs",
-                voiceId: activeVoiceId
+                voiceId: activeVoiceId,
+                model: "eleven_turbo_v2", // Force Turbo v2 for low latency
+                stability: 0.5,
+                similarityBoost: 0.75
             },
             model: {
                 provider: "openai",
@@ -503,6 +536,50 @@ app.get('/api/voices', (req, res) => {
 });
 
 
+
+// 6. DB SAVE (Failsafe)
+app.post('/api/save-voice', async (req, res) => {
+    const { userId, voiceId } = req.body;
+    console.log(`💾 FORCE SAVE Request: User ${userId}, Voice ${voiceId}`);
+
+    if (!userId || !voiceId) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+        // 1. Fetch Profile ID
+        const { data: profiles, error: fetchErr } = await supabase
+            .from('business_profiles')
+            .select('id')
+            .eq('owner_user_id', userId);
+
+        if (fetchErr) {
+            console.error("❌ Force Save Fetch Error:", fetchErr);
+            return res.status(500).json({ error: fetchErr.message });
+        }
+
+        if (!profiles || profiles.length === 0) {
+            console.error("❌ No profile found for user:", userId);
+            return res.status(404).json({ error: "Profile not found" });
+        }
+
+        // 2. Update
+        const { error: saveErr } = await supabase
+            .from('business_profiles')
+            .update({ voice_id: voiceId })
+            .eq('id', profiles[0].id);
+
+        if (saveErr) {
+            console.error("❌ Force Save Write Error:", saveErr);
+            return res.status(500).json({ error: saveErr.message });
+        }
+
+        console.log("✅ FORCE SAVE SUCCESSFUL");
+        res.json({ success: true, voiceId });
+
+    } catch (e) {
+        console.error("Force Save Exception:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`🧠 Brain running on http://localhost:${PORT}`);
