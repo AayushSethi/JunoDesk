@@ -1947,15 +1947,11 @@ export default function App() {
                 view === 'settings' && (
                     <div className="flex flex-col h-full bg-transparent relative animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20">
-                            <button
-                                onClick={() => setView('inbox')}
-                                className="w-10 h-10 -ml-2 rounded-full items-center justify-center flex hover:bg-gray-50 transition-colors text-gray-900"
-                            >
-                                <ChevronLeft size={28} />
-                            </button>
-                            <h1 className="text-lg font-bold text-gray-900">Settings</h1>
-                            <div className="w-10" />
+                        {/* Header */}
+                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
+                            <h1 className="text-2xl font-black tracking-tight">
+                                <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                            </h1>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-4 pb-32">
