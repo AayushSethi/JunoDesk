@@ -123,6 +123,52 @@ export default function App() {
     // --- Knowledge State ---
     const [knowledgeItems, setKnowledgeItems] = useState([]); // Stores both 'qa' and 'fact' types
 
+
+    // --- Archive State ---
+    const [activeInboxTab, setActiveInboxTab] = useState('inbox'); // 'inbox' | 'archived'
+    const [archivedIds, setArchivedIds] = useState([]);
+
+    const handleArchiveCall = async (callId) => {
+        // Optimistic Update
+        const newArchivedIds = [...archivedIds, callId];
+        setArchivedIds(newArchivedIds);
+        showToast("Call archived");
+
+        try {
+            // Delete existing (simplest way to update list for this user) - actually Upsert is better but structure is unique per user/type
+            // We'll just upsert based on owner_user_id + type. But Supabase upsert needs a uniqueconstraint.
+            // We will delete and insert for simplicity or assuming we have unique index.
+            // Actually, we can just fetch the ID if it exists and update, or Insert.
+
+            // First check if row exists
+            const { data: existing } = await supabase
+                .from('business_info')
+                .select('id')
+                .eq('owner_user_id', session.user.id)
+                .eq('type', 'archived_calls')
+                .maybeSingle();
+
+            if (existing) {
+                await supabase
+                    .from('business_info')
+                    .update({ content: { ids: newArchivedIds } })
+                    .eq('id', existing.id);
+            } else {
+                await supabase
+                    .from('business_info')
+                    .insert({
+                        owner_user_id: session.user.id,
+                        type: 'archived_calls',
+                        content: { ids: newArchivedIds }
+                    });
+            }
+        } catch (err) {
+            console.error("Failed to save archive state", err);
+            showToast("Failed to save archive state");
+        }
+    };
+
+
     // --- Data Fetching ---
     useEffect(() => {
         const loadUserData = async () => {
@@ -167,12 +213,22 @@ export default function App() {
 
                 if (info) {
                     // Extract Personality (Prioritize Profile for Voice)
+                    // Extract Personality (Prioritize Profile for Voice)
                     const personalityItem = info.find(i => i.type === 'personality');
 
+                    const savedVoiceId = profile?.voice_id || personalityItem?.content?.voiceId;
+                    let savedName = profile?.assistant_name || personalityItem?.content?.name || "Assistant";
+
+                    // If name is generic but we have a valid voice ID, try to resolve the correct name
+                    if (savedName === "Assistant" && savedVoiceId) {
+                        const matchedVoice = FALLBACK_VOICES.find(v => v.id === savedVoiceId);
+                        if (matchedVoice) savedName = matchedVoice.name;
+                    }
+
                     setPersonality({
-                        name: profile?.assistant_name || personalityItem?.content?.name || "Assistant",
+                        name: savedName,
                         description: "Professional, formal, and polite.",
-                        voiceId: profile?.voice_id || personalityItem?.content?.voiceId // Prioritize profile voice_id
+                        voiceId: savedVoiceId // Prioritize profile voice_id
                     });
 
                     // Extract Greeting
@@ -186,6 +242,10 @@ export default function App() {
                     // Extract Languages
                     const langItem = info.find(i => i.type === 'languages');
                     if (langItem?.content?.languages) setLanguages(langItem.content.languages);
+
+                    // Extract Archived Calls
+                    const archiveItem = info.find(i => i.type === 'archived_calls');
+                    if (archiveItem?.content?.ids) setArchivedIds(archiveItem.content.ids);
                 }
 
             } catch (err) {
@@ -587,7 +647,7 @@ export default function App() {
                                 <div className="flex items-center gap-4">
                                     <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-50 border-4 border-white shadow-md">
                                         <img
-                                            src={voiceOptions.find(v => v.name === personality.name)?.avatar || voiceOptions[0].avatar}
+                                            src={voiceOptions.find(v => v.id === personality.voiceId || v.name === personality.name)?.avatar || voiceOptions[0].avatar}
                                             alt="Assistant"
                                             className="w-full h-full object-cover scale-110 translate-y-1"
                                         />
@@ -626,10 +686,16 @@ export default function App() {
 
                         {/* Tabs */}
                         <div className="flex gap-2 mb-6">
-                            <button className="bg-[#2563EB] text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-200">
-                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread').length || calls.length}</span>
+                            <button
+                                onClick={() => setActiveInboxTab('inbox')}
+                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'inbox' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            >
+                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread' && !archivedIds.includes(c.id)).length}</span>
                             </button>
-                            <button className="bg-gray-100 text-gray-600 px-6 py-2.5 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors">
+                            <button
+                                onClick={() => setActiveInboxTab('archived')}
+                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'archived' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            >
                                 Archived
                             </button>
                         </div>
@@ -637,7 +703,8 @@ export default function App() {
                         {/* Grouped Calls List */}
                         <div className="space-y-6">
                             {(() => {
-                                const grouped = calls.reduce((acc, call) => {
+                                const visibleCalls = calls.filter(c => activeInboxTab === 'archived' ? archivedIds.includes(c.id) : !archivedIds.includes(c.id));
+                                const grouped = visibleCalls.reduce((acc, call) => {
                                     const date = new Date(call.rawTime);
                                     const now = new Date();
                                     const diffTime = Math.abs(now - date);
@@ -716,13 +783,18 @@ export default function App() {
                                                                             >
                                                                                 <Share2 size={14} />
                                                                             </button>
-                                                                            <button
-                                                                                onClick={(e) => { e.stopPropagation(); showToast("Archived Call"); }}
-                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-                                                                                title="Archive"
-                                                                            >
-                                                                                <Archive size={14} />
-                                                                            </button>
+                                                                            {!archivedIds.includes(call.id) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleArchiveCall(call.id);
+                                                                                    }}
+                                                                                    className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                                    title="Archive"
+                                                                                >
+                                                                                    <Archive size={14} />
+                                                                                </button>
+                                                                            )}
                                                                             <button className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                                                                                 <Trash2 size={14} />
                                                                             </button>
