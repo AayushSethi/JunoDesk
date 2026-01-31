@@ -1575,6 +1575,28 @@ export default function App() {
                                                 </div>
                                             </section>
 
+                                            {/* 5. Connected Phone Number (New) */}
+                                            <section>
+                                                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-4 mt-8">Account Phone Number</h3>
+                                                <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <PhoneCall size={20} className="text-purple-600 fill-current" />
+                                                        <h3 className="text-base font-bold text-gray-900">Connected Phone Number</h3>
+                                                    </div>
+
+                                                    <div className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-lg font-medium text-gray-900 tracking-tight flex items-center justify-center mb-4">
+                                                        +1 (281) 650-5521
+                                                    </div>
+
+                                                    <div className="flex items-start gap-2">
+                                                        <HelpCircle size={14} className="text-purple-600 mt-0.5 shrink-0" />
+                                                        <p className="text-xs font-bold text-purple-600 leading-snug">
+                                                            Need to change your number or add a line? Speak to support
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </section>
+
                                             <div className="h-12"></div>
                                         </div>
                                     ) : (
