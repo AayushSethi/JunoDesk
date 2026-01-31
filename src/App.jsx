@@ -17,12 +17,12 @@ import man2 from './assets/avatars/uifaces-human-avatar (4).jpg';
 import man3 from './assets/avatars/uifaces-human-avatar (5).jpg';
 
 const FALLBACK_VOICES = [
-    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1', provider: '11labs', avatar: woman1 },
-    { id: 'OYTbf65OHHFELVut7v2H', name: 'Woman 2', provider: '11labs', avatar: woman2 },
-    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Woman 3', provider: '11labs', avatar: woman3 },
-    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Man 1', provider: '11labs', avatar: man1 },
-    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'Man 2', provider: '11labs', avatar: man2 },
-    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3', provider: '11labs', avatar: man3 }
+    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Sara', provider: '11labs', avatar: woman1 },
+    { id: 'OYTbf65OHHFELVut7v2H', name: 'Emma', provider: '11labs', avatar: woman2 },
+    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Chloe', provider: '11labs', avatar: woman3 },
+    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Mike', provider: '11labs', avatar: man1 },
+    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'David', provider: '11labs', avatar: man2 },
+    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'James', provider: '11labs', avatar: man3 }
 ];
 
 const LANGUAGES = [
@@ -1176,7 +1176,6 @@ export default function App() {
                                                             )}
                                                         </div>
                                                         <span className={`text-xs font-bold truncate w-full text-center ${isSelected ? 'text-[#2563EB]' : 'text-gray-900'}`}>{p.name}</span>
-                                                        <span className="text-[10px] font-medium text-gray-400 capitalize">{p.provider || 'AI'}</span>
                                                     </button>
                                                 )
                                             }) : (
