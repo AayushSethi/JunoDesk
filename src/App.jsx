@@ -1577,10 +1577,10 @@ export default function App() {
 
                                             {/* 5. Connected Phone Number (New) */}
                                             <section>
-                                                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-4 mt-8">Account Phone Number</h3>
+                                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 ml-4 mt-8">Account Phone Number</h3>
                                                 <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
                                                     <div className="flex items-center gap-3 mb-4">
-                                                        <PhoneCall size={20} className="text-purple-600 fill-current" />
+                                                        <PhoneCall size={20} className="text-[#2563EB] fill-current" />
                                                         <h3 className="text-base font-bold text-gray-900">Connected Phone Number</h3>
                                                     </div>
 
@@ -1589,8 +1589,8 @@ export default function App() {
                                                     </div>
 
                                                     <div className="flex items-start gap-2">
-                                                        <HelpCircle size={14} className="text-purple-600 mt-0.5 shrink-0" />
-                                                        <p className="text-xs font-bold text-purple-600 leading-snug">
+                                                        <HelpCircle size={14} className="text-[#2563EB] mt-0.5 shrink-0" />
+                                                        <p className="text-xs font-bold text-[#2563EB] leading-snug cursor-pointer hover:underline">
                                                             Need to change your number or add a line? Speak to support
                                                         </p>
                                                     </div>
