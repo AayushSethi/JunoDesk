@@ -2482,7 +2482,7 @@ export default function App() {
                             className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
                         >
                             <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
-                                <img src="/pics/bot.png" alt="Inbox" className="w-6 h-6 object-contain" />
+                                <img src="/pics/bot.png" alt="Inbox" className="w-8 h-8 object-contain" />
                             </div>
                             <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
                         </button>
