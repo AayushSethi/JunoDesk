@@ -2268,36 +2268,36 @@ export default function App() {
                         {/* Inbox Tab */}
                         <button
                             onClick={() => setView('inbox')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                            <div className={`p-3 rounded-[20px] transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-gray-100/80 text-gray-900' : 'bg-transparent'}`}>
                                 <div className="w-6 h-6 border-[2.5px] border-current rounded-[7px] relative flex items-center justify-center">
                                     <div className="w-2.5 h-[2.5px] bg-current rounded-full"></div>
                                 </div>
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Calls</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest mt-1">Inbox</span>
                         </button>
 
                         {/* Receptionist Tab */}
                         <button
                             onClick={() => setView('receptionist')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                            <div className={`p-3 rounded-[20px] transition-all duration-300 ${view === 'receptionist' ? 'bg-gray-100/80 text-gray-900' : 'bg-transparent'}`}>
                                 <User size={24} strokeWidth={2.5} />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Assistant</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest mt-1">Assistant</span>
                         </button>
 
                         {/* Settings Tab */}
                         <button
                             onClick={() => setView('settings')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300 hover:text-gray-400'}`}
+                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'settings' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[18px] transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'bg-transparent'}`}>
+                            <div className={`p-3 rounded-[20px] transition-all duration-300 ${view === 'settings' ? 'bg-gray-100/80 text-gray-900' : 'bg-transparent'}`}>
                                 <Settings size={24} strokeWidth={2.5} />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Settings</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest mt-1">Settings</span>
                         </button>
 
                     </div>
