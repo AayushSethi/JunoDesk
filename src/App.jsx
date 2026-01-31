@@ -9,13 +9,20 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabase';
 
+import woman1 from './assets/avatars/woman_1.png';
+import woman2 from './assets/avatars/woman_2.png';
+import woman3 from './assets/avatars/woman_3.png';
+import man1 from './assets/avatars/man_1.png';
+import man2 from './assets/avatars/man_2.png';
+import man3 from './assets/avatars/man_3.png';
+
 const FALLBACK_VOICES = [
-    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1', provider: '11labs' },
-    { id: 'OYTbf65OHHFELVut7v2H', name: 'Woman 2', provider: '11labs' },
-    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Woman 3', provider: '11labs' },
-    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Man 1', provider: '11labs' },
-    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'Man 2', provider: '11labs' },
-    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3', provider: '11labs' }
+    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1', provider: '11labs', avatar: woman1 },
+    { id: 'OYTbf65OHHFELVut7v2H', name: 'Woman 2', provider: '11labs', avatar: woman2 },
+    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Woman 3', provider: '11labs', avatar: woman3 },
+    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Man 1', provider: '11labs', avatar: man1 },
+    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'Man 2', provider: '11labs', avatar: man2 },
+    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3', provider: '11labs', avatar: man3 }
 ];
 
 const LANGUAGES = [
@@ -568,7 +575,7 @@ export default function App() {
                     {/* Header */}
                     <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
                         <h1 className="text-2xl font-black tracking-tight">
-                            <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                            <span className="text-gray-900">clear</span><span className="text-blue-600">wise.</span>
                         </h1>
                     </div>
 
@@ -580,7 +587,7 @@ export default function App() {
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-50 border-2 border-white shadow-sm">
                                         <img
-                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
+                                            src={voiceOptions.find(v => v.name === personality.name)?.avatar || voiceOptions[0].avatar}
                                             alt="Assistant"
                                             className="w-full h-full object-cover"
                                         />
@@ -1051,7 +1058,7 @@ export default function App() {
                                                         className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-gray-100 bg-white hover:border-gray-200'} active:scale-95`}
                                                     >
                                                         <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-100 mb-2 ring-1 ring-gray-100">
-                                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}&backgroundColor=b6e3f4`} alt={p.name} className="w-full h-full object-cover" />
+                                                            <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
                                                             {isPlaying && (
                                                                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                                                                     <AudioWaveform size={20} className="text-white animate-pulse" />
