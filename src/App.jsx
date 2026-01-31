@@ -2474,39 +2474,39 @@ export default function App() {
                ========================================= */}
             {
                 view !== 'auth' && view !== 'onboarding' && view !== 'intro' && (
-                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-[24rem] bg-white flex justify-between items-center py-4 px-8 z-[999] rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.1)]">
+                    <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-gray-200/50 flex justify-around items-center py-4 px-6 z-[999] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
 
                         {/* Inbox Tab */}
                         <button
                             onClick={() => setView('inbox')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
                         >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
-                                <img src="/pics/bot.png" alt="Inbox" className="w-8 h-8 object-contain" />
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                                <img src="/pics/bot.png" alt="Inbox" className="w-8 h-8 object-contain drop-shadow-sm" />
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Inbox</span>
                         </button>
 
                         {/* Receptionist Tab */}
                         <button
                             onClick={() => setView('receptionist')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
                         >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
-                                <img src="/pics/man-user.png" alt="Assistant" className="w-6 h-6 object-contain" />
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                                <img src="/pics/man-user.png" alt="Assistant" className="w-6 h-6 object-contain drop-shadow-sm" />
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400'}`}>Assistant</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Assistant</span>
                         </button>
 
                         {/* Settings Tab */}
                         <button
                             onClick={() => setView('settings')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
                         >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
-                                <img src="/pics/gear.png" alt="Settings" className="w-6 h-6 object-contain" />
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                                <img src="/pics/gear.png" alt="Settings" className="w-6 h-6 object-contain drop-shadow-sm" />
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400'}`}>Settings</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Settings</span>
                         </button>
 
                     </div>
