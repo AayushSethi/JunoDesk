@@ -35,9 +35,10 @@ export default function App() {
 
 
     // --- Navigation State ---
-    const [view, setView] = useState('auth'); // Default to auth
+    const [view, setView] = useState('auth'); // auth, onboarding, intro, inbox, receptionist, settings, call-detail, manage-plan, account
     const [selectedCall, setSelectedCall] = useState(null);
-
+    const [playingVoiceId, setPlayingVoiceId] = useState(null); // Used for voice preview AND call recording playback
+    const [audioProgress, setAudioProgress] = useState(0); // 0 to 100 for call recording progress
     // --- Auth Effect ---
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -209,7 +210,7 @@ export default function App() {
     const [knowledgeKeywords, setKnowledgeKeywords] = useState([]);
     const [voiceOptions] = useState(FALLBACK_VOICES);
     const [languages, setLanguages] = useState(['English']);
-    const [playingVoiceId, setPlayingVoiceId] = useState(null);
+    // const [playingVoiceId, setPlayingVoiceId] = useState(null); // Moved to top
 
     // Input States
     const [tempQuestion, setTempQuestion] = useState({ q: "", a: "" });
@@ -662,7 +663,6 @@ export default function App() {
                                                             onClick={() => setExpandedCallId(isExpanded ? null : call.id)}
                                                             className={`bg-white rounded-[1.5rem] p-5 shadow-sm border border-gray-100 transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-[#2563EB]/50 shadow-md transform scale-[1.01]' : 'active:scale-[0.98]'}`}
                                                         >
-                                                            {/* Header Row */}
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
                                                                     <h4 className="font-bold text-gray-900 text-lg">{call.number}</h4>
@@ -670,7 +670,10 @@ export default function App() {
                                                                         {call.name === "Unknown Caller" ? "Unknown" : call.name}
                                                                     </div>
                                                                 </div>
-                                                                <span className="text-xs font-bold text-gray-400">{call.time.split(',')[1]?.trim().replace(':00 ', ' ')}</span>
+                                                                <span className="text-xs font-bold text-gray-400">
+                                                                    {/* Time Format: 4:10 PM */}
+                                                                    {new Date(call.rawTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                                </span>
                                                             </div>
 
                                                             {/* Summary / Preview */}
@@ -688,33 +691,127 @@ export default function App() {
                                                                     </p>
 
                                                                     {/* Actions */}
+                                                                    {/* Actions */}
                                                                     <div className="flex items-center gap-2 mb-6">
-                                                                        <button className="bg-[#2563EB] text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">
-                                                                            <Phone size={14} className="fill-current" /> Call
+                                                                        <button className="bg-[#2563EB] text-white px-5 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">
+                                                                            <Phone size={13} className="fill-current" /> Call
                                                                         </button>
-                                                                        <button className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-gray-200 transition-colors whitespace-nowrap">
-                                                                            <UserPlus size={14} /> Add Contact
+                                                                        <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 hover:bg-gray-200 transition-colors whitespace-nowrap">
+                                                                            <UserPlus size={13} /> Add
                                                                         </button>
-                                                                        <div className="flex gap-2 ml-auto">
-                                                                            <button className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                                                                <Share2 size={16} />
+                                                                        <div className="flex gap-1.5 ml-auto">
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); showToast("Sharing options..."); }}
+                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                                                title="Share"
+                                                                            >
+                                                                                <Share2 size={14} />
                                                                             </button>
-                                                                            <button className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                                                                <Trash2 size={16} />
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); showToast("Archived Call"); }}
+                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                                title="Archive"
+                                                                            >
+                                                                                <Archive size={14} />
+                                                                            </button>
+                                                                            <button className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                                                                <Trash2 size={14} />
                                                                             </button>
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Player (Mock) */}
-                                                                    <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3 mb-6">
-                                                                        <button className="w-8 h-8 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-sm shrink-0">
-                                                                            <Play size={12} className="fill-current ml-0.5" />
-                                                                        </button>
-                                                                        <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                                                            <div className="w-1/3 h-full bg-[#2563EB]"></div>
+                                                                    {/* Audio Player (Music Player Style) */}
+                                                                    {call.recordingUrl && (
+                                                                        <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3 mb-6 shadow-sm z-10 relative" onClick={(e) => e.stopPropagation()}>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    const audioId = `audio-${call.id}`;
+                                                                                    const audioEl = document.getElementById(audioId);
+                                                                                    if (audioEl) {
+                                                                                        if (audioEl.paused) {
+                                                                                            document.querySelectorAll('audio').forEach(el => { if (el.id !== audioId) el.pause(); });
+                                                                                            audioEl.play();
+                                                                                        } else {
+                                                                                            audioEl.pause();
+                                                                                        }
+                                                                                        if (playingVoiceId !== call.id) {
+                                                                                            setPlayingVoiceId(call.id);
+                                                                                            setAudioProgress(0);
+                                                                                        } else {
+                                                                                            // If pausing same audio, keep ID but we know it is paused from UI toggle logic
+                                                                                            // actually, usually simpler to clear ID on pause or track 'isPlaying' state.
+                                                                                            // For this simple implementation, we toggle ID on play, keep it on pause?
+                                                                                            // No, if we pause, we usually want to show play icon. 
+                                                                                            // Since our icon logic is `playingVoiceId === call.id`, pausing updates the UI to play icon? 
+                                                                                            // Wait, existing logic was: onPause={() => setPlayingVoiceId(null)}
+                                                                                            // So pausing clears the ID.
+                                                                                        }
+                                                                                    }
+                                                                                }}
+                                                                                className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-md shrink-0 transition-all active:scale-95 ${playingVoiceId === call.id ? 'bg-[#2563EB] shadow-blue-200' : 'bg-gray-900 shadow-gray-200'}`}
+                                                                            >
+                                                                                {playingVoiceId === call.id ? <Pause size={12} className="fill-current" /> : <Play size={12} className="fill-current ml-0.5" />}
+                                                                            </button>
+
+                                                                            <audio
+                                                                                id={`audio-${call.id}`}
+                                                                                src={call.recordingUrl}
+                                                                                onEnded={() => { setPlayingVoiceId(null); setAudioProgress(0); }}
+                                                                                onPlay={() => setPlayingVoiceId(call.id)}
+                                                                                onPause={() => setPlayingVoiceId(null)}
+                                                                                onTimeUpdate={(e) => {
+                                                                                    const p = (e.currentTarget.currentTime / e.currentTarget.duration) * 100;
+                                                                                    setAudioProgress(p || 0);
+                                                                                }}
+                                                                                className="hidden"
+                                                                            />
+
+                                                                            {/* Real-time Progress Bar */}
+                                                                            <div className="flex-1 h-3.5 bg-gray-100 rounded-full overflow-hidden relative group cursor-pointer"
+                                                                                onClick={(e) => {
+                                                                                    // Optional: Click to seek
+                                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                                    const x = e.clientX - rect.left;
+                                                                                    const width = rect.width;
+                                                                                    const percent = x / width;
+                                                                                    const audioId = `audio-${call.id}`;
+                                                                                    const audioEl = document.getElementById(audioId);
+                                                                                    if (audioEl && Number.isFinite(audioEl.duration)) {
+                                                                                        audioEl.currentTime = percent * audioEl.duration;
+                                                                                        setAudioProgress(percent * 100);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                {/* Background Track */}
+                                                                                <div className="absolute inset-0 bg-gray-200/50"></div>
+
+                                                                                {/* Progress Fill */}
+                                                                                <div
+                                                                                    className="h-full bg-[#2563EB] rounded-full transition-all duration-75 relative"
+                                                                                    style={{ width: `${playingVoiceId === call.id ? audioProgress : 0}%` }}
+                                                                                >
+                                                                                    {/* Knob (Visible on hover or when playing) */}
+                                                                                    {playingVoiceId === call.id && (
+                                                                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm border border-gray-100 translate-x-1/2"></div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <span className="text-[10px] font-bold text-gray-400 tabular-nums min-w-[24px]">
+                                                                                {playingVoiceId === call.id ? (
+                                                                                    // Format Current Time
+                                                                                    (() => {
+                                                                                        const audioId = `audio-${call.id}`;
+                                                                                        const el = document.getElementById(audioId);
+                                                                                        if (!el) return "0:00";
+                                                                                        const mins = Math.floor(el.currentTime / 60);
+                                                                                        const secs = Math.floor(el.currentTime % 60);
+                                                                                        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                                                                                    })()
+                                                                                ) : "0:00"}
+                                                                            </span>
                                                                         </div>
-                                                                        <span className="text-[10px] font-bold text-gray-400">0:13</span>
-                                                                    </div>
+                                                                    )}
 
                                                                     {/* Transcript Chat */}
                                                                     <div className="space-y-3">
@@ -839,8 +936,8 @@ export default function App() {
                                         key={tab}
                                         onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
                                         className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${isActive
-                                                ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                             }`}
                                     >
                                         {tab}
