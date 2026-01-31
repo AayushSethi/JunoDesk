@@ -585,11 +585,11 @@ export default function App() {
                             {/* Assistant Status Card */}
                             <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-50 border-2 border-white shadow-sm">
+                                    <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-50 border-4 border-white shadow-md">
                                         <img
                                             src={voiceOptions.find(v => v.name === personality.name)?.avatar || voiceOptions[0].avatar}
                                             alt="Assistant"
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover scale-110 translate-y-1"
                                         />
                                     </div>
                                     <div>
@@ -1057,8 +1057,8 @@ export default function App() {
                                                         }}
                                                         className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-gray-100 bg-white hover:border-gray-200'} active:scale-95`}
                                                     >
-                                                        <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-100 mb-2 ring-1 ring-gray-100">
-                                                            <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                                                        <div className="relative w-20 h-20 rounded-full overflow-hidden bg-gray-100 mb-3 ring-4 ring-gray-50 shadow-inner">
+                                                            <img src={p.avatar} alt={p.name} className="w-full h-full object-cover scale-125 translate-y-1" />
                                                             {isPlaying && (
                                                                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                                                                     <AudioWaveform size={20} className="text-white animate-pulse" />
