@@ -168,6 +168,32 @@ export default function App() {
         }
     };
 
+    const handleUnarchiveCall = async (callId) => {
+        // Optimistic Update
+        const newArchivedIds = archivedIds.filter(id => id !== callId);
+        setArchivedIds(newArchivedIds);
+        showToast("Call moved to inbox");
+
+        try {
+            const { data: existing } = await supabase
+                .from('business_info')
+                .select('id')
+                .eq('owner_user_id', session.user.id)
+                .eq('type', 'archived_calls')
+                .maybeSingle();
+
+            if (existing) {
+                await supabase
+                    .from('business_info')
+                    .update({ content: { ids: newArchivedIds } })
+                    .eq('id', existing.id);
+            }
+        } catch (err) {
+            console.error("Failed to save unarchive state", err);
+            showToast("Failed to update archive state");
+        }
+    };
+
 
     // --- Data Fetching ---
     useEffect(() => {
@@ -793,6 +819,18 @@ export default function App() {
                                                                                     title="Archive"
                                                                                 >
                                                                                     <Archive size={14} />
+                                                                                </button>
+                                                                            )}
+                                                                            {archivedIds.includes(call.id) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleUnarchiveCall(call.id);
+                                                                                    }}
+                                                                                    className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-green-50 transition-colors"
+                                                                                    title="Move to Inbox"
+                                                                                >
+                                                                                    <Inbox size={14} />
                                                                                 </button>
                                                                             )}
                                                                             <button className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
