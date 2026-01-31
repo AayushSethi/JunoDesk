@@ -579,7 +579,7 @@ export default function App() {
                         </h1>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pb-24 px-4 scrollbar-hide">
+                    <div className="flex-1 overflow-y-auto pb-48 px-4 scrollbar-hide">
                         {/* Dashboard Stats */}
                         <div className="space-y-3 mb-6">
                             {/* Assistant Status Card */}
@@ -1884,7 +1884,7 @@ export default function App() {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-4 pb-48 space-y-4">
                             <div className="bg-white rounded-[2rem] p-6 shadow-sm text-center">
                                 <div className="w-20 h-20 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-4 text-2xl font-bold text-gray-400">
                                     {selectedCall.name.charAt(0)}
@@ -1986,7 +1986,7 @@ export default function App() {
                             </h1>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-4 pb-32">
+                        <div className="flex-1 overflow-y-auto px-4 pb-48">
 
                             {/* --- FEATURES --- */}
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-4">Features</h3>
