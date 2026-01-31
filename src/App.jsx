@@ -473,11 +473,11 @@ export default function App() {
                             </div>
                         </div>
                         <h1 className="text-2xl font-black text-center text-gray-900 mb-2">Welcome to LCE</h1>
-                        <p className="text-center text-gray-400 text-sm mb-8 font-medium">Your AI Receptionist awaits.</p>
+                        <p className="text-center text-gray-600 text-sm mb-8 font-medium">Your AI Receptionist awaits.</p>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
+                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Email Address</label>
                                 <input
                                     type="email"
                                     value={authEmail}
@@ -487,7 +487,7 @@ export default function App() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Password</label>
+                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Password</label>
                                 <input
                                     type="password"
                                     value={authPassword}
@@ -510,7 +510,7 @@ export default function App() {
                             <div className="text-center mt-4">
                                 <button
                                     onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); }}
-                                    className="text-xs font-bold text-gray-400 hover:text-blue-500 transition-colors"
+                                    className="text-xs font-bold text-gray-600 hover:text-blue-500 transition-colors"
                                 >
                                     {authMode === 'signin' ? "New here? Create Account" : "Already have an account? Sign In"}
                                 </button>
@@ -527,7 +527,7 @@ export default function App() {
                         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                     <h2 className="text-xl font-black text-gray-900 mb-2">Setting up your AI Receptionist</h2>
-                    <p className="text-sm font-bold text-gray-400">Acquiring dedicated phone number...</p>
+                    <p className="text-sm font-bold text-gray-600">Acquiring dedicated phone number...</p>
                 </div>
             )}
 
@@ -554,7 +554,7 @@ export default function App() {
                             Never Miss<br />Another Call
                         </h1>
                     </div>
-                    <div className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">
+                    <div className="text-gray-600 font-bold text-xs uppercase tracking-widest">
                         Powered by <span className="text-gray-900">NuPhone</span>
                     </div>
                 </div>
@@ -589,7 +589,7 @@ export default function App() {
                                         <h3 className="font-bold text-gray-900 text-lg">{personality.name}</h3>
                                         <div className="flex items-center gap-1.5">
                                             <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
-                                            <span className={`text-xs font-bold uppercase tracking-wider ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-400'}`}>
+                                            <span className={`text-xs font-bold uppercase tracking-wider ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-600'}`}>
                                                 {isReceptionistActive ? "Active 24/7" : "Offline"}
                                             </span>
                                         </div>
@@ -605,14 +605,14 @@ export default function App() {
                                         <Phone size={16} className="fill-current" />
                                     </div>
                                     <span className="text-3xl font-black text-gray-900 leading-none mb-1">{calls.length}</span>
-                                    <span className="text-xs font-bold text-gray-500">calls handled</span>
+                                    <span className="text-sm font-bold text-gray-600">calls handled</span>
                                 </div>
                                 <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
                                     <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-2">
                                         <ShieldAlert size={16} className="fill-current" />
                                     </div>
                                     <span className="text-3xl font-black text-gray-900 leading-none mb-1">0</span>
-                                    <span className="text-xs font-bold text-gray-500">spam blocked</span>
+                                    <span className="text-sm font-bold text-gray-600">spam blocked</span>
                                 </div>
                             </div>
                         </div>
@@ -622,7 +622,7 @@ export default function App() {
                             <button className="bg-[#2563EB] text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-200">
                                 Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread').length || calls.length}</span>
                             </button>
-                            <button className="bg-gray-100 text-gray-500 px-6 py-2.5 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors">
+                            <button className="bg-gray-100 text-gray-600 px-6 py-2.5 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors">
                                 Archived
                             </button>
                         </div>
@@ -668,11 +668,11 @@ export default function App() {
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
                                                                     <h4 className="font-bold text-gray-900 text-lg">{call.number}</h4>
-                                                                    <div className="text-xs font-bold text-gray-400 mt-0.5 max-w-[200px] truncate">
+                                                                    <div className="text-xs font-bold text-gray-600 mt-0.5 max-w-[200px] truncate">
                                                                         {call.name === "Unknown Caller" ? "Unknown" : call.name}
                                                                     </div>
                                                                 </div>
-                                                                <span className="text-xs font-bold text-gray-400">
+                                                                <span className="text-xs font-bold text-gray-600">
                                                                     {/* Time Format: 4:10 PM */}
                                                                     {new Date(call.rawTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                                                 </span>
@@ -680,7 +680,7 @@ export default function App() {
 
                                                             {/* Summary / Preview */}
                                                             {!isExpanded && (
-                                                                <p className="text-gray-400 text-xs truncate font-medium mt-1">
+                                                                <p className="text-gray-600 text-xs truncate font-medium mt-1">
                                                                     {call.summary}
                                                                 </p>
                                                             )}
@@ -688,7 +688,7 @@ export default function App() {
                                                             {/* Expanded View Content */}
                                                             {isExpanded && (
                                                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-2">
-                                                                    <p className="text-gray-600 text-sm font-medium leading-relaxed mb-6">
+                                                                    <p className="text-gray-700 text-sm font-medium leading-relaxed mb-6">
                                                                         {call.summary}
                                                                     </p>
 
@@ -939,7 +939,7 @@ export default function App() {
                                         onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
                                         className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${isActive
                                             ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
-                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                                             }`}
                                     >
                                         {tab}
@@ -983,7 +983,7 @@ export default function App() {
                                             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                                                 <AudioWaveform size={18} className="text-[#2563EB]" /> Voice & Personality
                                             </h3>
-                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-500">
+                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-600">
                                                 Voice changes apply to future calls
                                             </span>
                                         </div>
