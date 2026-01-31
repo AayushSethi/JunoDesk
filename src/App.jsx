@@ -1027,7 +1027,10 @@ export default function App() {
                                                             try {
                                                                 await supabase
                                                                     .from('business_profiles')
-                                                                    .update({ voice_id: p.id })
+                                                                    .update({
+                                                                        voice_id: p.id,
+                                                                        assistant_name: p.name
+                                                                    })
                                                                     .eq('owner_user_id', session.user.id);
 
                                                                 // Also update personality name in business_profiles if needed, or keep using business_info for non-core stuff?
