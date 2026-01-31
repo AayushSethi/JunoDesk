@@ -742,23 +742,15 @@ export default function App() {
                                     let label = "Older";
                                     if (diffDays === 0 && now.getDate() === date.getDate()) label = "Today";
                                     else if (diffDays === 1) label = "Yesterday";
-                                    else if (diffDays <= 6) {
-                                        // Use full day name for previous 7 days
-                                        label = date.toLocaleDateString('en-US', { weekday: 'long' });
-                                    } else if (diffDays <= 30) label = "Last 30 Days";
+                                    else if (diffDays <= 7) label = "Previous 7 Days";
+                                    else if (diffDays <= 30) label = "Last 30 Days";
 
                                     if (!acc[label]) acc[label] = [];
                                     acc[label].push(call);
                                     return acc;
                                 }, {});
 
-                                const daysOfWeek = [];
-                                for (let i = 2; i <= 6; i++) {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() - i);
-                                    daysOfWeek.push(d.toLocaleDateString('en-US', { weekday: 'long' }));
-                                }
-                                const order = ["Today", "Yesterday", ...daysOfWeek, "Last 30 Days", "Older"];
+                                const order = ["Today", "Yesterday", "Previous 7 Days", "Last 30 Days", "Older"];
 
                                 return order.map(label => {
                                     if (!grouped[label] || grouped[label].length === 0) return null;
@@ -783,10 +775,14 @@ export default function App() {
                                                                         {call.name === "Unknown Caller" ? "Unknown" : call.name}
                                                                     </div>
                                                                 </div>
-                                                                <span className="text-xs font-bold text-gray-600">
-                                                                    {/* Time Format: 4:10 PM */}
-                                                                    {new Date(call.rawTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                                                </span>
+                                                                <div className="flex flex-col items-end">
+                                                                    <span className="text-xs font-bold text-gray-900">
+                                                                        {new Date(call.rawTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-semibold text-gray-400">
+                                                                        {new Date(call.rawTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                                    </span>
+                                                                </div>
                                                             </div>
 
                                                             {/* Summary / Preview */}
