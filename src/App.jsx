@@ -9,12 +9,12 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabase';
 
-import woman1 from './assets/avatars/woman_1.png';
-import woman2 from './assets/avatars/woman_2.png';
-import woman3 from './assets/avatars/woman_3.png';
-import man1 from './assets/avatars/man_1.png';
-import man2 from './assets/avatars/man_2.png';
-import man3 from './assets/avatars/man_3.png';
+import woman1 from './assets/avatars/uifaces-human-avatar.jpg';
+import woman2 from './assets/avatars/uifaces-human-avatar (1).jpg';
+import woman3 from './assets/avatars/uifaces-human-avatar (2).jpg';
+import man1 from './assets/avatars/uifaces-human-avatar (3).jpg';
+import man2 from './assets/avatars/uifaces-human-avatar (4).jpg';
+import man3 from './assets/avatars/uifaces-human-avatar (5).jpg';
 
 const FALLBACK_VOICES = [
     { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1', provider: '11labs', avatar: woman1 },
