@@ -2132,6 +2132,20 @@ export default function App() {
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Account</h3>
                             <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
 
+                                {/* Manage Plan */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <CreditCard size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Manage Plan</h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">View invoices and manage subscription</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
+
                                 {/* Support */}
                                 <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Support...')}>
                                     <div className="flex items-start gap-4">
@@ -2189,22 +2203,7 @@ export default function App() {
                                 </div>
                             </div>
 
-                            {/* --- BUSINESS --- */}
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Business</h3>
-                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden mb-8">
-                                <div className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <CreditCard size={20} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Manage Plan</h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">View invoices and manage subscription</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-                            </div>
+
 
                             {/* Footer */}
                             <div className="flex flex-col items-center justify-center pb-8 text-gray-400 gap-1.5 opacity-60">
