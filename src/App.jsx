@@ -605,14 +605,14 @@ export default function App() {
                                         <Phone size={16} className="fill-current" />
                                     </div>
                                     <span className="text-3xl font-black text-gray-900 leading-none mb-1">{calls.length}</span>
-                                    <span className="text-xs font-bold text-gray-400">calls handled</span>
+                                    <span className="text-xs font-bold text-gray-500">calls handled</span>
                                 </div>
                                 <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
                                     <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-2">
                                         <ShieldAlert size={16} className="fill-current" />
                                     </div>
                                     <span className="text-3xl font-black text-gray-900 leading-none mb-1">0</span>
-                                    <span className="text-xs font-bold text-gray-400">spam blocked</span>
+                                    <span className="text-xs font-bold text-gray-500">spam blocked</span>
                                 </div>
                             </div>
                         </div>
@@ -983,7 +983,7 @@ export default function App() {
                                             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                                                 <AudioWaveform size={18} className="text-[#2563EB]" /> Voice & Personality
                                             </h3>
-                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-400">
+                                            <span className="text-[10px] uppercase tracking-wide font-bold text-gray-500">
                                                 Voice changes apply to future calls
                                             </span>
                                         </div>
