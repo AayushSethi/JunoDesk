@@ -1997,30 +1997,7 @@ export default function App() {
                                     </div>
                                 </div>
 
-                                {/* Call Forwarding (Dynamic Label) */}
-                                <div
-                                    className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => { setView('receptionist'); setIsForwardingSetupOpen(true); }}
-                                >
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            {forwardingMode === 'enable' && activationStep > 1 ? (
-                                                <PhoneOff size={20} className="stroke-[2.5px]" />
-                                            ) : (
-                                                <PhoneCall size={20} className="stroke-[2.5px]" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">
-                                                {forwardingMode === 'enable' && activationStep > 1 ? "Turn Off Call Forwarding" : "Turn On Call Forwarding"}
-                                            </h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">
-                                                {forwardingMode === 'enable' && activationStep > 1 ? "Stop routing calls to your AI assistant" : "Route calls to your AI assistant"}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
+
                             </div>
 
                             {/* --- ACCOUNT --- */}
@@ -2050,6 +2027,20 @@ export default function App() {
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Privacy Policy</h4>
                                             <p className="text-sm font-medium text-gray-600 mt-0.5">Review privacy practices</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
+
+                                {/* Sign Out */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <LogOut size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Sign Out</h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Log out of your account</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
@@ -2090,7 +2081,6 @@ export default function App() {
                             {/* Footer */}
                             <div className="flex flex-col items-center justify-center pb-8 text-gray-400 gap-1.5 opacity-60">
                                 <span className="text-sm font-bold tracking-widest uppercase">Made with <span className="text-red-500">♥</span> in the USA 🇺🇸</span>
-                                <button className="text-xs font-bold underline" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>Sign Out</button>
                             </div>
                         </div>
                     </div>
