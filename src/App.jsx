@@ -1078,28 +1078,7 @@ export default function App() {
                             {activeReceptionistTab === 'instructions' && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                                    {/* Languages Section */}
-                                    <section>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <Globe size={18} className="text-[#2563EB]" />
-                                                <h3 className="text-base font-bold text-gray-900">Languages</h3>
-                                            </div>
-                                            <button
-                                                onClick={() => setShowLanguageModal(true)}
-                                                className="text-xs font-bold text-gray-400 hover:text-[#2563EB] transition-colors flex items-center gap-1"
-                                            >
-                                                <Edit2 size={12} /> Edit
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {languages.map(lang => (
-                                                <span key={lang} className="px-4 py-2 bg-blue-50 text-[#2563EB] rounded-full text-xs font-bold border border-blue-100">
-                                                    {lang}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </section>
+
 
                                     {/* Voice & Personality Grid */}
                                     <section>
