@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2, Activity, Inbox
+    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -1955,65 +1955,142 @@ export default function App() {
                                 <ChevronLeft size={28} />
                             </button>
                             <h1 className="text-lg font-bold text-gray-900">Settings</h1>
-                            <div className="w-10" /> {/* Spacer */}
+                            <div className="w-10" />
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-6 pb-24">
-                            <div className="mt-2"></div>
+                        <div className="flex-1 overflow-y-auto px-4 pb-32">
 
-                            {/* General Section */}
-                            <div className="mb-8">
-                                <h3 className="text-Gray-500 font-medium mb-4 text-sm text-gray-500">General</h3>
-                                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                                    {[
-                                        { icon: CreditCard, label: 'Manage Plan', action: () => setView('manage-plan') },
-                                        { icon: User, label: 'Account', action: () => setView('account') },
-                                        { icon: UserPlus, label: 'Invite Friend' },
-                                        { icon: Star, label: 'Rate App' },
-                                        { icon: Clock, label: 'Time Zone', value: 'EST' },
-                                        {
-                                            icon: LogOut,
-                                            label: 'Sign Out',
-                                            action: async () => {
-                                                await supabase.auth.signOut();
-                                                setView('auth');
-                                            }
-                                        },
-                                    ].map((item, i, arr) => (
-                                        <div
-                                            key={item.label}
-                                            onClick={item.action || (() => showToast(`${item.label} clicked`))}
-                                            className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors ${i !== arr.length - 1 ? 'border-b border-gray-100' : ''}`}
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                                    <item.icon size={20} className="stroke-[2.5]" />
-                                                </div>
-                                                <span className="font-bold text-gray-900">{item.label}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {item.value && <span className="text-gray-400 font-medium text-sm">{item.value}</span>}
-                                                <ChevronRight size={20} className="text-gray-300" />
-                                            </div>
+                            {/* --- FEATURES --- */}
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-4">Features</h3>
+                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
+
+                                {/* Contacts */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Contacts Settings...')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <Users size={20} className="stroke-[2.5px]" />
                                         </div>
-                                    ))}
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Contacts</h4>
+                                            <p className="text-sm font-medium text-red-500 mt-0.5">Enable in Settings to sync contacts</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-xs font-bold text-[#2563EB] flex items-center">
+                                        Settings <ChevronRight size={14} className="ml-0.5" />
+                                    </div>
+                                </div>
+
+                                {/* Notifications */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <Bell size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Notifications</h4>
+                                            <p className="text-sm font-medium text-red-500 mt-0.5">Enable in Settings to receive alerts</p>
+                                        </div>
+                                    </div>
+                                    {/* Mock Toggle */}
+                                    <div className="w-12 h-7 bg-[#2563EB] rounded-full relative transition-colors">
+                                        <div className="absolute right-0.5 top-0.5 w-6 h-6 bg-white rounded-full shadow-sm"></div>
+                                    </div>
+                                </div>
+
+                                {/* Call Forwarding (Dynamic Label) */}
+                                <div
+                                    className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors cursor-pointer"
+                                    onClick={() => { setView('receptionist'); setIsForwardingSetupOpen(true); }}
+                                >
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            {forwardingMode === 'enable' && activationStep > 1 ? (
+                                                <PhoneOff size={20} className="stroke-[2.5px]" />
+                                            ) : (
+                                                <PhoneCall size={20} className="stroke-[2.5px]" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">
+                                                {forwardingMode === 'enable' && activationStep > 1 ? "Turn Off Call Forwarding" : "Turn On Call Forwarding"}
+                                            </h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">
+                                                {forwardingMode === 'enable' && activationStep > 1 ? "Stop routing calls to your AI assistant" : "Route calls to your AI assistant"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
                                 </div>
                             </div>
 
-                            {/* Contact Us */}
-                            <div className="mb-12">
-                                <button
-                                    onClick={() => showToast("Contact Us clicked")}
-                                    className="w-full bg-white rounded-3xl border border-gray-200 p-4 flex items-center justify-center font-bold text-gray-900 shadow-sm hover:bg-gray-50 active:scale-[0.98] transition-all gap-2"
-                                >
-                                    <LifeBuoy size={20} />
-                                    <span>Contact Us</span>
-                                </button>
+                            {/* --- ACCOUNT --- */}
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Account</h3>
+                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
+
+                                {/* Support */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Support...')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <MessageSquare size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Speak with support</h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Get help or share your ideas!</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
+
+                                {/* Privacy Policy */}
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Privacy Policy...')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <Lock size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Privacy Policy</h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Review privacy practices</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
+
+                                {/* Delete Account */}
+                                <div className="flex items-center justify-between p-5 hover:bg-red-50/50 transition-colors cursor-pointer" onClick={() => showToast('Delete Account Flow')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                            <Trash2 size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-red-500">Delete Account</h4>
+                                            <p className="text-sm font-medium text-gray-400 mt-0.5">Remove your data</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
+                            </div>
+
+                            {/* --- BUSINESS --- */}
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Business</h3>
+                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden mb-8">
+                                <div className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                            <Briefcase size={20} className="stroke-[2.5px]" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-900">Need more from your receptionist?</h4>
+                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Talk to us about our Business plan →</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={20} className="text-gray-300" />
+                                </div>
                             </div>
 
                             {/* Footer */}
                             <div className="flex flex-col items-center justify-center pb-8 text-gray-400 gap-1.5 opacity-60">
                                 <span className="text-sm font-bold tracking-widest uppercase">Made with <span className="text-red-500">♥</span> in the USA 🇺🇸</span>
+                                <button className="text-xs font-bold underline" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>Sign Out</button>
                             </div>
                         </div>
                     </div>
