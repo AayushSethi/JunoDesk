@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock
+    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -1098,7 +1098,7 @@ export default function App() {
                                     <section>
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                                                <AudioWaveform size={18} className="text-[#2563EB]" /> Voice & Personality
+                                                <AudioWaveform size={18} className="text-[#2563EB]" /> Voice
                                             </h3>
                                             <span className="text-[10px] uppercase tracking-wide font-bold text-gray-600">
                                                 Voice changes apply to future calls
@@ -1188,7 +1188,9 @@ export default function App() {
 
                                     {/* Greeting Message */}
                                     <section>
-                                        <h3 className="text-base font-bold text-gray-900 mb-1">Greeting Message</h3>
+                                        <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                            <MessageCircle size={18} className="text-[#2563EB]" /> Greeting Message
+                                        </h3>
                                         <p className="text-xs text-gray-500 mb-4">The first message your receptionist says upon accepting a call</p>
 
                                         <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
@@ -1214,7 +1216,9 @@ export default function App() {
 
                                     {/* Instructions */}
                                     <section>
-                                        <h3 className="text-base font-bold text-gray-900 mb-1">Instructions</h3>
+                                        <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                            <FileText size={18} className="text-[#2563EB]" /> Instructions
+                                        </h3>
                                         <p className="text-xs text-gray-500 mb-4 leading-relaxed">
                                             Specific instructions for how your receptionist should handle calls.
                                         </p>
