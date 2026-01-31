@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-    background-color: #ffffff;
+    background-color: #FBFBFE;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overscroll-behavior-y: none;
 }

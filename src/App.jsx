@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2, Activity
+    ShieldAlert, Archive, Trash2, Activity, Inbox
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -564,9 +564,9 @@ export default function App() {
                INBOX VIEW
                ========================================= */}
             {view === 'inbox' && (
-                <div className="flex flex-col h-full relative animate-in fade-in duration-500 bg-white">
+                <div className="flex flex-col h-full relative animate-in fade-in duration-500 bg-transparent">
                     {/* Header */}
-                    <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 bg-white z-20">
+                    <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
                         <h1 className="text-2xl font-black tracking-tight">
                             <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                         </h1>
@@ -600,14 +600,14 @@ export default function App() {
 
                             {/* Stats Grid */}
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-[#F9FAFB] rounded-3xl p-5 flex flex-col items-center justify-center text-center">
+                                <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
                                     <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
                                         <Phone size={16} className="fill-current" />
                                     </div>
                                     <span className="text-3xl font-black text-gray-900 leading-none mb-1">{calls.length}</span>
                                     <span className="text-xs font-bold text-gray-400">calls handled</span>
                                 </div>
-                                <div className="bg-[#F9FAFB] rounded-3xl p-5 flex flex-col items-center justify-center text-center">
+                                <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
                                     <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-2">
                                         <ShieldAlert size={16} className="fill-current" />
                                     </div>
@@ -921,9 +921,9 @@ export default function App() {
                ========================================= */}
             {
                 view === 'receptionist' && (
-                    <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
+                    <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
                         {/* Header (Matches Inbox Style) */}
-                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 bg-white z-20">
+                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
                             <h1 className="text-2xl font-black tracking-tight">
                                 <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                             </h1>
@@ -939,7 +939,7 @@ export default function App() {
                                         onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
                                         className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${isActive
                                             ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                                             }`}
                                     >
                                         {tab}
@@ -950,7 +950,7 @@ export default function App() {
 
 
                         {/* --- Tab Content --- */}
-                        <div className="w-full flex-auto bg-white relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
+                        <div className="w-full flex-auto bg-transparent relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
                             {activeReceptionistTab === 'instructions' && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -1837,9 +1837,9 @@ export default function App() {
                ========================================= */}
             {
                 view === 'call-detail' && selectedCall && (
-                    <div className="absolute inset-0 z-[60] bg-[#F2F4F8] flex flex-col h-full animate-in slide-in-from-right duration-300">
+                    <div className="absolute inset-0 z-[60] bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="bg-white px-6 pt-12 pb-4 flex justify-between items-center shadow-sm z-20">
+                        <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20">
                             <button onClick={() => setView('inbox')} className="w-10 h-10 -ml-2 rounded-full items-center justify-center flex hover:bg-gray-50 transition-colors text-gray-900">
                                 <ChevronLeft size={28} />
                             </button>
@@ -1945,7 +1945,7 @@ export default function App() {
                ========================================= */}
             {
                 view === 'settings' && (
-                    <div className="flex flex-col h-full bg-white relative animate-in slide-in-from-right duration-300">
+                    <div className="flex flex-col h-full bg-transparent relative animate-in slide-in-from-right duration-300">
                         {/* Header */}
                         <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20">
                             <button
@@ -2027,9 +2027,9 @@ export default function App() {
                ========================================= */}
             {
                 view === 'account' && (
-                    <div className="absolute inset-0 z-50 bg-[#F2F4F8] flex flex-col h-full animate-in slide-in-from-right duration-300">
+                    <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="bg-white px-6 pt-12 pb-4 flex items-center shadow-sm z-20">
+                        <div className="px-6 pt-12 pb-4 flex items-center z-20">
                             <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
                                 <ChevronLeft size={24} className="mr-0.5" />
                                 Back
@@ -2073,9 +2073,9 @@ export default function App() {
                ========================================= */}
             {
                 view === 'manage-plan' && (
-                    <div className="absolute inset-0 z-50 bg-[#F2F4F8] flex flex-col h-full animate-in slide-in-from-right duration-300">
+                    <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="bg-white px-6 pt-12 pb-4 flex items-center shadow-sm z-20">
+                        <div className="px-6 pt-12 pb-4 flex items-center z-20">
                             <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
                                 <ChevronLeft size={24} className="mr-0.5" />
                                 Back
@@ -2280,60 +2280,39 @@ export default function App() {
                ========================================= */}
             {
                 view !== 'auth' && view !== 'onboarding' && view !== 'intro' && (
-                    <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around items-end pb-9 pt-2 px-2 z-[999] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.03)] h-[7.2rem]">
+                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-[24rem] bg-white flex justify-between items-center py-4 px-8 z-[999] rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.1)]">
 
                         {/* Inbox Tab */}
                         <button
                             onClick={() => setView('inbox')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
                         >
-                            <div className="p-3 relative bg-transparent">
-                                <img
-                                    src="/pics/bot.png"
-                                    alt="Inbox"
-                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
-                                />
-                                {(view === 'inbox' || view === 'call-detail') && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
-                                )}
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
+                                <img src="/pics/bot.png" alt="Inbox" className="w-6 h-6 object-contain" />
                             </div>
-                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
                         </button>
 
                         {/* Receptionist Tab */}
                         <button
                             onClick={() => setView('receptionist')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
                         >
-                            <div className="p-3 relative bg-transparent">
-                                <img
-                                    src="/pics/man-user.png"
-                                    alt="Assistant"
-                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'receptionist' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
-                                />
-                                {view === 'receptionist' && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
-                                )}
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
+                                <img src="/pics/man-user.png" alt="Assistant" className="w-6 h-6 object-contain" />
                             </div>
-                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400'}`}>Assistant</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400'}`}>Assistant</span>
                         </button>
 
                         {/* Settings Tab */}
                         <button
                             onClick={() => setView('settings')}
-                            className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'settings' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95"
                         >
-                            <div className="p-3 relative bg-transparent">
-                                <img
-                                    src="/pics/gear.png"
-                                    alt="Settings"
-                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'settings' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
-                                />
-                                {view === 'settings' && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
-                                )}
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}>
+                                <img src="/pics/gear.png" alt="Settings" className="w-6 h-6 object-contain" />
                             </div>
-                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400'}`}>Settings</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400'}`}>Settings</span>
                         </button>
 
                     </div>
