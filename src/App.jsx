@@ -523,7 +523,7 @@ export default function App() {
                 await fetch('http://localhost:3000/api/sync-assistant', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: session.user.id, languages, voiceId: overrideVoiceId })
+                    body: JSON.stringify({ userId: session.user.id, languages, voiceId: overrideVoiceId, summaryPrompt: "Summarize the call in 2 sentences max." })
                 });
                 console.log("✅ Assistant Synced");
                 setToast("Assistant Updated");
