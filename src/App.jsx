@@ -1149,7 +1149,7 @@ export default function App() {
                                                                 showToast("Failed to save voice");
                                                             }
                                                         }}
-                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'border-[#2563EB] bg-white shadow-[0_4px_20px_-4px_rgba(37,99,235,0.15)] ring-1 ring-[#2563EB]/20' : 'border-gray-100/50 bg-white hover:border-gray-200 shadow-sm hover:shadow-md'} active:scale-[0.98]`}
+                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'border-[#2563EB] bg-gradient-to-br from-blue-50/80 to-indigo-50/80 shadow-[0_4px_20px_-4px_rgba(37,99,235,0.2)] ring-1 ring-[#2563EB]/20' : 'border-blue-100/30 bg-gradient-to-br from-slate-50 to-blue-50/30 hover:border-blue-200/50 shadow-sm hover:shadow-md'} active:scale-[0.98]`}
                                                     >
                                                         {/* Selection Background Effect */}
                                                         {isSelected && <div className="absolute inset-0 bg-blue-50/50 backdrop-blur-[1px] pointer-events-none" />}
