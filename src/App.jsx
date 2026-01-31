@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2
+    ShieldAlert, Archive, Trash2, Activity
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -74,7 +74,7 @@ export default function App() {
     const [isEditingReceptionist, setIsEditingReceptionist] = useState(false);
     const [toast, setToast] = useState(null);
     const [isForwardingSetupOpen, setIsForwardingSetupOpen] = useState(false);
-    const [isReceptionistActive, setIsReceptionistActive] = useState(false);
+    const [isReceptionistActive, setIsReceptionistActive] = useState(true);
 
     // Forwarding Flow State
     const [forwardingMode, setForwardingMode] = useState('enable'); // 'enable' | 'disable'
@@ -588,8 +588,10 @@ export default function App() {
                                     <div>
                                         <h3 className="font-bold text-gray-900 text-lg">{personality.name}</h3>
                                         <div className="flex items-center gap-1.5">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                                            <span className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">Active 24/7</span>
+                                            <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                                            <span className={`text-xs font-bold uppercase tracking-wider ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-400'}`}>
+                                                {isReceptionistActive ? "Active 24/7" : "Offline"}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1452,125 +1454,125 @@ export default function App() {
                             {activeReceptionistTab === 'phone' && (
                                 <div className="pb-32">
                                     {!isForwardingSetupOpen ? (
-                                        <div className="space-y-8 animate-in fade-in duration-300">
+                                        <div className="space-y-6 animate-in fade-in duration-300">
 
-                                            {/* Receptionist Active Toggle */}
-                                            <section className={`border rounded-2xl p-4 flex items-center justify-between transition-colors ${isReceptionistActive ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
-                                                <div>
-                                                    <h3 className="text-base font-bold text-gray-900">Receptionist Active</h3>
-                                                    <p className={`text-xs font-medium ${isReceptionistActive ? 'text-blue-600' : 'text-gray-500'}`}>
-                                                        {isReceptionistActive ? "Answering calls" : "Paused"}
-                                                    </p>
+                                            {/* 1. Phone number & Demo */}
+                                            <section className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <div>
+                                                        <h3 className="text-base font-bold text-gray-900">{personality.name}'s Number</h3>
+                                                        <p className="text-xs text-gray-400 mt-0.5">Call to test your assistant</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (userInfo.vapiPhoneNumber) {
+                                                                window.location.href = `tel:${userInfo.vapiPhoneNumber}`;
+                                                            } else {
+                                                                showToast("No number yet");
+                                                            }
+                                                        }}
+                                                        className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors"
+                                                    >
+                                                        <Phone size={12} className="fill-current" /> Test Call
+                                                    </button>
                                                 </div>
-                                                <div
-                                                    onClick={() => setIsReceptionistActive(!isReceptionistActive)}
-                                                    className={`w-12 h-7 rounded-full relative cursor-pointer transition-colors duration-300 ${isReceptionistActive ? 'bg-blue-500' : 'bg-gray-300'}`}
-                                                >
-                                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isReceptionistActive ? 'left-6' : 'left-1'}`}></div>
-                                                </div>
-                                            </section>
-
-                                            {/* Number Display */}
-                                            <section>
-                                                <h3 className="text-base font-bold text-gray-900 mb-1">{personality.name}'s Number</h3>
-                                                <p className="text-xs text-gray-500 mb-3">This is your receptionist phone number</p>
 
                                                 {userInfo.vapiPhoneNumber ? (
-                                                    <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-3 shadow-sm text-gray-900 animate-in fade-in zoom-in duration-300">
-                                                        <Phone size={18} className="fill-current text-green-500" />
-                                                        <span className="text-base">{userInfo.vapiPhoneNumber}</span>
+                                                    <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-center space-x-3 text-gray-900">
+                                                        <span>{userInfo.vapiPhoneNumber}</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
+                                                                showToast("Number copied");
+                                                            }}
+                                                            className="text-gray-300 hover:text-blue-500 transition-colors ml-2"
+                                                        >
+                                                            <Copy size={16} />
+                                                        </button>
                                                     </div>
                                                 ) : provisioning ? (
-                                                    <div className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse">
-                                                        <RefreshCw size={18} className="animate-spin" />
-                                                        <span>Generating Number...</span>
+                                                    <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse">
+                                                        <RefreshCw size={16} className="animate-spin" />
+                                                        <span>Generating...</span>
                                                     </div>
                                                 ) : (
                                                     <button
                                                         onClick={handleProvision}
-                                                        className="w-full bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm font-bold flex items-center justify-center space-x-2 text-red-600 hover:bg-red-100 transition-colors"
+                                                        className="w-full bg-red-50 border border-red-100 rounded-2xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-red-600 hover:bg-red-100 transition-colors"
                                                     >
-                                                        <RefreshCw size={18} />
-                                                        <span>Retry Activation</span>
+                                                        <RefreshCw size={16} />
+                                                        <span>Retry Number Generation</span>
                                                     </button>
                                                 )}
                                             </section>
 
-                                            {/* Forwarding */}
-                                            <section>
-                                                <h3 className="text-base font-bold text-gray-900 mb-1">Forward to {personality.name}</h3>
-                                                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                                                    Forward your missed calls instead of voicemail. <br />
-                                                    Looking to <button onClick={() => { setForwardingMode('disable'); setIsForwardingSetupOpen(true); }} className="underline decoration-1 cursor-pointer font-bold text-gray-900 hover:text-blue-500">Disable</button>?
-                                                </p>
-                                                <button
-                                                    onClick={() => {
-                                                        setForwardingMode('enable');
-                                                        setActivationStep(1);
-                                                        setIsForwardingSetupOpen(true);
-                                                    }}
-                                                    className="w-full bg-white border border-gray-200 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
-                                                >
-                                                    Instructions
-                                                </button>
-                                            </section>
-
-                                            {/* Voicemail Toggle */}
-                                            <section>
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <h3 className="text-base font-bold text-gray-900">Voicemail for Contacts</h3>
-                                                    {/* Toggle Switch */}
-                                                    <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer transition-colors duration-200 hover:bg-gray-300">
-                                                        <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"></div>
-                                                    </div>
-                                                </div>
-                                                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                                                    Allow selected contacts to leave an in-app voicemail instead of talking to the receptionist
-                                                </p>
-                                                <div className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-sm text-gray-400 flex justify-between items-center shadow-sm font-medium">
-                                                    <span>Select contacts</span>
-                                                    <span>0</span>
-                                                </div>
-                                            </section>
-
-                                            {/* Connect/Disconnect Actions */}
-                                            <section className="space-y-3 pt-4">
-                                                <button
-                                                    onClick={() => {
-                                                        setForwardingMode('enable');
-                                                        setActivationStep(1);
-                                                        setIsForwardingSetupOpen(true);
-                                                    }}
-                                                    className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
-                                                >
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                                            {/* 2. Forwarding Status */}
+                                            <section className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${forwardingMode === 'enable' && activationStep > 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
                                                             <ArrowUpRight size={16} />
                                                         </div>
-                                                        <span>Connect Personal Number</span>
-                                                    </div>
-                                                    <ChevronRight size={18} className="text-gray-300" />
-                                                </button>
-
-                                                <button
-                                                    onClick={() => {
-                                                        setForwardingMode('disable');
-                                                        setIsForwardingSetupOpen(true);
-                                                    }}
-                                                    className="w-full bg-white border border-gray-200 text-gray-900 px-4 py-4 rounded-2xl font-bold flex items-center justify-between shadow-sm text-sm hover:bg-gray-50 active:scale-[0.98] transition-all"
-                                                >
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                                            <XCircle size={16} />
+                                                        <div>
+                                                            <h3 className="text-base font-bold text-gray-900">Call Forwarding</h3>
+                                                            <p className="text-xs text-gray-400 mt-0.5">Link your personal number</p>
                                                         </div>
-                                                        <span>Disconnect Personal Number</span>
                                                     </div>
-                                                    <ChevronRight size={18} className="text-gray-300" />
-                                                </button>
+                                                </div>
+
+                                                {forwardingMode === 'enable' && activationStep > 1 ? (
+                                                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                                                        <div className="flex items-center gap-2 text-blue-800 font-bold text-sm mb-2">
+                                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                                            Forwarding Active
+                                                        </div>
+                                                        <p className="text-xs text-blue-600/80 mb-3 leading-relaxed">
+                                                            Your personal calls are being forwarded to your AI receptionist.
+                                                        </p>
+                                                        <button
+                                                            onClick={() => { setForwardingMode('disable'); setIsForwardingSetupOpen(true); }}
+                                                            className="text-xs font-bold text-blue-600 hover:text-blue-800 underline decoration-blue-300 underline-offset-2"
+                                                        >
+                                                            Disconnect / Disable Forwarding
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                setForwardingMode('enable');
+                                                                setActivationStep(1);
+                                                                setIsForwardingSetupOpen(true);
+                                                            }}
+                                                            className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2"
+                                                        >
+                                                            Setup Forwarding
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setForwardingMode('disable');
+                                                                setIsForwardingSetupOpen(true);
+                                                            }}
+                                                            className="w-full text-red-500 py-2 rounded-xl font-bold text-xs hover:bg-red-50 transition-colors"
+                                                        >
+                                                            Deactivate Receptionist
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </section>
 
-                                            {/* Spacer */}
-                                            <div className="h-24"></div>
+                                            {/* 4. Voicemail Toggle (Simplified) */}
+                                            <section className="flex items-center justify-between bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                                <div>
+                                                    <h3 className="text-base font-bold text-gray-900">Contact Voicemail</h3>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Allow contacts to bypass AI</p>
+                                                </div>
+                                                <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer transition-colors duration-200 hover:bg-gray-300">
+                                                    <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                                </div>
+                                            </section>
+
+                                            <div className="h-12"></div>
                                         </div>
                                     ) : (
                                         <div className="animate-in slide-in-from-right duration-300 bg-white z-30 -mx-6 -mt-8 px-6 pt-8 pb-40">
@@ -1765,11 +1767,26 @@ export default function App() {
                                                     </p>
 
                                                     {/* Selected Carrier */}
-                                                    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm mb-6">
-                                                        <div className="flex items-center space-x-3 text-gray-900 font-bold">
-                                                            <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-500">{selectedCarrier[0]}</div>
-                                                            <span>{selectedCarrier}</span>
+                                                    {/* Carrier Dropdown */}
+                                                    <div className="relative mb-6">
+                                                        <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                                                            <div className="flex items-center space-x-3 text-gray-900 font-bold">
+                                                                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 font-bold">
+                                                                    {selectedCarrier[0]}
+                                                                </div>
+                                                                <span>{selectedCarrier}</span>
+                                                            </div>
+                                                            <ChevronDown size={20} className="text-gray-400" />
                                                         </div>
+                                                        <select
+                                                            value={selectedCarrier}
+                                                            onChange={(e) => setSelectedCarrier(e.target.value)}
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        >
+                                                            {carriers.map(c => (
+                                                                <option key={c.name} value={c.name}>{c.name}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
 
                                                     {/* Code Block */}
