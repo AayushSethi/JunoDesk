@@ -1149,9 +1149,12 @@ export default function App() {
                                                                 showToast("Failed to save voice");
                                                             }
                                                         }}
-                                                        className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-gray-100 bg-white hover:border-gray-200'} active:scale-95`}
+                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'border-[#2563EB] bg-white shadow-[0_4px_20px_-4px_rgba(37,99,235,0.15)] ring-1 ring-[#2563EB]/20' : 'border-gray-100/50 bg-white hover:border-gray-200 shadow-sm hover:shadow-md'} active:scale-[0.98]`}
                                                     >
-                                                        <div className="relative w-20 h-20 rounded-full overflow-hidden bg-gray-100 mb-3 ring-4 ring-gray-50 shadow-inner">
+                                                        {/* Selection Background Effect */}
+                                                        {isSelected && <div className="absolute inset-0 bg-blue-50/50 backdrop-blur-[1px] pointer-events-none" />}
+
+                                                        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-4 ring-4 ring-white shadow-lg transition-transform duration-300 group-hover:scale-105 z-10">
                                                             <img src={p.avatar} alt={p.name} className="w-full h-full object-cover scale-125 translate-y-1" />
                                                             {isPlaying && (
                                                                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
@@ -1159,7 +1162,7 @@ export default function App() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <span className={`text-xs font-bold truncate w-full text-center ${isSelected ? 'text-[#2563EB]' : 'text-gray-900'}`}>{p.name}</span>
+                                                        <span className={`text-sm font-black truncate w-full text-center tracking-wide z-10 ${isSelected ? 'text-[#2563EB]' : 'text-gray-900'}`}>{p.name}</span>
                                                     </button>
                                                 )
                                             }) : (
