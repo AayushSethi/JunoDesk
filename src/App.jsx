@@ -2263,24 +2263,24 @@ export default function App() {
                ========================================= */}
             {
                 view !== 'auth' && view !== 'onboarding' && view !== 'intro' && (
-                    <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around items-end pb-8 pt-2 px-2 z-[999] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.03)] h-[6.5rem]">
+                    <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around items-end pb-9 pt-2 px-2 z-[999] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.03)] h-[7.2rem]">
 
                         {/* Inbox Tab */}
                         <button
                             onClick={() => setView('inbox')}
                             className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[20px] transition-all duration-300 relative ${view === 'inbox' || view === 'call-detail' ? 'bg-[#EFF6FF] shadow-sm shadow-blue-100/50' : 'bg-transparent'}`}>
+                            <div className="p-3 relative bg-transparent">
                                 <img
                                     src="/pics/bot.png"
                                     alt="Inbox"
-                                    className={`w-6 h-6 object-contain transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
+                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
                                 />
                                 {(view === 'inbox' || view === 'call-detail') && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
                                 )}
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
+                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400'}`}>Inbox</span>
                         </button>
 
                         {/* Receptionist Tab */}
@@ -2288,17 +2288,17 @@ export default function App() {
                             onClick={() => setView('receptionist')}
                             className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[20px] transition-all duration-300 relative ${view === 'receptionist' ? 'bg-[#EFF6FF] shadow-sm shadow-blue-100/50' : 'bg-transparent'}`}>
+                            <div className="p-3 relative bg-transparent">
                                 <img
                                     src="/pics/man-user.png"
                                     alt="Assistant"
-                                    className={`w-6 h-6 object-contain transition-all duration-300 ${view === 'receptionist' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
+                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'receptionist' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
                                 />
                                 {view === 'receptionist' && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
                                 )}
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400'}`}>Assistant</span>
+                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400'}`}>Assistant</span>
                         </button>
 
                         {/* Settings Tab */}
@@ -2306,17 +2306,17 @@ export default function App() {
                             onClick={() => setView('settings')}
                             className={`group flex flex-col items-center justify-center w-24 gap-1 p-2 transition-all duration-300 ${view === 'settings' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <div className={`p-3 rounded-[20px] transition-all duration-300 relative ${view === 'settings' ? 'bg-[#EFF6FF] shadow-sm shadow-blue-100/50' : 'bg-transparent'}`}>
+                            <div className="p-3 relative bg-transparent">
                                 <img
                                     src="/pics/gear.png"
                                     alt="Settings"
-                                    className={`w-6 h-6 object-contain transition-all duration-300 ${view === 'settings' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
+                                    className={`w-7 h-7 object-contain transition-all duration-300 ${view === 'settings' ? 'opacity-100 scale-110 drop-shadow-sm' : 'opacity-40 grayscale group-hover:opacity-60'}`}
                                 />
                                 {view === 'settings' && (
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
                                 )}
                             </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400'}`}>Settings</span>
+                            <span className={`text-[11px] font-bold uppercase tracking-widest mt-1.5 transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400'}`}>Settings</span>
                         </button>
 
                     </div>
