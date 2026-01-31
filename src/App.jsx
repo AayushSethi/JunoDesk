@@ -692,20 +692,23 @@ export default function App() {
                             </div>
 
                             {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
-                                        <Phone size={16} className="fill-current" />
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white border border-gray-100/50 rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_-4px_rgba(37,99,235,0.08)] relative overflow-hidden group">
+                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl opacity-50 group-hover:scale-110 transition-transform"></div>
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100 flex items-center justify-center mb-3 shadow-sm relative z-10">
+                                        <Phone size={20} className="text-[#2563EB] fill-[#2563EB]" />
                                     </div>
-                                    <span className="text-3xl font-black text-gray-900 leading-none mb-1">{calls.length}</span>
-                                    <span className="text-sm font-bold text-gray-600">calls handled</span>
+                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">{calls.length}</span>
+                                    <span className="text-[10px] font-extrabold text-[#2563EB]/60 uppercase tracking-widest relative z-10">calls handled</span>
                                 </div>
-                                <div className="bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-2">
-                                        <ShieldAlert size={16} className="fill-current" />
+                                <div className="bg-white border border-gray-100/50 rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_-4px_rgba(239,68,68,0.08)] relative overflow-hidden group">
+                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 rounded-full blur-2xl opacity-50 group-hover:scale-110 transition-transform"></div>
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100 flex items-center justify-center mb-3 shadow-sm relative z-10">
+                                        <ShieldAlert size={20} className="text-red-500 fill-red-500" />
                                     </div>
-                                    <span className="text-3xl font-black text-gray-900 leading-none mb-1">0</span>
-                                    <span className="text-sm font-bold text-gray-600">spam blocked</span>
+                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">0</span>
+                                    <span className="text-[10px] font-extrabold text-red-500/60 uppercase tracking-widest relative z-10">spam blocked</span>
                                 </div>
                             </div>
                         </div>
