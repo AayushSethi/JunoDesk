@@ -823,79 +823,30 @@ export default function App() {
             {
                 view === 'receptionist' && (
                     <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-                        {/* Header Container */}
-                        <div className={`${headerGradient} pt-12 rounded-b-[3rem] shadow-xl shrink-0 z-20 relative overflow-hidden`}>
+                        {/* Header (Matches Inbox Style) */}
+                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 bg-white z-20">
+                            <h1 className="text-2xl font-black tracking-tight">
+                                <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                            </h1>
+                        </div>
 
-                            {/* Decorative background elements */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-                            {/* Top Protocol Bar */}
-                            <div className="flex justify-between items-center px-6 mb-6 relative z-10 w-full">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <div className="w-12 h-12 bg-white rounded-full p-0.5 shadow-lg">
-                                            <img
-                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
-                                                alt={personality.name}
-                                                className="w-full h-full rounded-full bg-blue-50"
-                                            />
-                                        </div>
-                                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full"></span>
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl font-black text-white tracking-tight">{personality.name}</h1>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
+                        {/* Tabs (Pill Style) */}
+                        <div className="flex justify-center gap-2 mb-6 px-4">
+                            {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
+                                const isActive = activeReceptionistTab === tab.toLowerCase();
+                                return (
                                     <button
-                                        onClick={() => {
-                                            syncAssistant();
-                                            showToast("Syncing with Vapi...");
-                                        }}
-                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
+                                        key={tab}
+                                        onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
+                                        className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${isActive
+                                                ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
+                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            }`}
                                     >
-                                        <RefreshCw size={16} className="text-white" />
+                                        {tab}
                                     </button>
-                                    <button
-                                        onClick={() => setIsEditingReceptionist(true)}
-                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
-                                    >
-                                        <Edit2 size={16} className="text-white" />
-                                    </button>
-                                    <button
-                                        onClick={() => setView('settings')}
-                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md flex items-center justify-center transition-all active:scale-95 border border-white/10 shadow-sm"
-                                    >
-                                        <Settings size={18} className="text-white" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Tabs */}
-                            <div className="flex items-end px-4 gap-1 relative z-10 translate-y-[1px]">
-                                {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
-                                    const isActive = activeReceptionistTab === tab.toLowerCase();
-                                    return (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
-                                            className={`flex-1 py-3.5 text-sm font-bold rounded-t-2xl transition-all duration-300 relative ${isActive
-                                                ? 'bg-white text-gray-900 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-20 translate-y-0'
-                                                : 'bg-transparent text-white/70 hover:text-white hover:bg-white/5 z-0'
-                                                }`}
-                                        >
-                                            {tab}
-                                            {isActive && (
-                                                <>
-                                                    <div className="absolute bottom-0 -left-4 w-4 h-4 bg-transparent shadow-[4px_4px_0_white] rounded-br-xl pointer-events-none"></div>
-                                                    <div className="absolute bottom-0 -right-4 w-4 h-4 bg-transparent shadow-[-4px_4px_0_white] rounded-bl-xl pointer-events-none"></div>
-                                                </>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                );
+                            })}
                         </div>
 
 
