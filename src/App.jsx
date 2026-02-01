@@ -129,6 +129,7 @@ export default function App() {
     const [activeInboxTab, setActiveInboxTab] = useState('inbox'); // 'inbox' | 'archived'
     const [archivedIds, setArchivedIds] = useState([]);
     const [deletedIds, setDeletedIds] = useState([]);
+    const [readCallIds, setReadCallIds] = useState([]);
 
     const handleArchiveCall = async (callId) => {
         // Optimistic Update
@@ -336,6 +337,10 @@ export default function App() {
                     // Extract Deleted Calls
                     const deletedItem = info.find(i => i.type === 'deleted_calls');
                     if (deletedItem?.content?.ids) setDeletedIds(deletedItem.content.ids);
+
+                    // Extract Read Calls
+                    const readItem = info.find(i => i.type === 'read_calls');
+                    if (readItem?.content?.ids) setReadCallIds(readItem.content.ids);
                 }
 
             } catch (err) {
@@ -362,6 +367,7 @@ export default function App() {
     // --- UI State for Interactions ---
     const [activeModal, setActiveModal] = useState(null); // 'add-question', 'add-appointment', etc.
     const [expandedCallId, setExpandedCallId] = useState(null);
+    const [showTranscript, setShowTranscript] = useState(false);
     const [showLanguageModal, setShowLanguageModal] = useState(false);
 
     const [knowledgeKeywords, setKnowledgeKeywords] = useState([]);
@@ -527,6 +533,16 @@ export default function App() {
                         }
                     }
 
+                    // Spam Detection Heuristic
+                    const durationSeconds = c.endedAt ? (new Date(c.endedAt).getTime() - new Date(c.startedAt).getTime()) / 1000 : 0;
+                    const summaryText = (c.analysis?.summary || c.summary || "").toLowerCase();
+                    const isSpam =
+                        (durationSeconds < 5 && !booking) || // Short call (< 5s) and NO booking
+                        summaryText.includes('wrong number') ||
+                        summaryText.includes('scam') ||
+                        summaryText.includes('telemarketer') ||
+                        (c.endedReason === 'customer-did-not-give-microphone-permission');
+
                     return {
                         id: c.id,
                         name: "Unknown Caller",
@@ -538,6 +554,7 @@ export default function App() {
                         transcript: c.analysis?.transcript || c.transcript || "No transcript available",
                         recordingUrl: c.recordingUrl || c.artifact?.recordingUrl,
                         status: c.status,
+                        isSpam: isSpam,
                         // Attach booking info
                         actionItem: booking ? {
                             type: 'booking',
@@ -810,7 +827,7 @@ export default function App() {
                                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100 flex items-center justify-center mb-3 shadow-sm relative z-10">
                                         <ShieldAlert size={20} className="text-red-500 fill-red-500" />
                                     </div>
-                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">0</span>
+                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">{calls.filter(c => c.isSpam).length}</span>
                                     <span className="text-[10px] font-extrabold text-red-500/60 uppercase tracking-widest relative z-10">spam blocked</span>
                                 </div>
                             </div>
@@ -822,7 +839,7 @@ export default function App() {
                                 onClick={() => setActiveInboxTab('inbox')}
                                 className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'inbox' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
-                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread' && !archivedIds.includes(c.id) && !deletedIds.includes(c.id)).length}</span>
+                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => !c.isSpam && !readCallIds.includes(c.id) && !archivedIds.includes(c.id) && !deletedIds.includes(c.id)).length}</span>
                             </button>
                             <button
                                 onClick={() => setActiveInboxTab('archived')}
@@ -832,10 +849,23 @@ export default function App() {
                             </button>
                         </div>
 
-                        {/* Grouped Calls List */}
-                        <div className="space-y-6">
-                            {(() => {
-                                const visibleCalls = calls.filter(c => !deletedIds.includes(c.id) && (activeInboxTab === 'archived' ? archivedIds.includes(c.id) : !archivedIds.includes(c.id)));
+                        {/* Calls List */}
+                        <div className="space-y-4">
+                            {authLoading ? (
+                                <div className="text-center py-12 text-gray-400">Loading calls...</div>
+                            ) : calls.filter(c => {
+                                if (activeInboxTab === 'inbox') return !c.isSpam && !archivedIds.includes(c.id) && !deletedIds.includes(c.id);
+                                if (activeInboxTab === 'archived') return archivedIds.includes(c.id) && !deletedIds.includes(c.id);
+                                return false;
+                            }).length === 0 ? (
+                                <div className="text-center py-12 text-gray-400">No calls in this view.</div>
+                            ) : (() => {
+                                const visibleCalls = calls.filter(c => {
+                                    if (activeInboxTab === 'inbox') return !c.isSpam && !archivedIds.includes(c.id) && !deletedIds.includes(c.id);
+                                    if (activeInboxTab === 'archived') return archivedIds.includes(c.id) && !deletedIds.includes(c.id);
+                                    return false;
+                                });
+
                                 const grouped = visibleCalls.reduce((acc, call) => {
                                     const date = new Date(call.rawTime);
                                     const now = new Date();
@@ -864,16 +894,55 @@ export default function App() {
                                                 {grouped[label].map(call => {
 
                                                     const isExpanded = expandedCallId === call.id;
+                                                    const isUnread = !readCallIds.includes(call.id);
 
                                                     return (
                                                         <div
-                                                            key={call.id}
-                                                            onClick={() => setExpandedCallId(isExpanded ? null : call.id)}
+                                                            onClick={async () => {
+                                                                const isCurrentlyExpanded = expandedCallId === call.id;
+                                                                setExpandedCallId(isCurrentlyExpanded ? null : call.id);
+                                                                setShowTranscript(false);
+
+                                                                // Mark as Read Logic
+                                                                if (!isCurrentlyExpanded && !readCallIds.includes(call.id)) {
+                                                                    const newReadIds = [...readCallIds, call.id];
+                                                                    setReadCallIds(newReadIds);
+
+                                                                    // Persist to DB
+                                                                    try {
+                                                                        // Check exists
+                                                                        const type = 'read_calls';
+                                                                        const { data: existing } = await supabase
+                                                                            .from('business_info')
+                                                                            .select('id')
+                                                                            .eq('owner_user_id', session.user.id)
+                                                                            .eq('type', type)
+                                                                            .maybeSingle();
+
+                                                                        if (existing) {
+                                                                            await supabase.from('business_info').update({ content: { ids: newReadIds } }).eq('id', existing.id);
+                                                                        } else {
+                                                                            await supabase.from('business_info').insert({
+                                                                                owner_user_id: session.user.id,
+                                                                                type: type,
+                                                                                content: { ids: newReadIds }
+                                                                            });
+                                                                        }
+                                                                    } catch (err) {
+                                                                        console.error("Failed to mark read", err);
+                                                                    }
+                                                                }
+                                                            }}
                                                             className={`bg-white rounded-[1.5rem] p-5 shadow-sm border border-gray-100 transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-[#2563EB]/50 shadow-md transform scale-[1.01]' : 'active:scale-[0.98]'}`}
                                                         >
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
-                                                                    <h4 className="font-bold text-gray-900 text-lg">{call.number}</h4>
+                                                                    <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                                                                        {call.number}
+                                                                        {isUnread && (
+                                                                            <span className="w-2.5 h-2.5 bg-[#2563EB] rounded-full animate-pulse shadow-sm shadow-blue-200"></span>
+                                                                        )}
+                                                                    </h4>
                                                                     <div className="text-xs font-bold text-gray-600 mt-0.5 max-w-[200px] truncate">
                                                                         {call.name === "Unknown Caller" ? "Unknown" : call.name}
                                                                     </div>
@@ -1079,28 +1148,39 @@ export default function App() {
                                                                         </div>
                                                                     )}
 
-                                                                    {/* Transcript Chat */}
+                                                                    {/* Transcript Chat (Collapsible) */}
                                                                     <div className="space-y-3">
-                                                                        {/* Parse Transcript */}
-                                                                        {call.transcript ? (
-                                                                            call.transcript.split(/(?=AI:|User:)/g).map((msg, i) => {
-                                                                                const isAI = msg.trim().startsWith("AI:");
-                                                                                const cleanMsg = msg.replace(/^(AI:|User:)/i, '').trim();
-                                                                                if (!cleanMsg) return null;
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setShowTranscript(!showTranscript); }}
+                                                                            className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors py-2"
+                                                                        >
+                                                                            {showTranscript ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronRight size={14} strokeWidth={2.5} />}
+                                                                            Read Transcript
+                                                                        </button>
 
-                                                                                return (
-                                                                                    <div key={i} className={`p-3 rounded-2xl text-sm font-medium leading-relaxed max-w-[90%] shadow-sm ${isAI ? 'bg-[#2563EB] text-white rounded-tl-sm mr-auto' : 'bg-gray-100 text-gray-800 rounded-tr-sm ml-auto'}`}>
-                                                                                        <span className={`text-[10px] uppercase font-bold block mb-1 ${isAI ? 'text-blue-200' : 'text-gray-400'}`}>
-                                                                                            {isAI ? 'Assistant' : 'Caller'}
-                                                                                        </span>
-                                                                                        {cleanMsg}
+                                                                        {showTranscript && (
+                                                                            <div className="pt-2 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                                {/* Parse Transcript */}
+                                                                                {call.transcript ? (
+                                                                                    call.transcript.split(/(?=AI:|User:)/g).map((msg, i) => {
+                                                                                        const isAI = msg.trim().startsWith("AI:");
+                                                                                        const cleanMsg = msg.replace(/^(AI:|User:)/i, '').trim();
+                                                                                        if (!cleanMsg) return null;
+
+                                                                                        return (
+                                                                                            <div key={i} className={`p-3 rounded-2xl text-sm font-medium leading-relaxed max-w-[90%] shadow-sm ${isAI ? 'bg-[#2563EB] text-white rounded-tl-sm mr-auto' : 'bg-gray-100 text-gray-800 rounded-tr-sm ml-auto'}`}>
+                                                                                                <span className={`text-[10px] uppercase font-bold block mb-1 ${isAI ? 'text-blue-200' : 'text-gray-400'}`}>
+                                                                                                    {isAI ? 'Assistant' : 'Caller'}
+                                                                                                </span>
+                                                                                                {cleanMsg}
+                                                                                            </div>
+                                                                                        );
+                                                                                    })
+                                                                                ) : (
+                                                                                    <div className="text-gray-400 text-xs italic p-4 text-center bg-gray-50 rounded-xl">
+                                                                                        No transcript available for this call.
                                                                                     </div>
-                                                                                );
-                                                                            })
-                                                                        ) : (
-                                                                            <div className="bg-[#2563EB] text-white p-3 rounded-2xl rounded-tl-sm text-sm font-medium leading-relaxed max-w-[90%] shadow-sm">
-                                                                                <span className="text-[10px] uppercase font-bold text-blue-200 block mb-1">Assistant</span>
-                                                                                Hello. You've reached {userInfo.company || "us"}. I'm {personality.name}. How can I help you?
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                     </div>
