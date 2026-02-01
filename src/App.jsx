@@ -1452,37 +1452,7 @@ export default function App() {
                                             </p>
                                         </div>
 
-                                        <div>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Emergency Number</label>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Emergency Transfer</span>
-                                                    <button
-                                                        onClick={() => {
-                                                            const newVal = !userInfo.useEmergencyNumber;
-                                                            setUserInfo({ ...userInfo, useEmergencyNumber: newVal });
-                                                            saveProfileField('emergency_transfer_enabled', newVal);
-                                                        }}
-                                                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.useEmergencyNumber ? 'bg-blue-500' : 'bg-gray-200'}`}
-                                                    >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.useEmergencyNumber ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={userInfo.emergencyNumber}
-                                                    onChange={(e) => setUserInfo({ ...userInfo, emergencyNumber: e.target.value })}
-                                                    onBlur={(e) => saveProfileField('emergency_phone', e.target.value)}
-                                                    placeholder="+1 (555) 000-0000"
-                                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
-                                                />
-                                            </div>
-                                            <p className="text-[10px] text-gray-400 mt-2 ml-1">
-                                                Should we use a number in case of a customer emergency?
-                                            </p>
-                                        </div>
+
 
                                         {/* Service Description */}
                                         <section>
