@@ -127,6 +127,7 @@ export default function App() {
     // --- Archive State ---
     const [activeInboxTab, setActiveInboxTab] = useState('inbox'); // 'inbox' | 'archived'
     const [archivedIds, setArchivedIds] = useState([]);
+    const [deletedIds, setDeletedIds] = useState([]);
 
     const handleArchiveCall = async (callId) => {
         // Optimistic Update
@@ -191,6 +192,40 @@ export default function App() {
         } catch (err) {
             console.error("Failed to save unarchive state", err);
             showToast("Failed to update archive state");
+        }
+    };
+
+    const handleDeleteCall = async (callId) => {
+        // Optimistic Update
+        const newDeletedIds = [...deletedIds, callId];
+        setDeletedIds(newDeletedIds);
+        showToast("Call deleted");
+
+        try {
+            const { data: existing } = await supabase
+                .from('business_info')
+                .select('id')
+                .eq('owner_user_id', session.user.id)
+                .eq('type', 'deleted_calls')
+                .maybeSingle();
+
+            if (existing) {
+                await supabase
+                    .from('business_info')
+                    .update({ content: { ids: newDeletedIds } })
+                    .eq('id', existing.id);
+            } else {
+                await supabase
+                    .from('business_info')
+                    .insert({
+                        owner_user_id: session.user.id,
+                        type: 'deleted_calls',
+                        content: { ids: newDeletedIds }
+                    });
+            }
+        } catch (err) {
+            console.error("Failed to save deleted state", err);
+            showToast("Failed to delete call");
         }
     };
 
@@ -272,6 +307,10 @@ export default function App() {
                     // Extract Archived Calls
                     const archiveItem = info.find(i => i.type === 'archived_calls');
                     if (archiveItem?.content?.ids) setArchivedIds(archiveItem.content.ids);
+
+                    // Extract Deleted Calls
+                    const deletedItem = info.find(i => i.type === 'deleted_calls');
+                    if (deletedItem?.content?.ids) setDeletedIds(deletedItem.content.ids);
                 }
 
             } catch (err) {
@@ -719,7 +758,7 @@ export default function App() {
                                 onClick={() => setActiveInboxTab('inbox')}
                                 className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'inbox' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
-                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread' && !archivedIds.includes(c.id)).length}</span>
+                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => c.status === 'unread' && !archivedIds.includes(c.id) && !deletedIds.includes(c.id)).length}</span>
                             </button>
                             <button
                                 onClick={() => setActiveInboxTab('archived')}
@@ -732,7 +771,7 @@ export default function App() {
                         {/* Grouped Calls List */}
                         <div className="space-y-6">
                             {(() => {
-                                const visibleCalls = calls.filter(c => activeInboxTab === 'archived' ? archivedIds.includes(c.id) : !archivedIds.includes(c.id));
+                                const visibleCalls = calls.filter(c => !deletedIds.includes(c.id) && (activeInboxTab === 'archived' ? archivedIds.includes(c.id) : !archivedIds.includes(c.id)));
                                 const grouped = visibleCalls.reduce((acc, call) => {
                                     const date = new Date(call.rawTime);
                                     const now = new Date();
@@ -840,7 +879,15 @@ export default function App() {
                                                                                     <Inbox size={14} />
                                                                                 </button>
                                                                             )}
-                                                                            <button className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    if (window.confirm("Delete this call?")) {
+                                                                                        handleDeleteCall(call.id);
+                                                                                    }
+                                                                                }}
+                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                            >
                                                                                 <Trash2 size={14} />
                                                                             </button>
                                                                         </div>
