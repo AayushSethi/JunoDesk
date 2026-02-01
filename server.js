@@ -261,6 +261,182 @@ If any check fails, do not book and ask for clarification.
     return prompt;
 }
 
+// 6.7 WEBHOOK: Vapi End-of-Call Report
+app.post('/api/webhook/vapi', async (req, res) => {
+    try {
+        const { message } = req.body;
+
+        // Log generic message type
+        console.log(`📨 Webhook Received: ${message.type}`);
+
+        if (message.type === 'end-of-call-report') {
+            const { call, customer, analysis, artifact } = message;
+
+            console.log("📝 Processing End of Call Report for:", call.id);
+
+            // 1. Find User by Assistant ID
+            // We use 'maybeSingle' to be safe
+            const assistantId = message.assistantId || call.assistantId;
+            const { data: profile } = await supabase
+                .from('business_profiles')
+                .select('owner_user_id')
+                .eq('vapi_assistant_id', assistantId)
+                .maybeSingle();
+
+            if (profile) {
+                // 2. Calculate Duration
+                const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
+                const durationSeconds = Math.round(duration / 1000);
+
+                // 3. Spam Detection
+                const summaryText = (analysis?.summary || "").toLowerCase();
+                const isSpam = (durationSeconds < 5) ||
+                    summaryText.includes('wrong number') ||
+                    summaryText.includes('spam') ||
+                    (call.endedReason === 'customer-did-not-give-microphone-permission');
+
+                // 4. Upsert into Calls Table
+                const { error } = await supabase.from('calls').upsert({
+                    id: call.id,
+                    user_id: profile.owner_user_id,
+                    customer_number: customer?.number || "Unknown",
+                    started_at: call.startedAt,
+                    ended_at: call.endedAt,
+                    duration_seconds: durationSeconds,
+                    summary: analysis?.summary || "Processing...",
+                    transcript: analysis?.transcript || "",
+                    recording_url: artifact?.recordingUrl || call.recordingUrl,
+                    is_spam: isSpam
+                    // is_read and is_archived default to false
+                }, { onConflict: 'id' });
+
+                if (error) console.error("❌ Failed to save call:", error);
+                else console.log("✅ Saved Call to DB:", call.id);
+            } else {
+                console.warn("⚠️ No profile found for assistant:", assistantId);
+            }
+        }
+        res.status(200).send('OK');
+    } catch (e) {
+        console.error("❌ Webhook Error", e);
+        res.status(500).send('Err');
+    }
+});
+
+// 6.8 SYNC CALLS: Backfill from Vapi
+app.get('/api/sync-calls', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) return res.status(400).send("Missing userId");
+
+        // 1. Get Profile
+        const { data: profile } = await supabase.from('business_profiles').select('*').eq('owner_user_id', userId).single();
+        if (!profile || !profile.vapi_assistant_id) return res.status(404).send("No assistant linked");
+
+        // 2. Fetch Calls from Vapi
+        // 2. Fetch Calls from Vapi (Fetch up to 1000 recent calls)
+        const url = `${VAPI_BASE_URL}/call?assistantId=${profile.vapi_assistant_id}&limit=1000`;
+        console.log(`fetching calls from: ${url}`);
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
+        });
+
+        if (!response.ok) throw new Error("Vapi fetch failed: " + response.statusText);
+        const calls = await response.json();
+        const vapiCount = Array.isArray(calls) ? calls.length : 0;
+
+        // 3. Upsert to DB
+        let count = 0;
+        if (Array.isArray(calls)) {
+            for (const call of calls) {
+                const durationSeconds = call.endedAt ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : 0;
+                const summaryText = (call.analysis?.summary || "").toLowerCase();
+                const isSpam = (durationSeconds < 5) ||
+                    summaryText.includes('wrong number') ||
+                    summaryText.includes('spam');
+
+                const { error } = await supabase.from('calls').upsert({
+                    id: call.id,
+                    user_id: userId,
+                    customer_number: call.customer?.number || "Unknown",
+                    started_at: call.startedAt,
+                    ended_at: call.endedAt,
+                    duration_seconds: durationSeconds,
+                    summary: call.analysis?.summary || "Processing...",
+                    transcript: call.analysis?.transcript || "",
+                    recording_url: call.artifact?.recordingUrl || call.recordingUrl,
+                    is_spam: isSpam
+                }, { onConflict: 'id' });
+
+                if (error) console.error("Upsert fail", error);
+                if (!error) count++;
+            }
+        }
+
+        console.log(`✅ Backfilled ${count}/${vapiCount} calls for user ${userId}`);
+        res.json({ success: true, count, vapiCount, assistantId: profile.vapi_assistant_id });
+
+    } catch (e) {
+        console.error("Sync Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 6.9 FIX ASSISTANT LINK: Fallback to find correct assistant
+app.get('/api/fix-assistant-link', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) return res.status(400).send("Missing userId");
+
+        // 1. Get Profile
+        const { data: profile } = await supabase.from('business_profiles').select('*').eq('owner_user_id', userId).single();
+        if (!profile) return res.status(404).send("Profile not found");
+
+        console.log(`🔧 Attempting to fix assistant link for: ${profile.company_name}`);
+
+        // 2. List All Assistants from Vapi
+        const response = await fetch(`${VAPI_BASE_URL}/assistant`, {
+            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
+        });
+        const assistants = await response.json();
+
+        // 3. Find match by name (fuzzy or exact)
+        const targetName = `${profile.company_name} Receptionist`;
+        // Also look for just "Receptionist" if singular
+        const match = assistants.find(a => a.name === targetName) || assistants.find(a => a.name.includes(profile.company_name));
+
+        if (match) {
+            console.log(`✅ Found matching assistant: ${match.name} (${match.id})`);
+
+            // 4. Update DB
+            await supabase
+                .from('business_profiles')
+                .update({ vapi_assistant_id: match.id })
+                .eq('owner_user_id', userId);
+
+            // 5. Also ensure Webhook is set on it!
+            const webhookUrl = "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi";
+            if (match.serverUrl !== webhookUrl) {
+                await fetch(`${VAPI_BASE_URL}/assistant/${match.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${VAPI_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ serverUrl: webhookUrl })
+                });
+                console.log("🔗 Updated Webhook URL on recovered assistant");
+            }
+
+            res.json({ success: true, fixed: true, assistantId: match.id, name: match.name });
+        } else {
+            console.warn("❌ No matching assistant found in Vapi account.");
+            res.json({ success: false, error: "No assistant found matching company name" });
+        }
+
+    } catch (e) {
+        console.error("Fix Link Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // 1. Provision a Number & Assistant
 app.post('/api/provision', async (req, res) => {
     try {
@@ -287,6 +463,7 @@ app.post('/api/provision', async (req, res) => {
         // C. Create Vapi Assistant
         const assistantPayload = {
             name: `${profile.company_name} Receptionist`,
+            serverUrl: "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi", // Webhook for Call Reporting
             model: {
                 provider: "openai",
                 model: "gpt-4o",
@@ -551,6 +728,7 @@ app.post('/api/sync-assistant', async (req, res) => {
 
         const updatedPayload = {
             name: assistantName,
+            serverUrl: "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi", // Webhook for Call Reporting
             voice: {
                 provider: "11labs",
                 voiceId: activeVoiceId,
