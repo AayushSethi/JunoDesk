@@ -2222,13 +2222,13 @@ export default function App() {
                                 </div>
 
                                 {/* Support */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Support...')}>
+                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => window.open('https://calendly.com/aayushsethi37/30min', '_blank')}>
                                     <div className="flex items-start gap-4">
                                         <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
                                             <MessageSquare size={20} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
-                                            <h4 className="text-base font-bold text-gray-900">Speak with support</h4>
+                                            <h4 className="text-base font-bold text-gray-900">Contact Us</h4>
                                             <p className="text-sm font-medium text-gray-600 mt-0.5">Get help or share your ideas!</p>
                                         </div>
                                     </div>
