@@ -80,6 +80,7 @@ export default function App() {
     const [activeReceptionistTab, setActiveReceptionistTab] = useState('instructions'); // 'instructions', 'knowledge', 'phone'
     const [isEditingReceptionist, setIsEditingReceptionist] = useState(false);
     const [toast, setToast] = useState(null);
+    const [toastAction, setToastAction] = useState(null);
     const [isForwardingSetupOpen, setIsForwardingSetupOpen] = useState(false);
     const [isReceptionistActive, setIsReceptionistActive] = useState(true);
 
@@ -196,10 +197,33 @@ export default function App() {
     };
 
     const handleDeleteCall = async (callId) => {
-        // Optimistic Update
+        // 1. Optimistic Update (Remove from UI immediately)
+        const previousDeletedIds = [...deletedIds];
         const newDeletedIds = [...deletedIds, callId];
         setDeletedIds(newDeletedIds);
-        showToast("Call deleted");
+
+        // 2. Show Toast with Undo
+        showToast("Call deleted", async () => {
+            // UNDO Action
+            setDeletedIds(previousDeletedIds); // Revert state
+
+            // Revert DB (this is the tricky part, we need to save the revert)
+            // For simplicity, we just save the 'previousDeletedIds' to DB
+            try {
+                const { data: existing } = await supabase
+                    .from('business_info')
+                    .select('id')
+                    .eq('owner_user_id', session.user.id)
+                    .eq('type', 'deleted_calls')
+                    .maybeSingle();
+
+                if (existing) {
+                    await supabase.from('business_info').update({ content: { ids: previousDeletedIds } }).eq('id', existing.id);
+                }
+            } catch (e) {
+                console.error("Undo failed", e);
+            }
+        }, "Undo");
 
         try {
             const { data: existing } = await supabase
@@ -512,9 +536,15 @@ export default function App() {
         setView('call-detail');
     };
 
-    const showToast = (message) => {
+    const showToast = (message, action = null, actionLabel = 'Undo') => {
         setToast(message);
-        setTimeout(() => setToast(null), 3000);
+        setToastAction(action ? { run: action, label: actionLabel } : null);
+
+        // Clear previous timeout if any (not tracking currently, but simple override works)
+        setTimeout(() => {
+            setToast(null);
+            setToastAction(null);
+        }, 4000);
     };
 
     // --- Styles ---
@@ -882,9 +912,7 @@ export default function App() {
                                                                             <button
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    if (window.confirm("Delete this call?")) {
-                                                                                        handleDeleteCall(call.id);
-                                                                                    }
+                                                                                    handleDeleteCall(call.id);
                                                                                 }}
                                                                                 className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                                                                             >
@@ -2562,8 +2590,20 @@ export default function App() {
 
             {
                 toast && (
-                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300 flex items-center gap-2 pointer-events-none">
+                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-gray-900 text-white pl-6 pr-4 py-3 rounded-full shadow-xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300 flex items-center gap-4">
                         <span className="text-sm font-bold">{toast}</span>
+                        {toastAction && (
+                            <button
+                                onClick={() => {
+                                    toastAction.run();
+                                    setToast(null);
+                                    setToastAction(null);
+                                }}
+                                className="text-blue-400 font-bold text-xs uppercase tracking-wider hover:text-blue-300 transition-colors"
+                            >
+                                {toastAction.label}
+                            </button>
+                        )}
                     </div>
                 )
             }
