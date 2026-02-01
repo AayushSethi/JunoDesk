@@ -3,6 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { google } from 'googleapis';
 
 // Initialize Environment Variables
 dotenv.config();
@@ -47,6 +48,72 @@ export const VOICES = [
     { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3' }
 ];
 
+// Helper: Get Authenticated Google Client (Handles Refresh)
+async function getAuthenticatedClient(userId, profile) {
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `http://localhost:3000/auth/google/callback`
+    );
+
+    oauth2Client.setCredentials({
+        access_token: profile.google_access_token,
+        refresh_token: profile.google_refresh_token,
+        expiry_date: new Date(profile.google_token_expires_at).getTime()
+    });
+
+    // Listen for refresh and persist
+    oauth2Client.on('tokens', async (tokens) => {
+        if (tokens.access_token) {
+            console.log("🔄 Refreshing verified Access Token for user", userId);
+            const updates = {
+                google_access_token: tokens.access_token,
+                google_token_expires_at: new Date(tokens.expiry_date).toISOString(),
+            };
+            if (tokens.refresh_token) updates.google_refresh_token = tokens.refresh_token;
+
+            await supabase.from('business_profiles').update(updates).eq('owner_user_id', userId);
+        }
+    });
+
+    return oauth2Client;
+}
+
+// Helper: Fetch Upcoming Events (Next 48h)
+async function getCalendarEvents(userId, profile) {
+    if (!profile.google_access_token) return null;
+
+    try {
+        const auth = await getAuthenticatedClient(userId, profile);
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        const now = new Date();
+        const next48h = new Date();
+        next48h.setHours(next48h.getHours() + 48);
+
+        const res = await calendar.events.list({
+            calendarId: profile.google_calendar_id || 'primary',
+            timeMin: now.toISOString(),
+            timeMax: next48h.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime',
+        });
+
+        const events = res.data.items;
+        if (!events || events.length === 0) return "No upcoming events found for the next 48 hours. You are completely free.";
+
+        return events.map((event) => {
+            const start = event.start.dateTime ? new Date(event.start.dateTime).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : event.start.date;
+            const end = event.end.dateTime ? new Date(event.end.dateTime).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }) : event.end.date;
+            return `- ${event.summary} (${start} - ${end})`;
+        }).join("\n");
+
+    } catch (e) {
+        console.error("Error fetching calendar:", e);
+        return "Error checking calendar availability.";
+    }
+}
+
 // Helper: Fetch full context for a user
 async function getContextForUser(userId) {
     if (!supabase) throw new Error("Supabase not connected");
@@ -72,11 +139,17 @@ async function getContextForUser(userId) {
     const personalityItem = info.find(i => i.type === 'personality');
     const voiceId = profile.voice_id || personalityItem?.content?.voiceId;
 
-    return { profile, greeting, instructions, knowledge, voiceId };
+    // 3. Get Calendar Context (if connected)
+    let calendarContext = "";
+    if (profile.google_access_token) {
+        calendarContext = await getCalendarEvents(userId, profile);
+    }
+
+    return { profile, greeting, instructions, knowledge, voiceId, calendarContext };
 }
 
 // Helper: structured prompt builder
-function generateSystemPrompt({ profile, greeting, instructions, knowledge }) {
+function generateSystemPrompt({ profile, greeting, instructions, knowledge, calendarContext }) {
     // 1. Identity & Tone
     let prompt = `You are the friendly and professional AI Receptionist for ${profile.company_name || 'a business'}.`;
 
@@ -120,6 +193,12 @@ function generateSystemPrompt({ profile, greeting, instructions, knowledge }) {
     if (instructions && instructions.length > 0) {
         prompt += `\nSPECIFIC INSTRUCTIONS:\n`;
         instructions.forEach(ins => prompt += `- ${ins}\n`);
+    }
+
+    // 5. Calendar
+    if (calendarContext) {
+        prompt += `\nCALENDAR / AVAILABILITY (Next 48 Hours):\n${calendarContext}\n`;
+        prompt += `Note: Use the above schedule to answer questions about availability. If a user asks for a time that conflicts, politely say you are busy.\n`;
     }
 
     // 5. Scripting
@@ -427,7 +506,28 @@ app.post('/api/sync-assistant', async (req, res) => {
                         role: "system",
                         content: systemPrompt
                     }
-                ]
+                ],
+                tools: profile.google_access_token ? [
+                    {
+                        type: "function",
+                        function: {
+                            name: "bookAppointment",
+                            description: "Book an appointment or meeting on the calendar. Ask for the date, time, and user's name first.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    summary: { type: "string", description: "Title of the meeting (e.g. 'Meeting with John')" },
+                                    startTime: { type: "string", description: "ISO 8601 start time (e.g. 2024-02-02T14:00:00)" },
+                                    durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
+                                },
+                                required: ["summary", "startTime"]
+                            }
+                        },
+                        server: {
+                            url: "https://interorbitally-waxier-versie.ngrok-free.dev/api/tools/book-appointment",
+                        }
+                    }
+                ] : []
             },
             firstMessage: greeting
         };
@@ -447,7 +547,10 @@ app.post('/api/sync-assistant', async (req, res) => {
             throw new Error(`Failed to update Vapi: ${errorText}`);
         }
 
-        res.json({ success: true });
+        const responseData = await response.json();
+        console.log("✅ Vapi Sync Success! Assistant Updated:", JSON.stringify(responseData, null, 2));
+
+        res.json({ success: true, vapiResponse: responseData });
 
     } catch (err) {
         console.error("Sync Error:", err.message);
@@ -536,6 +639,180 @@ app.get('/api/voices', (req, res) => {
 });
 
 
+
+
+// --- GOOGLE CALENDAR AUTH ROUTES ---
+
+// 1. Generate Auth URL
+app.post('/api/auth/google-url', (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: "Missing userId" });
+
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `http://localhost:3000/auth/google/callback` // Redirect URI
+    );
+
+    const scopes = [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/calendar.events'
+    ];
+
+    const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline', // Critical for receiving a refresh token
+        scope: scopes,
+        state: userId, // Pass userId as state to identify user in callback
+        prompt: 'consent' // Force consent to ensure we get a refresh token
+    });
+
+    res.json({ url });
+});
+
+// 2. Auth Callback
+app.get('/auth/google/callback', async (req, res) => {
+    const { code, state: userId } = req.query;
+
+    if (!code || !userId) {
+        return res.status(400).send("Invalid Request: Missing code or state (userId)");
+    }
+
+    try {
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            `http://localhost:3000/auth/google/callback`
+        );
+
+        const { tokens } = await oauth2Client.getToken(code);
+        oauth2Client.setCredentials(tokens);
+
+        console.log(`✅ Acquired Google Tokens for User: ${userId}`);
+
+        // Update Supabase
+        // We set the expires_at to now + expiry_date (seconds from now)
+        const expiryDate = new Date();
+        expiryDate.setSeconds(expiryDate.getSeconds() + tokens.expiry_date); // tokens.expiry_date is usually relative ms? Wait, check docs.
+        // Actually, oauth2Client tokens.expiry_date is usually "Timestamp of expiration".
+        // Let's verify standard google output. Usually it is an absolute timestamp (ms) or relative.
+        // Google Node helper usually gives `expiry_date` as an epoch timestamp (ms).
+
+        const updates = {
+            google_access_token: tokens.access_token,
+            google_token_expires_at: new Date(tokens.expiry_date).toISOString(),
+            google_calendar_id: 'primary', // Default to primary calendar on first connect
+            // Only update refresh token if one was returned (it's only returned on the first offline access request)
+            ...(tokens.refresh_token && { google_refresh_token: tokens.refresh_token })
+        };
+
+        const { error } = await supabase
+            .from('business_profiles')
+            .update(updates)
+            .eq('owner_user_id', userId);
+
+        if (error) {
+            console.error("❌ Failed to save Google Tokens:", error);
+            return res.status(500).send("Database Error saving tokens.");
+        }
+
+        // Redirect back to frontend
+        res.redirect('http://localhost:5173/');
+
+    } catch (err) {
+        console.error("❌ Google Auth Error:", err);
+        res.status(500).send("Authentication Failed: " + err.message);
+    }
+});
+
+// 7. TOOL ENDPOINT: Book Appointment
+app.post('/api/tools/book-appointment', async (req, res) => {
+    console.log("🛠️ Tool Call: bookAppointment", req.body);
+    try {
+        // ... (Vapi logic)
+        // Vapi sends the message payload. We need to find the user from the call.
+
+        const { message } = req.body;
+        const toolCall = message.toolCalls[0];
+
+        // Lookup User by Assistant ID
+        // Vapi payload structure varies. Check message.assistant.id or message.call.assistantId
+        const assistantId = message.assistant?.id || message.call?.assistantId;
+
+        console.log(`🔹 Lookup Assistant ID: ${assistantId}`);
+        const { data: profile } = await supabase.from('business_profiles').select('*').eq('vapi_assistant_id', assistantId).single();
+
+        console.log(`🔹 Found Profile for Assistant ${assistantId}: ${profile ? 'YES' : 'NO'}`);
+
+        if (!profile || !profile.google_refresh_token) {
+            console.warn("⚠️ No Google Refresh Token found for profile.");
+            return res.json({ results: [{ toolCallId: toolCall.id, result: "Error: calendar_not_connected" }] });
+        }
+
+        // Authenticate Google
+        console.log("🔹 Authenticating with Google...");
+        const auth = await getAuthenticatedClient(profile.owner_user_id, profile);
+
+        // DEBUG: Check credentials
+        console.log("🧪 OAuth client credentials BEFORE refresh:", {
+            hasAccess: !!auth.credentials.access_token,
+            expiry: auth.credentials.expiry_date
+        });
+
+        // FORCE REFRESH to ensure token is valid
+        try {
+            const tokenInfo = await auth.getAccessToken();
+            console.log("🧪 Token Refresh Result:", tokenInfo ? "Success" : "No token returned");
+        } catch (refreshErr) {
+            console.error("❌ FORCE REFRESH FAILED:", refreshErr.response ? refreshErr.response.data : refreshErr.message);
+            // If refresh fails, invalid_grant likely means redirect URI mismatch or revoked token
+            return res.json({ results: [{ toolCallId: toolCall.id, result: `Calendar connection expired. Please reconnect.` }] });
+        }
+
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        // Parse Arguments (Handle String vs Object)
+        let args = toolCall.function.arguments;
+        console.log("🔹 Raw Arguments:", typeof args, args);
+        if (typeof args === 'string') {
+            try { args = JSON.parse(args); } catch (e) { console.error("JSON Parse Error", e); }
+        }
+
+        const start = new Date(args.startTime);
+        const end = new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
+
+        console.log(`🔹 Booking Event: "${args.summary}" at ${start.toISOString()} (America/New_York)`);
+        console.log("🧪 About to call Google Calendar API...");
+
+        await calendar.events.insert({
+            calendarId: profile.google_calendar_id || 'primary',
+            requestBody: {
+                summary: args.summary,
+                start: { dateTime: start.toISOString(), timeZone: "America/New_York" },
+                end: { dateTime: end.toISOString(), timeZone: "America/New_York" }
+            }
+        });
+
+        console.log("✅ Event Inserted Successfully!");
+
+        // Return success to Vapi
+        res.json({
+            results: [
+                {
+                    toolCallId: toolCall.id,
+                    result: `Successfully booked "${args.summary}" for ${start.toLocaleString()}.`
+                }
+            ]
+        });
+
+    } catch (e) {
+        console.error("❌ Booking Error FULL:", {
+            message: e.message,
+            response: e.response ? e.response.data : "No response data",
+            code: e.code
+        });
+        res.json({ results: [{ toolCallId: req.body.message.toolCalls[0].id, result: `Failed to book: ${e.message}` }] });
+    }
+});
 
 // 6. DB SAVE (Failsafe)
 app.post('/api/save-voice', async (req, res) => {
