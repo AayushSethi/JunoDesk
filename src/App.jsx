@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText
+    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText, CalendarCheck
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -501,21 +501,54 @@ export default function App() {
             const res = await fetch(`http://localhost:3000/api/calls?userId=${session.user.id}`);
             const data = await res.json();
 
+            // Fetch Bookings with safety check
+            let bookings = [];
+            try {
+                const { data: bookingData, error } = await supabase.from('bookings').select('*').eq('owner_user_id', session.user.id);
+                if (error) console.error("Booking fetch error:", error);
+                if (bookingData) bookings = bookingData;
+            } catch (err) {
+                console.warn("Supabase booking fetch failed:", err);
+            }
+
             if (Array.isArray(data)) {
-                // Map Vapi data manually if needed, or use as is.
-                // Vapi returns: { id, startedAt, summary, transcript, recordingUrl, customer: { number } }
-                const formatted = data.map(c => ({
-                    id: c.id,
-                    name: "Unknown Caller", // Vapi doesn't usually give names unless enriched
-                    number: c.customer?.number || "Unknown Number",
-                    time: new Date(c.startedAt).toLocaleString(), // Simple format for now
-                    rawTime: c.startedAt,
-                    preview: c.analysis?.summary || c.summary || "No summary available",
-                    summary: c.analysis?.summary || c.summary || "Processing summary...",
-                    transcript: c.analysis?.transcript || c.transcript || "No transcript available",
-                    recordingUrl: c.recordingUrl || c.artifact?.recordingUrl,
-                    status: c.status
-                }));
+                const formatted = data.map(c => {
+                    // Safe matched booking
+                    const booking = bookings.find(b => b.call_id === c.id);
+
+                    // Safe Date Parsing
+                    let bookingLabel = null;
+                    if (booking) {
+                        try {
+                            const dateStr = new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            bookingLabel = `Booked: ${booking.summary} @ ${dateStr}`;
+                        } catch (e) {
+                            bookingLabel = "Meeting Scheduled";
+                        }
+                    }
+
+                    return {
+                        id: c.id,
+                        name: "Unknown Caller",
+                        number: c.customer?.number || "Unknown Number",
+                        time: new Date(c.startedAt).toLocaleString(),
+                        rawTime: c.startedAt,
+                        preview: c.analysis?.summary || c.summary || "No summary available",
+                        summary: c.analysis?.summary || c.summary || "Processing summary...",
+                        transcript: c.analysis?.transcript || c.transcript || "No transcript available",
+                        recordingUrl: c.recordingUrl || c.artifact?.recordingUrl,
+                        status: c.status,
+                        // Attach booking info
+                        actionItem: booking ? {
+                            type: 'booking',
+                            label: "Meeting Scheduled",
+                            summary: booking.summary,
+                            startTime: booking.start_time,
+                            link: booking.event_link,
+                            displayTime: new Date(booking.start_time).toLocaleTimeString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+                        } : null
+                    };
+                });
                 setCalls(formatted);
             }
         } catch (e) {
@@ -869,7 +902,38 @@ export default function App() {
                                                                         {call.summary}
                                                                     </p>
 
-                                                                    {/* Actions */}
+                                                                    {/* Action Item (Booking) UI */}
+                                                                    {call.actionItem && (
+                                                                        <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+                                                                            <div className="flex items-center gap-2.5 mb-3 rounded-full">
+                                                                                <div className="min-w-6 w-6 h-6 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-md shadow-blue-200">
+                                                                                    <CalendarCheck size={12} strokeWidth={3} />
+                                                                                </div>
+                                                                                <span className="font-bold text-gray-900 text-sm tracking-tight">{call.actionItem.label}</span>
+                                                                                <span className="text-gray-400 text-xs font-bold">Confirmed</span>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                                                                                <p className="text-gray-800 text-[13px] font-semibold leading-relaxed mb-4">
+                                                                                    {call.actionItem.summary} at {call.actionItem.displayTime}.
+                                                                                </p>
+                                                                                {call.actionItem.link ? (
+                                                                                    <a
+                                                                                        href={call.actionItem.link}
+                                                                                        target="_blank"
+                                                                                        rel="noreferrer"
+                                                                                        className="block w-full text-center bg-white border border-gray-200 text-gray-900 text-xs font-bold py-3 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98]"
+                                                                                    >
+                                                                                        View in Calendar
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <button disabled className="w-full bg-gray-50 text-gray-400 text-xs font-bold py-3 rounded-xl cursor-not-allowed">
+                                                                                        Link Unavailable
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
                                                                     {/* Actions */}
                                                                     <div className="flex items-center gap-2 mb-6">
                                                                         <button className="bg-[#2563EB] text-white px-5 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">

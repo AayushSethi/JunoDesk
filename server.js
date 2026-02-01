@@ -150,8 +150,19 @@ async function getContextForUser(userId) {
 
 // Helper: structured prompt builder
 function generateSystemPrompt({ profile, greeting, instructions, knowledge, calendarContext }) {
+    // 0. DATE & TIME CONTEXT (CRITICAL FOR APPOINTMENTS)
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+
+    let prompt = `SYSTEM CONTEXT:
+Today is ${dateStr}.
+Current Time is ${timeStr}.
+Timezone: America/New_York (unless specified otherwise).
+Refuse to book appointments in the past. Always calculate "tomorrow" or "next Tuesday" relative to ${dateStr}.\n\n`;
+
     // 1. Identity & Tone
-    let prompt = `You are the friendly and professional AI Receptionist for ${profile.company_name || 'a business'}.`;
+    prompt += `IDENTITY:\nYou are the friendly and professional AI Receptionist for ${profile.company_name || 'a business'}.`;
 
     if (profile.industry) {
         prompt += ` The business is in the ${profile.industry} industry.\n`;
@@ -201,7 +212,7 @@ function generateSystemPrompt({ profile, greeting, instructions, knowledge, cale
         prompt += `Note: Use the above schedule to answer questions about availability. If a user asks for a time that conflicts, politely say you are busy.\n`;
     }
 
-    // 5. Scripting
+    // 6. Scripting
     prompt += `\nSCRIPTING:\n`;
     prompt += `Greeting: "${greeting}"\n`;
 
@@ -783,7 +794,7 @@ app.post('/api/tools/book-appointment', async (req, res) => {
         console.log(`🔹 Booking Event: "${args.summary}" at ${start.toISOString()} (America/New_York)`);
         console.log("🧪 About to call Google Calendar API...");
 
-        await calendar.events.insert({
+        const eventResponse = await calendar.events.insert({
             calendarId: profile.google_calendar_id || 'primary',
             requestBody: {
                 summary: args.summary,
@@ -793,6 +804,20 @@ app.post('/api/tools/book-appointment', async (req, res) => {
         });
 
         console.log("✅ Event Inserted Successfully!");
+        console.log("🔗 Event Link:", eventResponse.data.htmlLink);
+
+        // Save to Supabase 'bookings' table
+        const { error: dbError } = await supabase.from('bookings').insert({
+            owner_user_id: profile.owner_user_id,
+            call_id: message.call?.id || message.call?.id, // Should match call ID from Vapi
+            event_id: eventResponse.data.id,
+            event_link: eventResponse.data.htmlLink,
+            summary: args.summary,
+            start_time: start.toISOString()
+        });
+
+        if (dbError) console.error("⚠️ Failed to save booking to DB:", dbError);
+        else console.log("💾 Booking saved to Supabase.");
 
         // Return success to Vapi
         res.json({
