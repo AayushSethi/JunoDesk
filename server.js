@@ -150,71 +150,113 @@ async function getContextForUser(userId) {
 
 // Helper: structured prompt builder
 function generateSystemPrompt({ profile, greeting, instructions, knowledge, calendarContext }) {
-    // 0. DATE & TIME CONTEXT (CRITICAL FOR APPOINTMENTS)
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    const yearStr = now.getFullYear();
 
-    let prompt = `SYSTEM CONTEXT:
+    let prompt = `SYSTEM CONTEXT
+
 Today is ${dateStr}.
-Current Time is ${timeStr}.
-Timezone: America/New_York (unless specified otherwise).
-Refuse to book appointments in the past. Always calculate "tomorrow" or "next Tuesday" relative to ${dateStr}.\n\n`;
+Current local time is ${timeStr}.
+Timezone is America/New_York.
 
-    // 1. Identity & Tone
-    prompt += `IDENTITY:\nYou are the friendly and professional AI Receptionist for ${profile.company_name || 'a business'}.`;
+All relative dates like “today”, “tomorrow”, or weekdays must be calculated relative to this date.
+Never assume a different year.
+If a calculated date would fall in a past year or past date, do not book and ask the caller to confirm.
 
-    if (profile.industry) {
-        prompt += ` The business is in the ${profile.industry} industry.\n`;
-    }
+You must never guess the current date or year.
 
-    if (profile.business_description) {
-        prompt += `\nBUSINESS CONTEXT:\n${profile.business_description}\n`;
-    }
+IDENTITY
 
-    // 2. Core Behavior & Guardrails
-    prompt += `\nCORE BEHAVIOR:
-- Your main goal is to answer questions, take messages, and help callers efficiently.
-- Be polite, concise, and natural. Do not sound robotic.
-- If the caller asks to speak to a real person, offer to take a message or say you can have someone call them back.
-- NEVER make up information. If the answer is not in your Knowledge Base, say "I don't have that information handy, but I can check and get back to you."\n`;
+You are a friendly, professional AI receptionist for ${profile.company_name || 'the business'}.
+You represent the business clearly, calmly, and accurately.
 
-    // 3. Knowledge Base
+Industry: ${profile.industry || 'General'}
+Business description: ${profile.business_description || 'Not specified'}
+
+CORE BEHAVIOR
+
+Your primary role is to answer questions, take messages, and schedule appointments.
+
+Be polite, concise, and natural.
+
+Do not sound robotic.
+
+Never invent information.
+
+If you are unsure, ask a clarifying question.
+
+If the caller asks for a human, offer to take a message or arrange a callback.
+
+ABSOLUTE DATE RULES (CRITICAL)
+
+Never use relative dates in confirmations.
+
+Always speak and reason using absolute dates (e.g., “Monday, February 2nd, 2026”).
+
+Never assume a year other than ${yearStr} unless the caller explicitly says a different year.
+
+If a date resolves to the past, stop and ask for confirmation.
+
+Before booking, silently verify the date is today or later.
+
+CALENDAR & TOOL USAGE
+
+1. checkAvailability(startTime, durationMinutes):
+   - You MUST use this tool to check if a slot is free before offering it or confirming it.
+   - Do not rely on valid/invalid assumptions. Check the actual calendar.
+
+2. bookAppointment(summary, startTime):
+   - Only call this AFTER you have checked availability and received a conformation from the user.
+
+CALENDAR CONTEXT (Cached Preview - May be outdated, use tool to verify):
+${calendarContext || "No upcoming events cached."}
+
+BOOKING RULES
+
+Confirm the full date and time with the caller before booking.
+
+Example confirmation:
+
+“Just to confirm, you’d like to book Tuesday, February 2nd, 2026 at 1:00 PM, correct?”
+
+Only book after confirmation.
+
+Never book appointments in the past.
+
+SCRIPTING
+
+Greeting:
+“${greeting}”
+
+FINAL SAFETY CHECK (MANDATORY)
+
+Before booking:
+
+Date is today or later
+Year matches ${yearStr} or later
+Timezone is America/New_York
+Caller explicitly confirmed the date and time
+You have checked availability using the tool and it returned "Available"
+
+If any check fails, do not book and ask for clarification.
+`;
+
+    // Append Knowledge Base
     const qaItems = knowledge.filter(k => k.question && k.answer);
-    const factItems = knowledge.filter(k => k.text && !k.question && !k.answer); // 'fact' type
+    const factItems = knowledge.filter(k => k.text && !k.question && !k.answer);
 
     if (qaItems.length > 0 || factItems.length > 0) {
-        prompt += `\nKNOWLEDGE BASE (Use this to answer questions):\n`;
-
-        if (factItems.length > 0) {
-            prompt += `Important Facts:\n`;
-            factItems.forEach(f => prompt += `- ${f.text}\n`);
-            prompt += `\n`;
-        }
-
-        if (qaItems.length > 0) {
-            prompt += `Common Q&A:\n`;
-            qaItems.forEach(qa => {
-                prompt += `Q: ${qa.question}\nA: ${qa.answer}\n`;
-            });
-        }
+        prompt += `\nADDITIONAL KNOWLEDGE BASE:\n`;
+        factItems.forEach(f => prompt += `- ${f.text}\n`);
+        qaItems.forEach(qa => prompt += `Q: ${qa.question}\nA: ${qa.answer}\n`);
     }
 
-    // 4. Specific Instructions
     if (instructions && instructions.length > 0) {
         prompt += `\nSPECIFIC INSTRUCTIONS:\n`;
         instructions.forEach(ins => prompt += `- ${ins}\n`);
     }
-
-    // 5. Calendar
-    if (calendarContext) {
-        prompt += `\nCALENDAR / AVAILABILITY (Next 48 Hours):\n${calendarContext}\n`;
-        prompt += `Note: Use the above schedule to answer questions about availability. If a user asks for a time that conflicts, politely say you are busy.\n`;
-    }
-
-    // 6. Scripting
-    prompt += `\nSCRIPTING:\n`;
-    prompt += `Greeting: "${greeting}"\n`;
 
     return prompt;
 }
@@ -500,6 +542,13 @@ app.post('/api/sync-assistant', async (req, res) => {
         // Log the voice ID to be sure
         console.log(`🎙️ Syncing Voice ID: ${activeVoiceId}`);
 
+        // Dynamic Example Year & Date for Bulletproof Prompts
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(14, 0, 0, 0); // Default example to 2 PM
+        const exampleISO = tomorrow.toISOString().replace(/\.\d{3}Z$/, ''); // Remove ms/Z to keep it simple ISO (e.g. 2026-02-02T14:00:00)
+
         const updatedPayload = {
             name: assistantName,
             voice: {
@@ -522,13 +571,31 @@ app.post('/api/sync-assistant', async (req, res) => {
                     {
                         type: "function",
                         function: {
+                            name: "checkAvailability",
+                            description: "Check if a specific time slot is available on the calendar. Use this BEFORE booking.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
+                                    durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
+                                },
+                                required: ["startTime"]
+                            }
+                        },
+                        server: {
+                            url: "https://interorbitally-waxier-versie.ngrok-free.dev/api/tools/check-availability",
+                        }
+                    },
+                    {
+                        type: "function",
+                        function: {
                             name: "bookAppointment",
                             description: "Book an appointment or meeting on the calendar. Ask for the date, time, and user's name first.",
                             parameters: {
                                 type: "object",
                                 properties: {
                                     summary: { type: "string", description: "Title of the meeting (e.g. 'Meeting with John')" },
-                                    startTime: { type: "string", description: "ISO 8601 start time (e.g. 2024-02-02T14:00:00)" },
+                                    startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
                                     durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
                                 },
                                 required: ["summary", "startTime"]
@@ -539,7 +606,7 @@ app.post('/api/sync-assistant', async (req, res) => {
                         }
                     }
                 ] : []
-            },
+            }, // Close model logic
             firstMessage: greeting
         };
 
@@ -732,6 +799,66 @@ app.get('/auth/google/callback', async (req, res) => {
     } catch (err) {
         console.error("❌ Google Auth Error:", err);
         res.status(500).send("Authentication Failed: " + err.message);
+    }
+});
+
+// 6.5 TOOL ENDPOINT: Check Availability
+app.post('/api/tools/check-availability', async (req, res) => {
+    console.log("🛠️ Tool Call: checkAvailability", req.body);
+    try {
+        const { message } = req.body;
+        const toolCall = message.toolCalls[0];
+
+        // Lookup User by Assistant ID
+        const assistantId = message.assistant?.id || message.call?.assistantId;
+        const { data: profile } = await supabase.from('business_profiles').select('*').eq('vapi_assistant_id', assistantId).single();
+
+        if (!profile || !profile.google_refresh_token) {
+            return res.json({ results: [{ toolCallId: toolCall.id, result: "Error: calendar_not_connected" }] });
+        }
+
+        const auth = await getAuthenticatedClient(profile.owner_user_id, profile);
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        let args = toolCall.function.arguments;
+        if (typeof args === 'string') {
+            try { args = JSON.parse(args); } catch (e) { console.error("JSON Parse Error", e); }
+        }
+
+        const start = new Date(args.startTime);
+        const end = new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
+
+        console.log(`🔍 Checking availability for ${start.toISOString()} to ${end.toISOString()}`);
+
+        const freeBusy = await calendar.freebusy.query({
+            requestBody: {
+                timeMin: start.toISOString(),
+                timeMax: end.toISOString(),
+                items: [{ id: profile.google_calendar_id || 'primary' }]
+            }
+        });
+
+        const busySlots = freeBusy.data.calendars[profile.google_calendar_id || 'primary'].busy;
+
+        if (busySlots.length > 0) {
+            return res.json({
+                results: [{
+                    toolCallId: toolCall.id,
+                    result: `Busy. There is a conflict: ${busySlots.length} meeting(s) during this time set.`
+                }]
+            });
+        }
+
+        return res.json({
+            results: [{
+                toolCallId: toolCall.id,
+                result: "Available. The slot is free."
+            }]
+        });
+
+    } catch (e) {
+        console.error("❌ Availability Check Error:", e);
+        res.json({ results: [{ toolCallId: req.body.message.toolCalls[0].id, result: `Error checking availability: ${e.message}` }] });
     }
 });
 
