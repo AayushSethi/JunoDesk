@@ -350,7 +350,7 @@ app.get('/api/sync-calls', async (req, res) => {
         if (Array.isArray(calls)) {
             for (const call of calls) {
                 const durationSeconds = call.endedAt ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : 0;
-                const summaryText = (call.analysis?.summary || "").toLowerCase();
+                const summaryText = (call.analysis?.summary || call.summary || "").toLowerCase();
                 const isSpam = (durationSeconds < 5) ||
                     summaryText.includes('wrong number') ||
                     summaryText.includes('spam');
@@ -362,8 +362,8 @@ app.get('/api/sync-calls', async (req, res) => {
                     started_at: call.startedAt,
                     ended_at: call.endedAt,
                     duration_seconds: durationSeconds,
-                    summary: call.analysis?.summary || "Processing...",
-                    transcript: call.analysis?.transcript || "",
+                    summary: call.analysis?.summary || call.summary || "Processing...",
+                    transcript: call.transcript || call.analysis?.transcript || "",
                     recording_url: call.artifact?.recordingUrl || call.recordingUrl,
                     is_spam: isSpam
                 }, { onConflict: 'id' });

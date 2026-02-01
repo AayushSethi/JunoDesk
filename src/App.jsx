@@ -5,7 +5,7 @@ import {
     Calendar, Bell, Edit2, MapPin, Clock, Briefcase, Globe, Plus, X,
     ArrowRight, Check, Share2, Search, Mic, Play, Pause, Copy, Info, ChevronDown,
     CreditCard, UserPlus, Star, ArrowUpRight, XCircle, MessageCircle, LifeBuoy, AudioWaveform, LogOut,
-    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText, CalendarCheck
+    ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText, CalendarCheck, LayoutGrid
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -473,7 +473,7 @@ export default function App() {
                 .from('calls')
                 .select('*')
                 .eq('user_id', session.user.id)
-                .order('created_at', { ascending: false });
+                .order('started_at', { ascending: false });
 
             if (callsError) {
                 console.error("Supabase calls fetch error:", callsError);
@@ -491,9 +491,28 @@ export default function App() {
             }
 
             if (dbCalls) {
-                const formatted = dbCalls.map(c => {
-                    // Safe matched booking
-                    const booking = bookings.find(b => b.call_id === c.id);
+                const formatted = dbCalls.map((c, index) => {
+                    // Smart Matching:
+                    const callDate = new Date(c.started_at);
+                    let booking = bookings.find(b => {
+                        // 1. Exact ID
+                        if (b.call_id === c.id) return true;
+
+                        // 2. Fuzzy Time Match (Expanded window & robust parsing)
+                        // created_at is automatic in Supabase
+                        if (b.created_at) {
+                            const bookCreation = new Date(b.created_at);
+                            // If invalid date, skip
+                            if (isNaN(bookCreation.getTime())) return false;
+
+                            const diffMins = Math.abs(bookCreation - callDate) / (1000 * 60);
+                            return diffMins < 60; // 60 min window
+                        }
+                        return false;
+                    });
+
+                    // DEBUG LOG
+                    if (booking) console.log(`✅ Matched Booking for Call ${c.id}:`, booking);
 
                     // Safe Date Parsing
                     let bookingLabel = null;
@@ -552,15 +571,10 @@ export default function App() {
                 .then(res => res.json())
                 .then(data => {
                     console.log("Sync Response:", data);
-                    // DEBUG: Show toast to understand why calls aren't showing
-                    if (data.error) showToast("Sync Error: " + data.error);
-                    else showToast(`Synced ${data.count} calls (Vapi Found: ${data.vapiCount || '?'})`);
-
                     if (data.count > 0) fetchCalls();
                 })
                 .catch(err => {
                     console.error("Background sync failed:", err);
-                    showToast("Sync Exception: " + err.message);
                 });
 
             // Poll for new calls every 15s
@@ -777,66 +791,65 @@ export default function App() {
 
                     <div className="flex-1 overflow-y-auto pb-48 px-4 scrollbar-hide">
                         {/* Dashboard Stats */}
-                        <div className="space-y-3 mb-6">
-                            {/* Assistant Status Card */}
-                            <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm flex items-center justify-between">
+                        <div className="mb-8">
+                            {/* Assistant Status Card - Light Blue Theme */}
+                            <div className="bg-blue-50 border border-blue-100 shadow-sm rounded-2xl p-4 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-50 border-4 border-white shadow-md">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-white border-2 border-white shadow-sm shrink-0">
                                         <img
                                             src={voiceOptions.find(v => v.id === personality.voiceId || v.name === personality.name)?.avatar || voiceOptions[0].avatar}
                                             alt="Assistant"
-                                            className="w-full h-full object-cover scale-110 translate-y-1"
+                                            className="w-full h-full object-cover scale-110 translate-y-0.5"
                                         />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 text-lg">{personality.name}</h3>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
-                                            <span className={`text-xs font-bold uppercase tracking-wider ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-600'}`}>
+                                        <h3 className="font-bold text-gray-900 text-lg leading-tight tracking-tight">{personality.name}</h3>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-[#2563EB] animate-pulse' : 'bg-gray-400'}`}></div>
+                                            <span className={`text-[11px] font-bold uppercase tracking-wide ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-500'}`}>
                                                 {isReceptionistActive ? "Active 24/7" : "Offline"}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <Info size={20} className="text-gray-300" />
-                            </div>
-
-                            {/* Stats Grid */}
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-white border border-gray-100/50 rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_-4px_rgba(37,99,235,0.08)] relative overflow-hidden group">
-                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl opacity-50 group-hover:scale-110 transition-transform"></div>
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100 flex items-center justify-center mb-3 shadow-sm relative z-10">
-                                        <Phone size={20} className="text-[#2563EB] fill-[#2563EB]" />
-                                    </div>
-                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">{calls.length}</span>
-                                    <span className="text-[10px] font-extrabold text-[#2563EB]/60 uppercase tracking-widest relative z-10">calls handled</span>
-                                </div>
-                                <div className="bg-white border border-gray-100/50 rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_-4px_rgba(239,68,68,0.08)] relative overflow-hidden group">
-                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 rounded-full blur-2xl opacity-50 group-hover:scale-110 transition-transform"></div>
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100 flex items-center justify-center mb-3 shadow-sm relative z-10">
-                                        <ShieldAlert size={20} className="text-red-500 fill-red-500" />
-                                    </div>
-                                    <span className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-1 relative z-10">{calls.filter(c => c.isSpam).length}</span>
-                                    <span className="text-[10px] font-extrabold text-red-500/60 uppercase tracking-widest relative z-10">spam blocked</span>
-                                </div>
+                                <button
+                                    onClick={() => { showToast("Refreshing..."); fetchCalls(); }}
+                                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-[#2563EB] shadow-sm hover:bg-blue-100 transition-all active:scale-95 border border-blue-100"
+                                >
+                                    <RefreshCw size={16} />
+                                </button>
                             </div>
                         </div>
 
-                        {/* Tabs */}
-                        <div className="flex gap-2 mb-6">
-                            <button
-                                onClick={() => setActiveInboxTab('inbox')}
-                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'inbox' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                            >
-                                Inbox <span className="ml-1 opacity-80">{calls.filter(c => !c.isSpam && !c.isRead && !c.isArchived).length}</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveInboxTab('archived')}
-                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeInboxTab === 'archived' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                            >
-                                Archived
-                            </button>
+                        {/* Tabs - Consistent Style with Borders */}
+                        <div className="flex items-center gap-2 mb-6 w-full">
+                            {['inbox', 'unread', 'archived'].map(tab => {
+                                const isActive = activeInboxTab === tab;
+                                const count = calls.filter(c => {
+                                    if (tab === 'inbox') return !c.isSpam && !c.isArchived;
+                                    if (tab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
+                                    if (tab === 'archived') return c.isArchived;
+                                    return false;
+                                }).length;
+
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveInboxTab(tab)}
+                                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
+                                            ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
+                                            : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
+                                            }`}
+                                    >
+                                        <span className="capitalize">{tab}</span>
+                                        {count > 0 && (
+                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Calls List */}
@@ -845,6 +858,7 @@ export default function App() {
                                 <div className="text-center py-12 text-gray-400">Loading calls...</div>
                             ) : calls.filter(c => {
                                 if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
+                                if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
                                 if (activeInboxTab === 'archived') return c.isArchived;
                                 return false;
                             }).length === 0 ? (
@@ -882,6 +896,7 @@ export default function App() {
                             ) : (() => {
                                 const visibleCalls = calls.filter(c => {
                                     if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
+                                    if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
                                     if (activeInboxTab === 'archived') return c.isArchived;
                                     return false;
                                 });
@@ -1026,7 +1041,7 @@ export default function App() {
                                                                             >
                                                                                 <Share2 size={14} />
                                                                             </button>
-                                                                            {!archivedIds.includes(call.id) && (
+                                                                            {!call.isArchived && (
                                                                                 <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
@@ -1038,7 +1053,7 @@ export default function App() {
                                                                                     <Archive size={14} />
                                                                                 </button>
                                                                             )}
-                                                                            {archivedIds.includes(call.id) && (
+                                                                            {call.isArchived && (
                                                                                 <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
@@ -1280,17 +1295,17 @@ export default function App() {
                             </h1>
                         </div>
 
-                        {/* Tabs (Pill Style) */}
-                        <div className="flex justify-center gap-2 mb-6 px-4">
+                        {/* Tabs (Consistent Square Style) */}
+                        <div className="flex items-center gap-2 mb-6 px-4 w-full">
                             {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
                                 const isActive = activeReceptionistTab === tab.toLowerCase();
                                 return (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
-                                        className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${isActive
-                                            ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200'
-                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${isActive
+                                            ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200 scale-[1.02]'
+                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                                             }`}
                                     >
                                         {tab}
@@ -1376,12 +1391,9 @@ export default function App() {
                                                                 showToast("Failed to save voice");
                                                             }
                                                         }}
-                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'border-[#2563EB] bg-gradient-to-br from-blue-50/80 to-indigo-50/80 shadow-[0_4px_20px_-4px_rgba(37,99,235,0.2)] ring-1 ring-[#2563EB]/20' : 'border-blue-100/30 bg-gradient-to-br from-slate-50 to-blue-50/30 hover:border-blue-200/50 shadow-sm hover:shadow-md'} active:scale-[0.98]`}
+                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200 shadow-sm'} active:scale-[0.98]`}
                                                     >
-                                                        {/* Selection Background Effect */}
-                                                        {isSelected && <div className="absolute inset-0 bg-blue-50/50 backdrop-blur-[1px] pointer-events-none" />}
-
-                                                        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-4 ring-4 ring-white shadow-lg transition-transform duration-300 group-hover:scale-105 z-10">
+                                                        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-4 ring-4 ring-white shadow-md transition-transform duration-300 group-hover:scale-105 z-10">
                                                             <img src={p.avatar} alt={p.name} className="w-full h-full object-cover scale-125 translate-y-1" />
                                                             {isPlaying && (
                                                                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
@@ -1389,7 +1401,7 @@ export default function App() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <span className={`text-sm font-black truncate w-full text-center tracking-wide z-10 ${isSelected ? 'text-[#2563EB]' : 'text-gray-900'}`}>{p.name}</span>
+                                                        <span className={`text-sm font-black truncate w-full text-center tracking-wide z-10 ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>{p.name}</span>
                                                     </button>
                                                 )
                                             }) : (
@@ -2271,14 +2283,31 @@ export default function App() {
 
                                 {/* Action Item Card */}
                                 {selectedCall.actionItem && (
-                                    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">
-                                            <Calendar size={20} />
+                                    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">
+                                                <Calendar size={20} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-gray-900 text-sm">{selectedCall.actionItem.label}</h4>
+                                                <p className="text-blue-500 text-xs font-bold mt-0.5">
+                                                    {selectedCall.actionItem.summary || "Appointment confirmed"}
+                                                </p>
+                                                <p className="text-gray-400 text-[10px] font-medium mt-0.5">
+                                                    {selectedCall.actionItem.displayTime}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-900 text-sm">{selectedCall.actionItem.label}</h4>
-                                            <p className="text-blue-500 text-xs font-bold mt-0.5">{selectedCall.actionItem.details}</p>
-                                        </div>
+                                        {selectedCall.actionItem.link && (
+                                            <a
+                                                href={selectedCall.actionItem.link}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2.5 rounded-lg transition-colors"
+                                            >
+                                                View on Calendar
+                                            </a>
+                                        )}
                                     </div>
                                 )}
 
