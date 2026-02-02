@@ -859,7 +859,7 @@ export default function App() {
                                 <div className="text-center py-12 text-gray-400">Loading calls...</div>
                             ) : calls.filter(c => {
                                 if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
-                                if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
+                                if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && (!c.isRead || expandedCallId === c.id);
                                 if (activeInboxTab === 'archived') return c.isArchived;
                                 return false;
                             }).length === 0 ? (
@@ -897,7 +897,7 @@ export default function App() {
                             ) : (() => {
                                 const visibleCalls = calls.filter(c => {
                                     if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
-                                    if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
+                                    if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && (!c.isRead || expandedCallId === c.id);
                                     if (activeInboxTab === 'archived') return c.isArchived;
                                     return false;
                                 });
@@ -1451,21 +1451,70 @@ export default function App() {
                                         </p>
 
                                         <div className="space-y-3">
-                                            {knowledgeItems.filter(i => i.type === 'instruction').map((item) => (
-                                                <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group">
-                                                    <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
-                                                    <button
-                                                        onClick={async () => {
-                                                            await supabase.from('business_info').delete().eq('id', item.id);
-                                                            setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
-                                                            syncAssistant();
-                                                        }}
-                                                        className="text-gray-300 hover:text-red-500 transition-colors"
-                                                    >
-                                                        <X size={16} />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                            {knowledgeItems.filter(i => i.type === 'instruction' && !i.content.text.startsWith('WEBSITE KNOWLEDGE') && i.content.source !== 'website_scrape').map((item) => {
+                                                const isWebsite = false;
+
+                                                if (isWebsite) {
+                                                    const titleMatch = item.content.text.match(/WEBSITE KNOWLEDGE \((.*?)\):/);
+                                                    const title = titleMatch ? titleMatch[1] : (item.content.url ? new URL(item.content.url).hostname : "Website Content");
+
+                                                    return (
+                                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl shadow-sm group overflow-hidden transition-all hover:border-blue-100">
+                                                            <details className="group/details">
+                                                                <summary className="p-4 flex justify-between items-center cursor-pointer list-none hover:bg-gray-50 transition-colors">
+                                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                                                                            <Globe size={16} />
+                                                                        </div>
+                                                                        <div className="flex flex-col overflow-hidden">
+                                                                            <span className="text-sm font-bold text-gray-900 truncate pr-2">{title}</span>
+                                                                            <span className="text-[10px] text-gray-400 font-medium">Website Knowledge Base</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 shrink-0">
+                                                                        <ChevronDown size={14} className="text-gray-400 group-open/details:rotate-180 transition-transform" />
+                                                                        <button
+                                                                            onClick={async (e) => {
+                                                                                e.preventDefault(); // Stop summary toggle
+                                                                                await supabase.from('business_info').delete().eq('id', item.id);
+                                                                                setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                                syncAssistant();
+                                                                            }}
+                                                                            className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                                                        >
+                                                                            <X size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                </summary>
+                                                                <div className="px-4 pb-4 pt-0">
+                                                                    <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap border border-slate-100 leading-relaxed">
+                                                                        {item.content.text}
+                                                                    </div>
+                                                                    <div className="mt-2 text-[10px] text-center text-gray-400 italic">
+                                                                        This content is automatically added to the AI's system prompt.
+                                                                    </div>
+                                                                </div>
+                                                            </details>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group hover:border-gray-200 transition-colors">
+                                                        <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
+                                                        <button
+                                                            onClick={async () => {
+                                                                await supabase.from('business_info').delete().eq('id', item.id);
+                                                                setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                syncAssistant();
+                                                            }}
+                                                            className="text-gray-300 hover:text-red-500 transition-colors bg-transparent p-1 hover:bg-red-50 rounded-md"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
 
                                             {/* Add Instruction Input */}
                                             <div className="flex gap-2">
@@ -1527,7 +1576,7 @@ export default function App() {
                                                             }
                                                         }
                                                     }}
-                                                    className="bg-gray-900 text-white rounded-xl w-12 flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+                                                    className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
                                                 >
                                                     <Plus size={20} />
                                                 </button>
@@ -1729,6 +1778,55 @@ export default function App() {
                                             </p>
                                         </div>
 
+                                        {/* Synced Website Content */}
+                                        <div className="space-y-3 mt-4">
+                                            {knowledgeItems.filter(i => i.type === 'instruction' && (i.content.text.startsWith('WEBSITE KNOWLEDGE') || i.content.source === 'website_scrape')).map((item) => {
+                                                const titleMatch = item.content.text.match(/WEBSITE KNOWLEDGE \((.*?)\):/);
+                                                const title = titleMatch ? titleMatch[1] : (item.content.url ? new URL(item.content.url).hostname : "Website Content");
+
+                                                return (
+                                                    <div key={item.id} className="bg-white border border-gray-100 rounded-xl shadow-sm group overflow-hidden transition-all hover:border-blue-100">
+                                                        <details className="group/details">
+                                                            <summary className="p-4 flex justify-between items-center cursor-pointer list-none hover:bg-gray-50 transition-colors">
+                                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                                                                        <Globe size={16} />
+                                                                    </div>
+                                                                    <div className="flex flex-col overflow-hidden">
+                                                                        <span className="text-sm font-bold text-gray-900 truncate pr-2">{title}</span>
+                                                                        <span className="text-[10px] text-gray-400 font-medium">Synced Knowledge Base</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-3 shrink-0">
+                                                                    <ChevronDown size={14} className="text-gray-400 group-open/details:rotate-180 transition-transform" />
+                                                                    <button
+                                                                        onClick={async (e) => {
+                                                                            e.preventDefault(); // Stop summary toggle
+                                                                            if (!confirm("Remove this website content?")) return;
+                                                                            await supabase.from('business_info').delete().eq('id', item.id);
+                                                                            setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                            syncAssistant();
+                                                                        }}
+                                                                        className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            </summary>
+                                                            <div className="px-4 pb-4 pt-0">
+                                                                <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap border border-slate-100 leading-relaxed">
+                                                                    {item.content.text}
+                                                                </div>
+                                                                <div className="mt-2 text-[10px] text-center text-gray-400 italic">
+                                                                    This content is synced with your AI assistant.
+                                                                </div>
+                                                            </div>
+                                                        </details>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
 
 
                                         {/* Service Description */}
@@ -1870,7 +1968,7 @@ export default function App() {
                                                                 }
                                                             }
                                                         }}
-                                                        className="bg-gray-900 text-white rounded-xl w-12 flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+                                                        className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
                                                     >
                                                         <Plus size={20} />
                                                     </button>
