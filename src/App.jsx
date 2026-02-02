@@ -606,6 +606,7 @@ export default function App() {
     const headerGradient = "bg-gradient-to-b from-blue-300 via-blue-500 to-blue-800";
 
     const [provisioning, setProvisioning] = useState(false);
+    const [isScraping, setIsScraping] = useState(false);
 
     const handleProvision = async () => {
         if (!session?.user) return;
@@ -1303,9 +1304,9 @@ export default function App() {
                                     <button
                                         key={tab}
                                         onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
-                                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${isActive
-                                            ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-200 scale-[1.02]'
-                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
+                                            ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
+                                            : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
                                             }`}
                                     >
                                         {tab}
@@ -1642,33 +1643,89 @@ export default function App() {
 
                                         <div>
                                             <div className="flex justify-between items-center mb-2">
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Website</label>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Train from Website</span>
-                                                    <button
-                                                        onClick={() => {
-                                                            const newVal = !userInfo.websiteTraining;
-                                                            setUserInfo({ ...userInfo, websiteTraining: newVal });
-                                                            saveProfileField('website_training_enabled', newVal);
-                                                        }}
-                                                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${userInfo.websiteTraining ? 'bg-blue-500' : 'bg-gray-200'}`}
-                                                    >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${userInfo.websiteTraining ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
+                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Website Training</label>
                                             </div>
-                                            <div className="relative">
+                                            <div className="w-full bg-white border border-gray-200 rounded-xl p-2 flex items-center shadow-sm focus-within:ring-2 focus-within:ring-blue-400/20 transition-all">
+                                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 ml-1">
+                                                    <Globe size={16} className="text-gray-500" />
+                                                </div>
                                                 <input
                                                     type="text"
                                                     value={userInfo.website}
                                                     onChange={(e) => setUserInfo({ ...userInfo, website: e.target.value })}
                                                     onBlur={(e) => saveProfileField('website', e.target.value)}
                                                     placeholder="https://example.com"
-                                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all placeholder:text-gray-300"
+                                                    disabled={isScraping}
+                                                    className="w-full bg-transparent border-none text-base font-medium text-gray-900 focus:ring-0 px-3 placeholder:text-gray-300"
                                                 />
+                                                <button
+                                                    disabled={!userInfo.website || isScraping}
+                                                    onClick={async () => {
+                                                        if (!userInfo.website) return;
+                                                        setIsScraping(true);
+                                                        setToast("Scanning website... (this may take a moment)");
+
+                                                        try {
+                                                            // 1. Scrape
+                                                            const res = await fetch('/api/scrape-website', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ url: userInfo.website })
+                                                            });
+                                                            const data = await res.json();
+                                                            if (!res.ok) throw new Error(data.error || "Scrape failed");
+
+                                                            // 2. Save Knowledge
+                                                            // Clear old website content (stored as instruction with source tag)
+                                                            const { error: deleteError } = await supabase
+                                                                .from('business_info')
+                                                                .delete()
+                                                                .eq('owner_user_id', session.user.id)
+                                                                .eq('type', 'instruction')
+                                                                .contains('content', { source: 'website_scrape' });
+
+                                                            if (deleteError) console.error("Delete warning:", deleteError);
+
+                                                            const { error: insertError } = await supabase.from('business_info').insert({
+                                                                owner_user_id: session.user.id,
+                                                                type: 'instruction',
+                                                                content: {
+                                                                    text: `WEBSITE KNOWLEDGE (${data.title}):\n${data.text}`,
+                                                                    source: 'website_scrape',
+                                                                    url: userInfo.website
+                                                                }
+                                                            });
+
+                                                            if (insertError) throw insertError;
+
+                                                            showToast("Website Synced Successfully!");
+                                                            syncAssistant();
+                                                        } catch (err) {
+                                                            console.error("Sync Failure:", err);
+                                                            showToast("Failed to sync: " + (err.message || err.details || "Unknown DB Error"));
+                                                        } finally {
+                                                            setIsScraping(false);
+                                                        }
+                                                    }}
+                                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-2 ${!userInfo.website ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
+                                                        isScraping ? 'bg-blue-100 text-blue-500 cursor-wait' : 'bg-[#2563EB] text-white hover:bg-blue-600 active:scale-95'
+                                                        }`}
+                                                >
+                                                    {isScraping ? (
+                                                        <>
+                                                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                            Scanning
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <RefreshCw size={14} className={isScraping ? "animate-spin" : ""} />
+                                                            Sync
+                                                        </>
+                                                    )}
+                                                </button>
                                             </div>
                                             <p className="text-[10px] text-gray-400 mt-2 ml-1">
-                                                We will use your website to add knowledge info.
+                                                We will scan this site to answer questions. Click Sync to update.
                                             </p>
                                         </div>
 
@@ -2234,63 +2291,68 @@ export default function App() {
                ========================================= */}
             {
                 view === 'call-detail' && selectedCall && (
-                    <div className="absolute inset-0 z-[60] bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
+                    <div className="absolute inset-0 z-[60] bg-[#F9FAFB] flex flex-col h-full animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20">
-                            <button onClick={() => setView('inbox')} className="w-10 h-10 -ml-2 rounded-full items-center justify-center flex hover:bg-gray-50 transition-colors text-gray-900">
+                        <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0">
+                            <button onClick={() => setView('inbox')} className="w-10 h-10 -ml-2 rounded-full items-center justify-center flex hover:bg-gray-100 transition-colors text-gray-900">
                                 <ChevronLeft size={28} />
                             </button>
-                            <h1 className="text-lg font-bold text-gray-900">Call Details</h1>
+                            <h1 className="text-base font-bold text-gray-900">Call Details</h1>
                             <button
                                 onClick={() => showToast('Shared transcript')}
-                                className="w-10 h-10 -mr-2 rounded-full items-center justify-center flex hover:bg-gray-50 transition-colors text-gray-900"
+                                className="w-10 h-10 -mr-2 rounded-full items-center justify-center flex hover:bg-gray-100 transition-colors text-gray-900"
                             >
-                                <Share2 size={22} />
+                                <Share2 size={20} />
                             </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 pb-48 space-y-4">
-                            <div className="bg-white rounded-[2rem] p-6 shadow-sm text-center">
-                                <div className="w-20 h-20 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-4 text-2xl font-bold text-gray-400">
+                            {/* Contact Card */}
+                            <div className="bg-white rounded-[2rem] p-6 border border-gray-200 shadow-sm text-center relative overflow-hidden">
+                                <div className="w-24 h-24 bg-gray-50 rounded-full mx-auto flex items-center justify-center mb-4 text-3xl font-bold text-gray-300 border border-gray-100 shadow-inner">
                                     {selectedCall.name.charAt(0)}
                                 </div>
-                                <h2 className="text-2xl font-black text-gray-900">{selectedCall.name}</h2>
-                                <p className="text-gray-500 font-medium mt-1 mb-2">{selectedCall.number}</p>
+                                <h2 className="text-2xl font-black text-gray-900 tracking-tight">{selectedCall.name}</h2>
+                                <p className="text-gray-500 font-medium mt-1 mb-4">{selectedCall.number}</p>
 
                                 <button
                                     onClick={() => showToast("Added to Contacts")}
-                                    className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center mx-auto"
+                                    className="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-100 transition-colors flex items-center mx-auto"
                                 >
                                     <UserPlus size={14} className="mr-1.5" />
                                     Add to Contacts
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3 mt-8">
-                                    <button className="bg-blue-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center active:scale-95 transition-all">
+                                    <button className="bg-[#2563EB] text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center active:scale-95 transition-all hover:bg-blue-600">
                                         <Phone size={18} className="mr-2" /> Call
                                     </button>
-                                    <button className="bg-gray-100 text-gray-900 py-3.5 rounded-xl font-bold flex items-center justify-center active:scale-95 transition-all hover:bg-gray-200">
+                                    <button className="bg-white border border-gray-200 text-gray-900 py-3.5 rounded-2xl font-bold flex items-center justify-center active:scale-95 transition-all hover:bg-gray-50 shadow-sm">
                                         <MessageSquare size={18} className="mr-2" /> Text
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-[2rem] p-6 shadow-sm">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Summary</h3>
-                                <p className="text-gray-700 leading-relaxed font-medium">
+                            {/* Summary & Actions */}
+                            <div className="bg-white rounded-[2rem] p-6 border border-gray-200 shadow-sm">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <div className="w-1 h-1 rounded-full bg-gray-300"></div> Summary
+                                </h3>
+                                <p className="text-gray-900 leading-relaxed font-medium">
                                     {selectedCall.summary}
                                 </p>
 
                                 {/* Action Item Card */}
                                 {selectedCall.actionItem && (
-                                    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
-                                        <div className="flex items-center gap-4 mb-3">
-                                            <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">
-                                                <Calendar size={20} />
+                                    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
+                                        <div className="flex items-center gap-4 mb-4 relative z-10">
+                                            <div className="w-12 h-12 bg-white text-blue-600 rounded-xl border border-blue-100 shadow-sm flex items-center justify-center shrink-0">
+                                                <Calendar size={22} />
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-gray-900 text-sm">{selectedCall.actionItem.label}</h4>
-                                                <p className="text-blue-500 text-xs font-bold mt-0.5">
+                                                <p className="text-blue-600 text-xs font-bold mt-0.5">
                                                     {selectedCall.actionItem.summary || "Appointment confirmed"}
                                                 </p>
                                                 <p className="text-gray-400 text-[10px] font-medium mt-0.5">
@@ -2303,7 +2365,7 @@ export default function App() {
                                                 href={selectedCall.actionItem.link}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2.5 rounded-lg transition-colors"
+                                                className="block w-full text-center bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md shadow-blue-100 relative z-10"
                                             >
                                                 View on Calendar
                                             </a>
@@ -2313,37 +2375,41 @@ export default function App() {
 
                                 {/* Audio Player */}
                                 {selectedCall.recordingUrl && (
-                                    <div className="mt-6 pt-6 border-t border-gray-100">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recording</h4>
-                                        <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                                    <div className="mt-8 pt-6 border-t border-gray-100">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                            <div className="w-1 h-1 rounded-full bg-gray-300"></div> Recording
+                                        </h4>
+                                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center gap-4">
                                             <button
                                                 onClick={() => {
                                                     const audio = new Audio(selectedCall.recordingUrl);
                                                     audio.play();
                                                 }}
-                                                className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all">
-                                                <Play size={18} className="ml-1 fill-current" />
+                                                className="w-12 h-12 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all text-[#2563EB]">
+                                                <Play size={20} className="ml-1 fill-current" />
                                             </button>
-                                            <div className="flex-1 h-8 flex items-center gap-1">
+                                            <div className="flex-1 h-10 flex items-center gap-1 opacity-50">
                                                 {/* Mock Waveform */}
                                                 {Array.from({ length: 24 }).map((_, i) => (
-                                                    <div key={i} className={`w-1 rounded-full bg-blue-200 ${i % 3 === 0 ? 'h-6 bg-blue-300' : 'h-3'}`} style={{ height: `${Math.max(20, Math.random() * 100)}%` }}></div>
+                                                    <div key={i} className={`w-1 rounded-full bg-gray-400 ${i % 3 === 0 ? 'h-6' : 'h-3'}`} style={{ height: `${Math.max(20, Math.random() * 100)}%` }}></div>
                                                 ))}
                                             </div>
-                                            <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 hover:underline">Download</a>
+                                            <a href={selectedCall.recordingUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-gray-500 hover:text-gray-900 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">Download</a>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Transcript - Handle Vapi String vs Array */}
-                            <div className="bg-white rounded-[2rem] p-6 shadow-sm">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Transcript</h3>
+                            {/* Transcript */}
+                            <div className="bg-white rounded-[2rem] p-6 border border-gray-200 shadow-sm">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <div className="w-1 h-1 rounded-full bg-gray-300"></div> Transcript
+                                </h3>
                                 <div className="space-y-4">
                                     {selectedCall.transcript ? (
-                                        <p className="text-sm font-medium leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                        <div className="text-sm font-medium leading-relaxed text-gray-700 whitespace-pre-wrap font-mono text-[13px] bg-gray-50 p-4 rounded-xl border border-gray-100">
                                             {selectedCall.transcript}
-                                        </p>
+                                        </div>
                                     ) : (
                                         <p className="text-sm text-gray-400 italic">No transcript available.</p>
                                     )}

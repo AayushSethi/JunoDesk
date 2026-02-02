@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
+import * as cheerio from 'cheerio';
 
 // Initialize Environment Variables
 dotenv.config();
@@ -136,6 +137,7 @@ async function getContextForUser(userId) {
     const greeting = info.find(i => i.type === 'greeting')?.content?.text || "Hello, how can I help you?";
     const instructions = info.filter(i => i.type === 'instruction').map(i => i.content.text);
     const knowledge = info.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content);
+    const websiteContent = info.find(i => i.type === 'website_content')?.content;
     const personalityItem = info.find(i => i.type === 'personality');
     const voiceId = profile.voice_id || personalityItem?.content?.voiceId;
 
@@ -145,11 +147,11 @@ async function getContextForUser(userId) {
         calendarContext = await getCalendarEvents(userId, profile);
     }
 
-    return { profile, greeting, instructions, knowledge, voiceId, calendarContext };
+    return { profile, greeting, instructions, knowledge, websiteContent, voiceId, calendarContext };
 }
 
 // Helper: structured prompt builder
-function generateSystemPrompt({ profile, greeting, instructions, knowledge, calendarContext }) {
+function generateSystemPrompt({ profile, greeting, instructions, knowledge, websiteContent, calendarContext }) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
@@ -242,6 +244,11 @@ You have checked availability using the tool and it returned "Available"
 
 If any check fails, do not book and ask for clarification.
 `;
+
+    // Append Website Context
+    if (websiteContent && websiteContent.text) {
+        prompt += `\nWEBSITE KNOWLEDGE BASE (Source: ${websiteContent.url}):\n${websiteContent.text}\n`;
+    }
 
     // Append Knowledge Base
     const qaItems = knowledge.filter(k => k.question && k.answer);
@@ -1184,6 +1191,61 @@ app.post('/api/save-voice', async (req, res) => {
 
     } catch (e) {
         console.error("Force Save Exception:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Utility: Scrape Website for Training
+app.post('/api/scrape-website', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: "Missing URL" });
+
+        console.log(`🕷️ Scraping: ${url}`);
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; JunoBot/1.0)' }
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch website");
+
+        const html = await response.text();
+        const $ = cheerio.load(html);
+
+        // Aggressive Cleaning
+        const removeSelectors = [
+            'script', 'style', 'noscript', 'iframe', 'svg',
+            'nav', 'footer', 'header', 'aside', 'form',
+            '.nav', '.navbar', '.menu', '.sidebar', '.cookie-banner', '.popup',
+            '[role="navigation"]', '[role="alert"]', '[role="banner"]', '[aria-hidden="true"]',
+            '.mw-jump-link', '.mw-editsection', '.reflist', '.catlinks'
+        ];
+        removeSelectors.forEach(sel => $(sel).remove());
+
+        // Extract Text
+        const title = $('title').text().trim();
+        const description = $('meta[name="description"]').attr('content') || "";
+
+        // Better Text Extraction
+        let $content = $('main, article, #content, #main');
+        if ($content.length === 0) $content = $('body');
+
+        let bodyText = $content.text()
+            .replace(/\s+/g, ' ')
+            .replace(/Jump to content/gi, '')
+            .replace(/Skip to main content/gi, '')
+            .trim();
+
+        // Limit length to avoid token explosion (e.g. 5000 chars)
+        const MAX_LENGTH = 8000;
+        if (bodyText.length > MAX_LENGTH) {
+            bodyText = bodyText.substring(0, MAX_LENGTH) + "...";
+        }
+
+        const fullContent = `Source: ${url}\nTitle: ${title}\nDescription: ${description}\n\nContent:\n${bodyText}`;
+
+        res.json({ success: true, text: fullContent, title });
+    } catch (e) {
+        console.error("Scrape Error:", e);
         res.status(500).json({ error: e.message });
     }
 });
