@@ -711,8 +711,8 @@ export default function App() {
 
             {/* --- Auth View --- */}
             {view === 'auth' && (
-                <div className="flex flex-col h-full items-center justify-center p-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 animate-in fade-in duration-700">
-                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-blue-100/50 w-full max-w-md border border-gray-100/50 backdrop-blur-sm">
+                <div className="flex flex-col h-full items-center justify-center p-6 bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 animate-in fade-in duration-700">
+                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-gray-200/50 w-full max-w-md border border-gray-200/50 backdrop-blur-sm">
                         {/* Logo */}
                         <div className="flex justify-center mb-8 animate-in zoom-in duration-500 delay-100">
                             <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-28 h-28 drop-shadow-lg" />
@@ -722,12 +722,12 @@ export default function App() {
                         <h1 className="text-4xl font-black text-center mb-3 tracking-tight animate-in slide-in-from-bottom duration-500 delay-200">
                             <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                         </h1>
-                        <p className="text-center text-gray-500 text-base mb-10 font-medium animate-in slide-in-from-bottom duration-500 delay-300">Your AI Receptionist awaits.</p>
+                        <p className="text-center text-gray-500 text-base mb-10 font-medium animate-in slide-in-from-bottom duration-500 delay-300">Your AI Receptionist</p>
 
                         <div className="space-y-5 animate-in slide-in-from-bottom duration-500 delay-400">
                             {/* Email Input */}
                             <div>
-                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2.5 pl-1">Email Address</label>
+                                <label className="block text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2.5 pl-1">Email Address</label>
                                 <input
                                     type="email"
                                     value={authEmail}
@@ -739,7 +739,7 @@ export default function App() {
 
                             {/* Password Input */}
                             <div>
-                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2.5 pl-1">Password</label>
+                                <label className="block text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2.5 pl-1">Password</label>
                                 <input
                                     type="password"
                                     value={authPassword}
