@@ -48,18 +48,34 @@ export default function App() {
     const [audioProgress, setAudioProgress] = useState(0); // 0 to 100 for call recording progress
     // --- Auth Effect ---
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        const checkUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
-            if (session) setView('receptionist');
+            if (session) {
+                // Check if user has completed provisioning (has a phone number)
+                const { data } = await supabase.from('business_profiles').select('vapi_phone_number').eq('owner_user_id', session.user.id).maybeSingle();
+                if (data?.vapi_phone_number) {
+                    setView('receptionist');
+                } else {
+                    setView('onboarding');
+                }
+            } else {
+                // setView('auth'); // Keep default auth view
+            }
             setAuthLoading(false);
-        });
+        };
+        checkUser();
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
-            if (session) setView('receptionist');
-            if (!session) setView('auth');
+            if (session) {
+                const { data } = await supabase.from('business_profiles').select('vapi_phone_number').eq('owner_user_id', session.user.id).maybeSingle();
+                if (data?.vapi_phone_number) setView('receptionist');
+                else setView('onboarding');
+            } else {
+                setView('auth');
+            }
+            setAuthLoading(false);
         });
 
         return () => subscription.unsubscribe();
@@ -83,6 +99,22 @@ export default function App() {
     const [toastAction, setToastAction] = useState(null);
     const [isForwardingSetupOpen, setIsForwardingSetupOpen] = useState(false);
     const [isReceptionistActive, setIsReceptionistActive] = useState(true);
+
+    // --- Onboarding State (Premium Flow) ---
+    const [onboardingStep, setOnboardingStep] = useState(0); // 0=Welcome, 1=Flowchart, 2=Identity, 3=Website, 4=Voice, 5=Greeting, 6=Provision
+    const [onboardingData, setOnboardingData] = useState({
+        companyName: '',
+        website: '',
+        voiceId: 'OYTbf65OHHFELVut7v2H', // Default to 'Rachel' (or closest)
+        greeting: "Thanks for calling, how can I help?"
+    });
+    // Hardcoded Premium Voices
+    const PREMIUM_VOICES = [
+        { id: 'OYTbf65OHHFELVut7v2H', name: 'Rachel', gender: 'female', style: 'Calm & Professional', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rachel' },
+        { id: '21m00Tcm4TlvDq8ikWAM', name: 'Mimi', gender: 'female', style: 'Warm & Friendly', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mimi' },
+        { id: 'AZkz1l1Sbt8p2I2j9s95', name: 'Drew', gender: 'male', style: 'News Anchor', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Drew' },
+        { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Clyne', gender: 'male', style: 'Deep & Authoritative', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Clyne' }
+    ];
 
     // Forwarding Flow State
     const [forwardingMode, setForwardingMode] = useState('enable'); // 'enable' | 'disable'
@@ -307,6 +339,8 @@ export default function App() {
 
             } catch (err) {
                 console.error("Error loading user data:", err);
+            } finally {
+                setAuthLoading(false); // Ensure loading state clears
             }
         };
 
@@ -347,39 +381,34 @@ export default function App() {
     const [authError, setAuthError] = useState(null);
 
     const handleAuth = async () => {
-        setAuthLoading(true);
-        setAuthError(null);
-
         if (!authEmail.includes('@') || !authEmail.includes('.')) {
             setAuthError("Please enter a valid email address");
-            setAuthLoading(false);
             return;
         }
 
-        if (authMode === 'signup') {
-            // Generate a new Business ID for this user
-            const businessId = crypto.randomUUID();
+        setAuthLoading(true);
+        setAuthError(null);
 
-            const { data, error } = await supabase.auth.signUp({
-                email: authEmail,
-                password: authPassword,
-                options: {
-                    data: {
-                        business_id: businessId,
-                        role: 'admin' // Default first user to admin
+        try {
+            if (authMode === 'signup') {
+                // Generate a new Business ID for this user
+                const businessId = crypto.randomUUID();
+
+                const { data, error } = await supabase.auth.signUp({
+                    email: authEmail,
+                    password: authPassword,
+                    options: {
+                        data: {
+                            business_id: businessId,
+                            role: 'admin'
+                        }
                     }
-                }
-            });
+                });
 
-            if (error) {
-                setAuthError(error.message);
-            } else if (data?.user && !data?.session) {
-                // If account created but no session, it usually means email confirmation is ON.
-                // We'll tell the user to check the 'fake' email, but in a real app we'd need them to disable confirm.
-                setAuthError("Project requires email verification. Please disable 'Confirm Email' in Supabase > Auth > Providers.");
-                // SUCCESS: Upsert business profile (Handle triggers or manual creation)
-                if (data.user) {
-                    // Upsert Profile
+                if (error) {
+                    setAuthError(error.message);
+                } else if (data?.user) {
+                    // Success: Profile will be created by onAuthStateChange logic or here
                     await supabase.from('business_profiles').upsert(
                         {
                             owner_user_id: data.user.id,
@@ -389,27 +418,26 @@ export default function App() {
                         { onConflict: 'owner_user_id' }
                     );
 
-                    // Upsert Default Greeting/Ending (ignore if exists)
-                    // We can't simple upsert array with different types easily without looping or smarter query
-                    // For now, let's just try insert and ignore error, or check first.
-                    // Actually, let's just do nothing if it already exists, or upsert individual rows.
-                    // Simplest: Just Insert. If conflict, it means Trigger handled it (Good).
-                    const { error: infoError } = await supabase.from('business_info').insert([
+                    await supabase.from('business_info').upsert([
                         { owner_user_id: data.user.id, type: 'greeting', content: { text: "Hello! How can I help?" } }
-                    ]);
-                    // Ignore duplicate key error for info
-                    if (infoError && infoError.code !== '23505') console.error(infoError);
+                    ], { onConflict: 'owner_user_id,type' });
+
+                    showToast("Account created!");
+                    // The onAuthStateChange listener will handle view transitions
                 }
-                showToast("Account created!");
+            } else {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email: authEmail,
+                    password: authPassword,
+                });
+                if (error) setAuthError(error.message);
             }
-        } else {
-            const { error } = await supabase.auth.signInWithPassword({
-                email: authEmail,
-                password: authPassword,
-            });
-            if (error) setAuthError(error.message);
+        } catch (err) {
+            console.error("Auth Exception:", err);
+            setAuthError("An unexpected error occurred. Please try again.");
+        } finally {
+            setAuthLoading(false);
         }
-        setAuthLoading(false);
     };
 
     const handleOnboardingSubmit = async () => {
@@ -683,52 +711,72 @@ export default function App() {
 
             {/* --- Auth View --- */}
             {view === 'auth' && (
-                <div className="flex flex-col h-full items-center justify-center p-6 animate-in fade-in duration-500">
-                    <div className="bg-white p-8 rounded-[2rem] shadow-xl w-full max-w-sm">
-                        <div className="flex justify-center mb-6">
-                            <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                                <PhoneCall size={32} />
-                            </div>
+                <div className="flex flex-col h-full items-center justify-center p-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 animate-in fade-in duration-700">
+                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-blue-100/50 w-full max-w-md border border-gray-100/50 backdrop-blur-sm">
+                        {/* Logo */}
+                        <div className="flex justify-center mb-8 animate-in zoom-in duration-500 delay-100">
+                            <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-28 h-28 drop-shadow-lg" />
                         </div>
-                        <h1 className="text-2xl font-black text-center text-gray-900 mb-2">Welcome to LCE</h1>
-                        <p className="text-center text-gray-600 text-sm mb-8 font-medium">Your AI Receptionist awaits.</p>
 
-                        <div className="space-y-4">
+                        {/* Title */}
+                        <h1 className="text-4xl font-black text-center mb-3 tracking-tight animate-in slide-in-from-bottom duration-500 delay-200">
+                            <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                        </h1>
+                        <p className="text-center text-gray-500 text-base mb-10 font-medium animate-in slide-in-from-bottom duration-500 delay-300">Your AI Receptionist awaits.</p>
+
+                        <div className="space-y-5 animate-in slide-in-from-bottom duration-500 delay-400">
+                            {/* Email Input */}
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Email Address</label>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2.5 pl-1">Email Address</label>
                                 <input
                                     type="email"
                                     value={authEmail}
                                     onChange={e => setAuthEmail(e.target.value)}
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full bg-gray-50/50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200"
                                     placeholder="you@company.com"
                                 />
                             </div>
+
+                            {/* Password Input */}
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Password</label>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2.5 pl-1">Password</label>
                                 <input
                                     type="password"
                                     value={authPassword}
                                     onChange={e => setAuthPassword(e.target.value)}
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full bg-gray-50/50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200"
                                     placeholder="••••••••"
                                 />
                             </div>
 
-                            {authError && <p className="text-red-500 text-xs font-bold text-center">{authError}</p>}
+                            {/* Error Message */}
+                            {authError && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl animate-in slide-in-from-top duration-300">
+                                    <p className="text-red-700 text-xs font-bold">{authError}</p>
+                                </div>
+                            )}
 
+                            {/* Submit Button */}
                             <button
                                 onClick={handleAuth}
                                 disabled={authLoading}
-                                className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 active:scale-[0.98] transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-2xl font-bold text-base hover:from-blue-700 hover:to-blue-800 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                             >
-                                {authLoading ? "Please wait..." : (authMode === 'signin' ? "Sign In" : "Create Account")}
+                                {authLoading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Please wait...
+                                    </span>
+                                ) : (
+                                    authMode === 'signin' ? 'Sign In' : 'Create Account'
+                                )}
                             </button>
 
-                            <div className="text-center mt-4">
+                            {/* Toggle Auth Mode */}
+                            <div className="text-center pt-2">
                                 <button
                                     onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); }}
-                                    className="text-xs font-bold text-gray-600 hover:text-blue-500 transition-colors"
+                                    className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors duration-200"
                                 >
                                     {authMode === 'signin' ? "New here? Create Account" : "Already have an account? Sign In"}
                                 </button>
@@ -1650,7 +1698,7 @@ export default function App() {
                                     <div className="space-y-8 animate-in fade-in duration-300">
                                         {/* Company Basic Info */}
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Name</label>
+                                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Business Name</label>
                                             <input
                                                 type="text"
                                                 value={userInfo.company}
@@ -1660,7 +1708,7 @@ export default function App() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Industry</label>
+                                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Industry</label>
                                             <input
                                                 type="text"
                                                 value={userInfo.businessType}
@@ -1670,7 +1718,7 @@ export default function App() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Support Email</label>
+                                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Support Email</label>
                                             <input
                                                 type="text"
                                                 value={userInfo.email}
@@ -1680,7 +1728,7 @@ export default function App() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
+                                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Address</label>
                                             <input
                                                 type="text"
                                                 value={userInfo.address}
@@ -1691,9 +1739,12 @@ export default function App() {
                                         </div>
 
                                         <div>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Website Training</label>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <h3 className="text-base font-bold text-gray-900">Website Training</h3>
                                             </div>
+                                            <p className="text-[10px] text-gray-400 mb-3 leading-tight">
+                                                We will scan this site to answer questions. Click Sync to update.
+                                            </p>
                                             <div className="w-full bg-white border border-gray-200 rounded-xl p-2 flex items-center shadow-sm focus-within:ring-2 focus-within:ring-blue-400/20 transition-all">
                                                 <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 ml-1">
                                                     <Globe size={16} className="text-gray-500" />
@@ -1773,9 +1824,7 @@ export default function App() {
                                                     )}
                                                 </button>
                                             </div>
-                                            <p className="text-[10px] text-gray-400 mt-2 ml-1">
-                                                We will scan this site to answer questions. Click Sync to update.
-                                            </p>
+
                                         </div>
 
                                         {/* Synced Website Content */}
@@ -1844,10 +1893,6 @@ export default function App() {
                                                 placeholder="Describe what your company does..."
                                             />
                                         </section>
-
-
-
-                                        <div className="w-full h-px bg-gray-200/60 my-2"></div>
 
                                         {/* Common Questions */}
                                         <section>
@@ -1991,7 +2036,7 @@ export default function App() {
                                                 <div className="flex justify-between items-center mb-4">
                                                     <div>
                                                         <h3 className="text-base font-bold text-gray-900">{personality.name}'s Number</h3>
-                                                        <p className="text-xs text-gray-400 mt-0.5">Call to test your assistant</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">Call to test your assistant</p>
                                                     </div>
                                                     <button
                                                         onClick={() => {
@@ -2045,7 +2090,7 @@ export default function App() {
                                                         </div>
                                                         <div>
                                                             <h3 className="text-base font-bold text-gray-900">Call Forwarding</h3>
-                                                            <p className="text-xs text-gray-400 mt-0.5">Link your personal number</p>
+                                                            <p className="text-xs text-gray-500 mt-0.5">Link your personal number</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2095,7 +2140,7 @@ export default function App() {
                                             <section className="flex items-center justify-between bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
                                                 <div>
                                                     <h3 className="text-base font-bold text-gray-900">Contact Voicemail</h3>
-                                                    <p className="text-xs text-gray-400 mt-0.5">Allow contacts to bypass AI</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Allow contacts to bypass AI</p>
                                                 </div>
                                                 <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer transition-colors duration-200 hover:bg-gray-300">
                                                     <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm"></div>
@@ -2104,7 +2149,7 @@ export default function App() {
 
                                             {/* 5. Connected Phone Number (New) */}
                                             <section>
-                                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 ml-4 mt-8">Account Phone Number</h3>
+                                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 ml-4 mt-8">Account Phone Number</h3>
                                                 <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
                                                     <div className="flex items-center gap-3 mb-4">
                                                         <PhoneCall size={20} className="text-[#2563EB] fill-current" />
@@ -2519,6 +2564,308 @@ export default function App() {
             }
 
             {/* =========================================
+               ONBOARDING VIEW (Premium Wizard)
+               ========================================= */}
+            {
+                view === 'onboarding' && (
+                    <div className={`fixed inset-0 z-[9999] flex flex-col ${onboardingStep === 1 ? 'bg-[#0a0a0a]' : 'bg-white'}`}>
+                        {/* Step 0: Welcome */}
+                        {onboardingStep === 0 && (
+                            <div className="h-full flex flex-col items-center justify-center p-8 animate-in fade-in duration-700">
+                                <div className="w-24 h-24 bg-blue-50 rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-blue-100">
+                                    <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-16 h-16" />
+                                </div>
+                                <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight text-center">JunoDesk</h1>
+                                <p className="text-xl text-gray-500 font-medium mb-12 text-center max-w-xs leading-relaxed">
+                                    Your autonomous AI receptionist is ready to work.
+                                </p>
+                                <button
+                                    onClick={() => setOnboardingStep(1)}
+                                    className="w-full max-w-sm bg-gray-900 text-white py-5 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-gray-200"
+                                >
+                                    Start Setup
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Step 1: Flowchart (The Hook) */}
+                        {onboardingStep === 1 && (
+                            <div className="h-full flex flex-col items-center justify-center p-6 text-center relative overflow-hidden text-white">
+                                <div className="z-10 w-full max-w-md animate-in zoom-in duration-500">
+                                    <h2 className="text-2xl font-black mb-8 tracking-tight">How it works</h2>
+
+                                    {/* Tree Diagram */}
+                                    <div className="flex flex-col items-center gap-1">
+                                        {/* Root */}
+                                        <div className="bg-white text-black font-bold py-3 px-6 rounded-2xl shadow-[0_0_30px_rgba(255,255,255,0.2)] w-48 text-sm">
+                                            📞 You receive a call
+                                        </div>
+                                        <ChevronDown size={24} className="text-gray-600 my-1" />
+                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">You Decide</div>
+
+                                        {/* Bracket */}
+                                        <div className="w-32 border-t-2 border-dashed border-gray-700 h-4 relative">
+                                            <div className="absolute -top-1.5 -left-1 w-3 h-3 bg-gray-700 rounded-full"></div>
+                                            <div className="absolute -top-1.5 -right-1 w-3 h-3 bg-gray-700 rounded-full"></div>
+                                        </div>
+
+                                        <div className="flex gap-4 w-full justify-center -mt-2">
+                                            {/* Left Branch */}
+                                            <div className="flex flex-col items-center gap-2 w-1/2 animate-in slide-in-from-left duration-700 delay-100 opacity-60">
+                                                <div className="bg-green-600/20 border border-green-500/50 text-green-400 font-bold py-2 px-3 rounded-xl text-xs w-full">Answer</div>
+                                                <ChevronDown size={16} className="text-gray-700" />
+                                                <div className="bg-white/5 border border-white/10 text-gray-400 font-medium py-2 px-3 rounded-xl text-[10px] w-full">
+                                                    You talk directly
+                                                </div>
+                                            </div>
+
+                                            {/* Right Branch (Highlighted) */}
+                                            <div className="flex flex-col items-center gap-2 w-1/2 animate-in slide-in-from-right duration-700 delay-300">
+                                                <div className="bg-purple-600 text-white font-bold py-2 px-3 rounded-xl text-xs w-full shadow-lg shadow-purple-900/50">Don't Answer</div>
+                                                <ChevronDown size={16} className="text-gray-500" />
+                                                <div className="bg-white text-black font-bold py-3 px-3 rounded-xl text-xs w-full shadow-[0_0_20px_rgba(168,85,247,0.4)] border-2 border-purple-500 relative overflow-hidden">
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-100 to-white opacity-50"></div>
+                                                    <span className="relative z-10">🧠 AI Answers</span>
+                                                </div>
+                                                <ChevronDown size={16} className="text-gray-500" />
+                                                <div className="bg-white/10 border border-white/20 text-white font-medium py-2 px-3 rounded-xl text-[10px] w-full flex items-center justify-center gap-1">
+                                                    <Check size={10} className="text-green-400" /> Summary & Audio
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setOnboardingStep(2)}
+                                        className="mt-12 w-full bg-white text-black py-4 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+                                    >
+                                        I Understand
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Wizard Step Layout (2-6) */}
+                        {onboardingStep >= 2 && (
+                            <div className="h-full flex flex-col p-6 max-w-md mx-auto w-full animate-in slide-in-from-right duration-500">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-8">
+                                    <button onClick={() => setOnboardingStep(s => s - 1)} className="p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors">
+                                        <ChevronLeft size={24} />
+                                    </button>
+                                    <div className="flex gap-1">
+                                        {[2, 3, 4, 5, 6].map(step => (
+                                            <div key={step} className={`h-1.5 rounded-full transition-all duration-500 ${step <= onboardingStep ? 'w-6 bg-blue-600' : 'w-2 bg-gray-200'}`}></div>
+                                        ))}
+                                    </div>
+                                    <div className="w-8"></div>
+                                </div>
+
+                                {/* Step 2: Identity */}
+                                {onboardingStep === 2 && (
+                                    <>
+                                        <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">What is your business called?</h2>
+                                        <p className="text-gray-500 font-medium mb-8">We'll use this when greeting your callers.</p>
+                                        <input
+                                            autoFocus
+                                            className="w-full bg-transparent border-b-2 border-gray-200 text-3xl font-bold text-gray-900 focus:outline-none focus:border-blue-600 pb-2 placeholder-gray-300 transition-colors"
+                                            placeholder="Acme Corp"
+                                            value={onboardingData.companyName}
+                                            onChange={e => setOnboardingData({ ...onboardingData, companyName: e.target.value })}
+                                        />
+                                        <div className="flex-1"></div>
+                                        <button
+                                            disabled={!onboardingData.companyName}
+                                            onClick={() => setOnboardingStep(3)}
+                                            className="w-full bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold text-lg shadow-lg"
+                                        >
+                                            Continue <ArrowRight size={20} className="inline ml-2" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Step 3: Website */}
+                                {onboardingStep === 3 && (
+                                    <>
+                                        <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">Do you have a website?</h2>
+                                        <p className="text-gray-500 font-medium mb-8">Our AI will read it to answer questions about your business instantly.</p>
+                                        <input
+                                            autoFocus
+                                            className="w-full bg-transparent border-b-2 border-gray-200 text-2xl font-bold text-gray-900 focus:outline-none focus:border-blue-600 pb-2 placeholder-gray-300 transition-colors"
+                                            placeholder="junodesk.com"
+                                            value={onboardingData.website}
+                                            onChange={e => setOnboardingData({ ...onboardingData, website: e.target.value })}
+                                        />
+                                        <div className="flex-1"></div>
+                                        <button
+                                            onClick={() => setOnboardingStep(4)}
+                                            className="w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-lg shadow-lg"
+                                        >
+                                            {onboardingData.website ? "Continue" : "I don't have one"} <ArrowRight size={20} className="inline ml-2" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Step 4: Voice */}
+                                {onboardingStep === 4 && (
+                                    <>
+                                        <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">Choose your receptionist</h2>
+                                        <p className="text-gray-500 font-medium mb-8">Tap to listen.</p>
+
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            {PREMIUM_VOICES.map(voice => {
+                                                const isSelected = onboardingData.voiceId === voice.id;
+                                                return (
+                                                    <div
+                                                        key={voice.id}
+                                                        onClick={async () => {
+                                                            setOnboardingData({ ...onboardingData, voiceId: voice.id });
+                                                            // Play Preview
+                                                            try {
+                                                                const res = await fetch('/api/voice-preview', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ voiceId: voice.id, text: "Hi, I'm " + voice.name })
+                                                                });
+                                                                if (res.ok) {
+                                                                    const blob = await res.blob();
+                                                                    const audio = new Audio(URL.createObjectURL(blob));
+                                                                    audio.play();
+                                                                }
+                                                            } catch (e) { console.error(e); }
+                                                        }}
+                                                        className={`p-4 rounded-3xl border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                                                    >
+                                                        <div className="flex flex-col items-center">
+                                                            <div className={`w-16 h-16 rounded-full overflow-hidden mb-3 border-2 ${isSelected ? 'border-blue-500' : 'border-gray-100'}`}>
+                                                                <img src={voice.avatar} alt={voice.name} className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <span className="font-bold text-gray-900">{voice.name}</span>
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1">{voice.style}</span>
+                                                        </div>
+                                                        {isSelected && <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center"><Check size={14} className="text-white" strokeWidth={3} /></div>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="flex-1"></div>
+                                        <button
+                                            onClick={() => setOnboardingStep(5)}
+                                            className="w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-lg shadow-lg"
+                                        >
+                                            Sounds Good <ArrowRight size={20} className="inline ml-2" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Step 5: Greeting */}
+                                {onboardingStep === 5 && (
+                                    <>
+                                        <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">How should I answer the phone?</h2>
+                                        <p className="text-gray-500 font-medium mb-8">This is the first thing callers hear.</p>
+
+                                        <div className="relative">
+                                            <div className="absolute top-4 left-4">
+                                                <MessageSquare size={20} className="text-gray-400" />
+                                            </div>
+                                            <textarea
+                                                className="w-full bg-gray-50 border-2 border-gray-200 rounded-3xl p-4 pl-12 text-lg font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none shadow-inner"
+                                                rows={4}
+                                                value={onboardingData.greeting}
+                                                onChange={e => setOnboardingData({ ...onboardingData, greeting: e.target.value })}
+                                            />
+                                        </div>
+
+                                        <div className="flex-1"></div>
+                                        <button
+                                            disabled={!onboardingData.greeting}
+                                            onClick={async () => {
+                                                setOnboardingStep(6);
+                                                // Trigger Provisioning Flow
+                                                try {
+                                                    // 1. Save Profile
+                                                    await supabase.from('business_profiles').update({
+                                                        company_name: onboardingData.companyName,
+                                                        voice_id: onboardingData.voiceId
+                                                    }).eq('owner_user_id', session.user.id);
+
+                                                    // 2. Save Greeting
+                                                    await supabase.from('business_info').upsert({
+                                                        owner_user_id: session.user.id,
+                                                        type: 'greeting',
+                                                        content: { text: onboardingData.greeting }
+                                                    }, { onConflict: 'owner_user_id,type' });
+
+                                                    // 3. Save Website (if valid)
+                                                    if (onboardingData.website) {
+                                                        const url = onboardingData.website.startsWith('http') ? onboardingData.website : `https://${onboardingData.website}`;
+                                                        await supabase.from('business_info').upsert({
+                                                            owner_user_id: session.user.id,
+                                                            type: 'website_content',
+                                                            content: { url: url }
+                                                        }, { onConflict: 'owner_user_id,type' });
+
+                                                        // Non-blocking scrape
+                                                        fetch('/api/scrape-website', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ url: url })
+                                                        }).then(r => r.json()).then(async (d) => {
+                                                            if (d.success) {
+                                                                await supabase.from('business_info').upsert({
+                                                                    owner_user_id: session.user.id,
+                                                                    type: 'knowledge',
+                                                                    content: { text: d.text, source: url }
+                                                                });
+                                                            }
+                                                        });
+                                                    }
+
+                                                    // 4. PROVISION NUMBER
+                                                    const res = await fetch('/api/provision', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ userId: session.user.id })
+                                                    });
+                                                    const prov = await res.json();
+
+                                                    if (!prov.success) throw new Error(prov.error || "Provisioning Failed");
+
+                                                    // SUCCESS: Redirect to Dashboard
+                                                    showToast("Setup Complete! Welcome aboard.");
+                                                    setTimeout(() => {
+                                                        setView('receptionist');
+                                                    }, 1500);
+
+                                                } catch (e) {
+                                                    console.error("Setup Error:", e);
+                                                    showToast("Error: " + e.message);
+                                                    setOnboardingStep(5); // Go back
+                                                }
+                                            }}
+                                            className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors"
+                                        >
+                                            Finish Setup <ArrowRight size={20} className="inline ml-2" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Step 6: Provisioning Loading */}
+                                {onboardingStep === 6 && (
+                                    <div className="h-full flex flex-col items-center justify-center text-center">
+                                        <div className="w-20 h-20 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-8"></div>
+                                        <h2 className="text-2xl font-black text-gray-900 mb-2">Setting up your AI...</h2>
+                                        <p className="text-gray-500 font-medium animate-pulse">Assigning phone number...</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+
+            {/* =========================================
                SETTINGS VIEW
                ========================================= */}
             {
@@ -2539,14 +2886,14 @@ export default function App() {
                             <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
 
                                 {/* Contacts */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Contacts Settings...')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <Users size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Contacts Settings...')}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <Users size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Contacts</h4>
-                                            <p className="text-sm font-medium text-red-500 mt-0.5">Enable in Settings to sync contacts</p>
+                                            <p className="text-sm font-medium text-rose-500 mt-0.5">Enable in Settings to sync contacts</p>
                                         </div>
                                     </div>
                                     <div className="text-xs font-bold text-[#2563EB] flex items-center">
@@ -2555,14 +2902,14 @@ export default function App() {
                                 </div>
 
                                 {/* Notifications */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <Bell size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <Bell size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Notifications</h4>
-                                            <p className="text-sm font-medium text-red-500 mt-0.5">Enable in Settings to receive alerts</p>
+                                            <p className="text-sm font-medium text-rose-500 mt-0.5">Enable in Settings to receive alerts</p>
                                         </div>
                                     </div>
                                     {/* Mock Toggle */}
@@ -2579,66 +2926,66 @@ export default function App() {
                             <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
 
                                 {/* Manage Plan */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <CreditCard size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <CreditCard size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Manage Plan</h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">View invoices and manage subscription</p>
+                                            <p className="text-sm font-medium text-gray-500 mt-0.5">View invoices and manage subscription</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
                                 </div>
 
                                 {/* Support */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => window.open('https://calendly.com/aayushsethi37/30min', '_blank')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <MessageSquare size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => window.open('https://calendly.com/aayushsethi37/30min', '_blank')}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <MessageSquare size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Contact Us</h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Get help or share your ideas!</p>
+                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Get help or share your ideas!</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
                                 </div>
 
                                 {/* Privacy Policy */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Privacy Policy...')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <Lock size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Privacy Policy...')}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <Lock size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Privacy Policy</h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Review privacy practices</p>
+                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Review privacy practices</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
                                 </div>
 
                                 {/* Sign Out */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-                                            <LogOut size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
+                                            <LogOut size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Sign Out</h4>
-                                            <p className="text-sm font-medium text-gray-600 mt-0.5">Log out of your account</p>
+                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Log out of your account</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
                                 </div>
 
                                 {/* Delete Account */}
-                                <div className="flex items-center justify-between p-5 hover:bg-red-50/50 transition-colors cursor-pointer" onClick={() => showToast('Delete Account Flow')}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                                            <Trash2 size={20} className="stroke-[2.5px]" />
+                                <div className="flex items-center justify-between p-4 hover:bg-red-50/50 transition-colors cursor-pointer" onClick={() => showToast('Delete Account Flow')}>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 border border-red-100">
+                                            <Trash2 size={18} className="stroke-[2.5px]" />
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-red-500">Delete Account</h4>
@@ -2650,11 +2997,6 @@ export default function App() {
                             </div>
 
 
-
-                            {/* Footer */}
-                            <div className="flex flex-col items-center justify-center pb-8 text-gray-400 gap-1.5 opacity-60">
-                                <span className="text-sm font-bold tracking-widest uppercase">Made with <span className="text-red-500">♥</span> in the USA 🇺🇸</span>
-                            </div>
                         </div>
                     </div>
                 )
