@@ -37,7 +37,7 @@ export default function App() {
     // --- State ---
     // --- State ---
     const [session, setSession] = useState(null);
-    const [authLoading, setAuthLoading] = useState(true);
+    const [authLoading, setAuthLoading] = useState(false);
     const [calls, setCalls] = useState([]);
 
 
@@ -49,33 +49,37 @@ export default function App() {
     // --- Auth Effect ---
     useEffect(() => {
         const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            if (session) {
-                // Check if user has completed provisioning (has a phone number)
-                const { data } = await supabase.from('business_profiles').select('vapi_phone_number').eq('owner_user_id', session.user.id).maybeSingle();
-                if (data?.vapi_phone_number) {
-                    setView('receptionist');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                if (session) {
+                    // Check if user has a profile at all (returning user) - not just phone number
+                    const { data } = await supabase.from('business_profiles').select('id, vapi_phone_number, company_name').eq('owner_user_id', session.user.id).maybeSingle();
+                    // If profile exists, user is returning - go to main app
+                    // Only show onboarding if NO profile record exists (truly new user)
+                    if (data) {
+                        setView('receptionist');
+                    } else {
+                        setView('onboarding');
+                    }
                 } else {
-                    setView('onboarding');
+                    setView('auth');
                 }
-            } else {
-                // setView('auth'); // Keep default auth view
+            } catch (error) {
+                console.error('Session check error:', error);
+                setView('auth');
             }
-            setAuthLoading(false);
         };
         checkUser();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
-            if (session) {
-                const { data } = await supabase.from('business_profiles').select('vapi_phone_number').eq('owner_user_id', session.user.id).maybeSingle();
-                if (data?.vapi_phone_number) setView('receptionist');
-                else setView('onboarding');
-            } else {
+            // SIGNED_IN is handled by handleAuth directly, so we only handle SIGNED_OUT here
+            // This avoids race conditions with the explicit login flow
+            if (_event === 'SIGNED_OUT') {
                 setView('auth');
             }
-            setAuthLoading(false);
+            // For SIGNED_IN, TOKEN_REFRESHED, INITIAL_SESSION - let the explicit handlers manage view
         });
 
         return () => subscription.unsubscribe();
@@ -101,20 +105,14 @@ export default function App() {
     const [isReceptionistActive, setIsReceptionistActive] = useState(true);
 
     // --- Onboarding State (Premium Flow) ---
-    const [onboardingStep, setOnboardingStep] = useState(0); // 0=Welcome, 1=Flowchart, 2=Identity, 3=Website, 4=Voice, 5=Greeting, 6=Provision
+    const [onboardingStep, setOnboardingStep] = useState(1); // 0=Welcome, 1=Flowchart, 2=Identity, 3=Website, 4=Voice, 5=Greeting, 6=Provision
     const [onboardingData, setOnboardingData] = useState({
         companyName: '',
         website: '',
         voiceId: 'OYTbf65OHHFELVut7v2H', // Default to 'Rachel' (or closest)
         greeting: "Thanks for calling, how can I help?"
     });
-    // Hardcoded Premium Voices
-    const PREMIUM_VOICES = [
-        { id: 'OYTbf65OHHFELVut7v2H', name: 'Rachel', gender: 'female', style: 'Calm & Professional', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rachel' },
-        { id: '21m00Tcm4TlvDq8ikWAM', name: 'Mimi', gender: 'female', style: 'Warm & Friendly', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mimi' },
-        { id: 'AZkz1l1Sbt8p2I2j9s95', name: 'Drew', gender: 'male', style: 'News Anchor', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Drew' },
-        { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Clyne', gender: 'male', style: 'Deep & Authoritative', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Clyne' }
-    ];
+
 
     // Forwarding Flow State
     const [forwardingMode, setForwardingMode] = useState('enable'); // 'enable' | 'disable'
@@ -244,6 +242,8 @@ export default function App() {
             if (!session?.user) return;
 
             try {
+                console.log("🔍 Fetching user data for:", session.user.id);
+
                 // 1. Fetch Business Profile
                 const { data: profile, error: profileError } = await supabase
                     .from('business_profiles')
@@ -251,9 +251,13 @@ export default function App() {
                     .eq('owner_user_id', session.user.id)
                     .maybeSingle();
 
+                console.log("📊 Profile data:", profile);
+                console.log("❌ Profile error:", profileError);
+
                 if (profileError) throw profileError;
 
                 if (profile) {
+                    console.log("✅ Profile exists, processing...");
                     if (!profile.company_name) setView('onboarding');
 
                     setUserInfo(prev => ({
@@ -271,14 +275,17 @@ export default function App() {
                         instructions: profile.instructions || '',
                         vapiPhoneNumber: profile.vapi_phone_number || '' // Added Vapi Number
                     }));
+                    console.log("✅ UserInfo updated");
                 }
 
+                console.log("🔍 Fetching business_info...");
                 // 2. Fetch Business Info (Knowledge, Greeting, Ending)
                 const { data: info, error: infoError } = await supabase
                     .from('business_info')
                     .select('*')
                     .eq('owner_user_id', session.user.id);
 
+                console.log("📊 Business Info:", info);
                 if (infoError) throw infoError;
 
                 if (info) {
@@ -339,8 +346,12 @@ export default function App() {
 
             } catch (err) {
                 console.error("Error loading user data:", err);
-            } finally {
-                setAuthLoading(false); // Ensure loading state clears
+                console.error("Error details:", {
+                    message: err.message,
+                    code: err.code,
+                    details: err.details,
+                    hint: err.hint
+                });
             }
         };
 
@@ -380,7 +391,7 @@ export default function App() {
     const [authPassword, setAuthPassword] = useState('');
     const [authError, setAuthError] = useState(null);
 
-    const handleAuth = async () => {
+    const handleAuth = async (mode = authMode) => {
         if (!authEmail.includes('@') || !authEmail.includes('.')) {
             setAuthError("Please enter a valid email address");
             return;
@@ -390,7 +401,7 @@ export default function App() {
         setAuthError(null);
 
         try {
-            if (authMode === 'signup') {
+            if (mode === 'signup') {
                 // Generate a new Business ID for this user
                 const businessId = crypto.randomUUID();
 
@@ -407,7 +418,11 @@ export default function App() {
 
                 if (error) {
                     setAuthError(error.message);
-                } else if (data?.user) {
+                    setAuthLoading(false);
+                    return;
+                }
+
+                if (data?.user) {
                     // Success: Profile will be created by onAuthStateChange logic or here
                     await supabase.from('business_profiles').upsert(
                         {
@@ -423,19 +438,33 @@ export default function App() {
                     ], { onConflict: 'owner_user_id,type' });
 
                     showToast("Account created!");
+                    setAuthLoading(false);
                     // The onAuthStateChange listener will handle view transitions
                 }
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await supabase.auth.signInWithPassword({
                     email: authEmail,
                     password: authPassword,
                 });
-                if (error) setAuthError(error.message);
+
+                if (error) {
+                    setAuthError(error.message);
+                    setAuthLoading(false);
+                    return;
+                }
+
+                if (data?.session) {
+                    // Successful sign-in - set session and go directly to receptionist
+                    setSession(data.session);
+                    setAuthLoading(false);
+                    setView('receptionist');
+                } else {
+                    setAuthLoading(false);
+                }
             }
         } catch (err) {
             console.error("Auth Exception:", err);
             setAuthError("An unexpected error occurred. Please try again.");
-        } finally {
             setAuthLoading(false);
         }
     };
@@ -493,8 +522,13 @@ export default function App() {
     // --- Effects ---
     // --- Effects ---
     // --- Effects ---
+    const isFetchingCallsRef = React.useRef(false);
+
     const fetchCalls = async () => {
-        if (!session?.user) return;
+        if (!session?.user || isFetchingCallsRef.current) return;
+
+        isFetchingCallsRef.current = true;
+
         try {
             // NEW: Fetch from our own 'calls' table
             const { data: dbCalls, error: callsError } = await supabase
@@ -504,7 +538,10 @@ export default function App() {
                 .order('started_at', { ascending: false });
 
             if (callsError) {
-                console.error("Supabase calls fetch error:", callsError);
+                // Only log non-abort errors
+                if (callsError.message && !callsError.message.includes('AbortError')) {
+                    console.error("Supabase calls fetch error:", callsError);
+                }
                 return;
             }
 
@@ -512,10 +549,12 @@ export default function App() {
             let bookings = [];
             try {
                 const { data: bookingData, error } = await supabase.from('bookings').select('*').eq('owner_user_id', session.user.id);
-                if (error) console.error("Booking fetch error:", error);
+                if (error && !error.message?.includes('AbortError')) console.error("Booking fetch error:", error);
                 if (bookingData) bookings = bookingData;
             } catch (err) {
-                console.warn("Supabase booking fetch failed:", err);
+                if (!err.message?.includes('AbortError')) {
+                    console.warn("Supabase booking fetch failed:", err);
+                }
             }
 
             if (dbCalls) {
@@ -585,30 +624,48 @@ export default function App() {
                 setCalls(formatted);
             }
         } catch (e) {
-            console.error("Failed to fetch calls", e);
+            if (!e.message?.includes('AbortError')) {
+                console.error("Failed to fetch calls", e);
+            }
+        } finally {
+            isFetchingCallsRef.current = false;
         }
     };
 
     useEffect(() => {
-        if (session) {
-            // Always fetch calls on session load/update
-            fetchCalls();
+        if (!session) return;
 
-            // Background Sync: Backfill calls from Vapi to DB
+        let isMounted = true;
+        let syncTimeout;
+
+        // Initial fetch
+        fetchCalls();
+
+        // Background Sync with delay to avoid race condition
+        syncTimeout = setTimeout(() => {
+            if (!isMounted) return;
             fetch(`/api/sync-calls?userId=${session.user.id}`)
                 .then(res => res.json())
                 .then(data => {
+                    if (!isMounted) return;
                     console.log("Sync Response:", data);
                     if (data.count > 0) fetchCalls();
                 })
                 .catch(err => {
                     console.error("Background sync failed:", err);
                 });
+        }, 1000);
 
-            // Poll for new calls every 15s
-            const interval = setInterval(fetchCalls, 15000);
-            return () => clearInterval(interval);
-        }
+        // Poll for new calls every 15s
+        const interval = setInterval(() => {
+            if (isMounted) fetchCalls();
+        }, 15000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            clearTimeout(syncTimeout);
+        };
     }, [session]);
 
 
@@ -703,85 +760,137 @@ export default function App() {
         }
     }, [session, userInfo.company, userInfo.vapiPhoneNumber, hasTriedProvisioning, view]);
 
-    if (authLoading && !session) return <div className="flex h-screen w-full items-center justify-center bg-[#F2F4F8] text-blue-500 font-bold">Loading NuPhone...</div>;
-
     return (
         <div className="flex flex-col h-screen bg-[#F2F4F8] font-sans relative text-gray-900 overflow-hidden">
 
 
-            {/* --- Auth View --- */}
+            {/* --- Auth View (Landing Page) --- */}
             {view === 'auth' && (
-                <div className="flex flex-col h-full items-center justify-center p-6 bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 animate-in fade-in duration-700">
-                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-gray-200/50 w-full max-w-md border border-gray-200/50 backdrop-blur-sm">
-                        {/* Logo */}
-                        <div className="flex justify-center mb-8 animate-in zoom-in duration-500 delay-100">
-                            <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-28 h-28 drop-shadow-lg" />
+                // <div className="flex flex-col h-full items-center justify-between px-6 py-8 bg-gradient-to-b from-blue-600 via-blue-700 to-gray-900 relative">
+                <div className="flex flex-col h-full items-center justify-between px-6 py-8 bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative">
+
+
+                    {/* Top Right - Log In Button */}
+                    <div className="w-full flex justify-end">
+                        <button
+                            onClick={() => setView('login')}
+                            className="px-6 py-2.5 bg-blue-600 backdrop-blur-md border border-blue-500/50 rounded-full text-white font-semibold text-sm hover:bg-blue-700 active:scale-95 transition-all duration-200 shadow-lg shadow-blue-600/30"
+                        >
+                            Log in
+                        </button>
+                    </div>
+
+                    {/* Center Section - Logo & Title */}
+                    <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-md">
+                        {/* Logo - No Background */}
+                        <div className="mb-12">
+                            <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-32 h-32" />
                         </div>
 
                         {/* Title */}
-                        <h1 className="text-4xl font-black text-center mb-3 tracking-tight animate-in slide-in-from-bottom duration-500 delay-200">
+                        <h1 className="text-5xl font-black text-black mb-4 tracking-tight leading-none">
+                            Welcome to<br />
                             <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                         </h1>
-                        <p className="text-center text-gray-500 text-base mb-10 font-medium animate-in slide-in-from-bottom duration-500 delay-300">Your AI Receptionist</p>
+                        <p className="text-black/80 text-lg font-medium leading-relaxed px-8">
+                            Your AI receptionist that never misses a call.
+                        </p>
+                    </div>
 
-                        <div className="space-y-5 animate-in slide-in-from-bottom duration-500 delay-400">
-                            {/* Email Input */}
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2.5 pl-1">Email Address</label>
-                                <input
-                                    type="email"
-                                    value={authEmail}
-                                    onChange={e => setAuthEmail(e.target.value)}
-                                    className="w-full bg-gray-50/50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200"
-                                    placeholder="you@company.com"
-                                />
-                            </div>
+                    {/* Bottom Section - Get Started Button */}
+                    <div className="w-full max-w-md">
+                        <button
+                            onClick={() => setView('onboarding')}
+                            className="w-full bg-blue-600 text-white py-5 rounded-full font-black text-lg tracking-wide shadow-[0_20px_60px_-15px_rgba(37,99,235,0.8)] hover:shadow-[0_25px_80px_-10px_rgba(37,99,235,0.9)] hover:bg-blue-700 active:scale-[0.97] transition-all duration-300"
+                        >
+                            <span className="relative drop-shadow-[0_0_12px_rgba(147,197,253,0.9)]">
+                                Get Started
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
-                            {/* Password Input */}
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2.5 pl-1">Password</label>
-                                <input
-                                    type="password"
-                                    value={authPassword}
-                                    onChange={e => setAuthPassword(e.target.value)}
-                                    className="w-full bg-gray-50/50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200"
-                                    placeholder="••••••••"
-                                />
-                            </div>
+            {/* --- Login View (Separate from Signup) --- */}
+            {view === 'login' && (
+                <div className="flex flex-col h-full items-center justify-between px-6 py-8 bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative">
+                    {/* Top Right - Back Button */}
+                    <div className="w-full flex justify-end">
+                        <button
+                            onClick={() => { setView('auth'); setAuthError(null); }}
+                            className="px-6 py-2.5 bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-full text-gray-700 font-semibold text-sm hover:bg-white/80 active:scale-95 transition-all duration-200 shadow-sm"
+                        >
+                            ← Back
+                        </button>
+                    </div>
 
-                            {/* Error Message */}
-                            {authError && (
-                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl animate-in slide-in-from-top duration-300">
-                                    <p className="text-red-700 text-xs font-bold">{authError}</p>
+                    {/* Center Section - Login Form */}
+                    <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-md">
+                        {/* Logo */}
+                        <div className="mb-8">
+                            <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-24 h-24" />
+                        </div>
+
+                        {/* Title */}
+                        <h2 className="text-4xl font-black text-gray-900 mb-2">Welcome back</h2>
+                        <p className="text-gray-500 text-base mb-10">Sign in to your <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span></p>
+
+                        {/* Login Card */}
+                        <div className="w-full bg-white/80 backdrop-blur-xl rounded-[28px] p-8 shadow-xl shadow-gray-300/50 border border-white/50">
+                            <div className="space-y-4">
+                                {/* Email Input */}
+                                <div>
+                                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-2 pl-1 text-left">Email</label>
+                                    <input
+                                        type="email"
+                                        value={authEmail}
+                                        onChange={e => setAuthEmail(e.target.value)}
+                                        onFocus={() => setAuthMode('signin')}
+                                        className="w-full bg-gray-50 border-0 rounded-[16px] px-4 py-4 text-[15px] font-medium text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all duration-200"
+                                        placeholder="you@company.com"
+                                    />
                                 </div>
-                            )}
 
-                            {/* Submit Button */}
-                            <button
-                                onClick={handleAuth}
-                                disabled={authLoading}
-                                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-2xl font-bold text-base hover:from-blue-700 hover:to-blue-800 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            >
-                                {authLoading ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        Please wait...
-                                    </span>
-                                ) : (
-                                    authMode === 'signin' ? 'Sign In' : 'Create Account'
+                                {/* Password Input */}
+                                <div>
+                                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-2 pl-1 text-left">Password</label>
+                                    <input
+                                        type="password"
+                                        value={authPassword}
+                                        onChange={e => setAuthPassword(e.target.value)}
+                                        className="w-full bg-gray-50 border-0 rounded-[16px] px-4 py-4 text-[15px] font-medium text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all duration-200"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+
+                                {/* Error Message */}
+                                {authError && (
+                                    <div className="bg-red-50 border border-red-200 p-3 rounded-2xl">
+                                        <p className="text-red-700 text-xs font-semibold text-center">{authError}</p>
+                                    </div>
                                 )}
-                            </button>
-
-                            {/* Toggle Auth Mode */}
-                            <div className="text-center pt-2">
-                                <button
-                                    onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); }}
-                                    className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors duration-200"
-                                >
-                                    {authMode === 'signin' ? "New here? Create Account" : "Already have an account? Sign In"}
-                                </button>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Bottom Section - Sign In Button */}
+                    <div className="w-full max-w-md">
+                        <button
+                            onClick={() => handleAuth('signin')}
+                            disabled={authLoading}
+                            className="w-full bg-blue-600 text-white py-5 rounded-full font-black text-lg tracking-wide shadow-[0_20px_60px_-15px_rgba(37,99,235,0.8)] hover:shadow-[0_25px_80px_-10px_rgba(37,99,235,0.9)] hover:bg-blue-700 active:scale-[0.97] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                            {authLoading ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    Signing in...
+                                </span>
+                            ) : (
+                                <span className="relative drop-shadow-[0_0_12px_rgba(147,197,253,0.9)]">
+                                    Sign In
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
             )}
@@ -1272,64 +1381,7 @@ export default function App() {
             )}
 
 
-            {/* =========================================
-               ONBOARDING VIEW
-               ========================================= */}
-            {
-                view === 'onboarding' && (
-                    <div className="flex flex-col h-full items-center justify-center p-6 bg-[#F2F4F8] animate-in fade-in duration-500">
-                        <div className="bg-white p-8 rounded-[2rem] shadow-xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
-                            <div className="text-center mb-8">
-                                <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200 mx-auto mb-4">
-                                    <Settings size={32} />
-                                </div>
-                                <h2 className="text-2xl font-black text-gray-900 mb-2">Setup Your Receptionist</h2>
-                                <p className="text-gray-400 text-sm font-medium">Tell us a bit about your business to get started.</p>
-                            </div>
 
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Company Name <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        value={userInfo.company}
-                                        onChange={e => setUserInfo({ ...userInfo, company: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                        placeholder="e.g. Acme Corp"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Industry / Business Type <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        value={userInfo.businessType}
-                                        onChange={e => setUserInfo({ ...userInfo, businessType: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                        placeholder="e.g. Dental Clinic"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Description <span className="text-red-500">*</span></label>
-                                    <textarea
-                                        value={userInfo.businessDetails}
-                                        onChange={e => setUserInfo({ ...userInfo, businessDetails: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
-                                        rows={4}
-                                        placeholder="Briefly describe what your business does..."
-                                    />
-                                </div>
-
-                                <button
-                                    onClick={handleOnboardingSubmit}
-                                    className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 active:scale-[0.98] transition-all shadow-lg shadow-blue-200 mt-4"
-                                >
-                                    Save & Continue
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             {/* =========================================
                RECEPTIONIST VIEW
@@ -2568,14 +2620,16 @@ export default function App() {
                ========================================= */}
             {
                 view === 'onboarding' && (
-                    <div className={`fixed inset-0 z-[9999] flex flex-col ${onboardingStep === 1 ? 'bg-[#0a0a0a]' : 'bg-white'}`}>
+                    <div className={`fixed inset-0 z-[9999] flex flex-col ${onboardingStep === 1 ? 'bg-[#0a0a0a]' : 'bg-#f5f5f7'}`}>
                         {/* Step 0: Welcome */}
                         {onboardingStep === 0 && (
                             <div className="h-full flex flex-col items-center justify-center p-8 animate-in fade-in duration-700">
-                                <div className="w-24 h-24 bg-blue-50 rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-blue-100">
-                                    <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-16 h-16" />
+                                <div className="mb-8">
+                                    <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-24 h-24" />
                                 </div>
-                                <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight text-center">JunoDesk</h1>
+                                <h1 className="text-4xl font-black mb-4 tracking-tight text-center">
+                                    <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                                </h1>
                                 <p className="text-xl text-gray-500 font-medium mb-12 text-center max-w-xs leading-relaxed">
                                     Your autonomous AI receptionist is ready to work.
                                 </p>
@@ -2590,57 +2644,98 @@ export default function App() {
 
                         {/* Step 1: Flowchart (The Hook) */}
                         {onboardingStep === 1 && (
-                            <div className="h-full flex flex-col items-center justify-center p-6 text-center relative overflow-hidden text-white">
-                                <div className="z-10 w-full max-w-md animate-in zoom-in duration-500">
-                                    <h2 className="text-2xl font-black mb-8 tracking-tight">How it works</h2>
+                            <div className="h-full flex flex-col items-center justify-center px-6 text-center bg-gradient-to-b from-[#F5F6FA] to-[#ECECF0]">
+                                <div className="w-full max-w-md">
 
-                                    {/* Tree Diagram */}
-                                    <div className="flex flex-col items-center gap-1">
-                                        {/* Root */}
-                                        <div className="bg-white text-black font-bold py-3 px-6 rounded-2xl shadow-[0_0_30px_rgba(255,255,255,0.2)] w-48 text-sm">
-                                            📞 You receive a call
+                                    {/* Title */}
+                                    <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
+                                        How it works
+                                    </h2>
+                                    <p className="text-gray-500 mb-12">
+                                        You're always in control.
+                                    </p>
+
+                                    {/* Flow */}
+                                    <div className="flex flex-col items-center gap-6">
+
+                                        {/* Step 1 */}
+                                        <div className="w-full bg-white rounded-2xl px-6 py-4 shadow-sm border border-black/5">
+                                            <div className="text-sm font-semibold text-gray-900">
+                                                📞 You receive a call
+                                            </div>
                                         </div>
-                                        <ChevronDown size={24} className="text-gray-600 my-1" />
-                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">You Decide</div>
 
-                                        {/* Bracket */}
-                                        <div className="w-32 border-t-2 border-dashed border-gray-700 h-4 relative">
-                                            <div className="absolute -top-1.5 -left-1 w-3 h-3 bg-gray-700 rounded-full"></div>
-                                            <div className="absolute -top-1.5 -right-1 w-3 h-3 bg-gray-700 rounded-full"></div>
+                                        <div className="text-black text-xl">↓</div>
+
+                                        {/* Decision */}
+                                        <div className="w-full bg-white rounded-2xl px-6 py-4 shadow-sm border border-black/5">
+                                            <div className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                                                You decide
+                                            </div>
                                         </div>
 
-                                        <div className="flex gap-4 w-full justify-center -mt-2">
-                                            {/* Left Branch */}
-                                            <div className="flex flex-col items-center gap-2 w-1/2 animate-in slide-in-from-left duration-700 delay-100 opacity-60">
-                                                <div className="bg-green-600/20 border border-green-500/50 text-green-400 font-bold py-2 px-3 rounded-xl text-xs w-full">Answer</div>
-                                                <ChevronDown size={16} className="text-gray-700" />
-                                                <div className="bg-white/5 border border-white/10 text-gray-400 font-medium py-2 px-3 rounded-xl text-[10px] w-full">
-                                                    You talk directly
+                                        <div className="flex gap-4 w-full mt-2">
+
+                                            {/* LEFT — Answer */}
+                                            <div className="flex-1 flex flex-col items-center gap-4 opacity-60">
+                                                <div className="w-full bg-white rounded-xl py-3 shadow-sm border border-black/5">
+                                                    <div className="text-xs font-semibold text-gray-800">
+                                                        Answer
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-black">↓</div>
+
+                                                <div className="w-full bg-white rounded-xl py-3 shadow-sm border border-black/5">
+                                                    <div className="text-xs font-semibold text-gray-800">
+                                                        You talk directly
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            {/* Right Branch (Highlighted) */}
-                                            <div className="flex flex-col items-center gap-2 w-1/2 animate-in slide-in-from-right duration-700 delay-300">
-                                                <div className="bg-purple-600 text-white font-bold py-2 px-3 rounded-xl text-xs w-full shadow-lg shadow-purple-900/50">Don't Answer</div>
-                                                <ChevronDown size={16} className="text-gray-500" />
-                                                <div className="bg-white text-black font-bold py-3 px-3 rounded-xl text-xs w-full shadow-[0_0_20px_rgba(168,85,247,0.4)] border-2 border-purple-500 relative overflow-hidden">
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-100 to-white opacity-50"></div>
-                                                    <span className="relative z-10">🧠 AI Answers</span>
+                                            {/* RIGHT — Don't Answer */}
+                                            <div className="flex-1 flex flex-col items-center gap-4">
+                                                <div className="w-full bg-blue-600 rounded-xl py-3 shadow-lg">
+                                                    <div className="text-sm font-bold text-white">
+                                                        Don't Answer
+                                                    </div>
                                                 </div>
-                                                <ChevronDown size={16} className="text-gray-500" />
-                                                <div className="bg-white/10 border border-white/20 text-white font-medium py-2 px-3 rounded-xl text-[10px] w-full flex items-center justify-center gap-1">
-                                                    <Check size={10} className="text-green-400" /> Summary & Audio
+
+                                                <div className="text-black">↓</div>
+
+                                                <div className="w-full bg-blue-600 rounded-xl px-4 py-4 shadow-lg text-left">
+                                                    <div className="text-sm font-bold text-white mb-1">
+                                                        JunoDesk answers
+                                                    </div>
+                                                    <div className="text-xs text-blue-100">
+                                                        Handles the call professionally
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-black">↓</div>
+
+                                                <div className="w-full bg-blue-50 rounded-xl border border-blue-200 px-4 py-3 space-y-2 text-left">
+                                                    <div className="text-xs font-semibold text-gray-800">
+                                                        🎙️ Transcript & summary
+                                                    </div>
+
+                                                    <div className="text-xs font-semibold text-gray-800">
+                                                        🗓️ Meeting bookings
+                                                    </div>
                                                 </div>
                                             </div>
+
                                         </div>
                                     </div>
 
+                                    {/* CTA */}
                                     <button
                                         onClick={() => setOnboardingStep(2)}
-                                        className="mt-12 w-full bg-white text-black py-4 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+                                        className="mt-16 w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition"
                                     >
                                         I Understand
                                     </button>
+
                                 </div>
                             </div>
                         )}
@@ -2712,14 +2807,16 @@ export default function App() {
                                         <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">Choose your receptionist</h2>
                                         <p className="text-gray-500 font-medium mb-8">Tap to listen.</p>
 
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            {PREMIUM_VOICES.map(voice => {
+                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                            {FALLBACK_VOICES.map(voice => {
                                                 const isSelected = onboardingData.voiceId === voice.id;
+                                                const isPlaying = playingVoiceId === voice.id;
                                                 return (
-                                                    <div
+                                                    <button
                                                         key={voice.id}
                                                         onClick={async () => {
                                                             setOnboardingData({ ...onboardingData, voiceId: voice.id });
+                                                            setPlayingVoiceId(voice.id);
                                                             // Play Preview
                                                             try {
                                                                 const res = await fetch('/api/voice-preview', {
@@ -2730,21 +2827,29 @@ export default function App() {
                                                                 if (res.ok) {
                                                                     const blob = await res.blob();
                                                                     const audio = new Audio(URL.createObjectURL(blob));
-                                                                    audio.play();
+                                                                    audio.onended = () => setPlayingVoiceId(null);
+                                                                    audio.onerror = () => setPlayingVoiceId(null);
+                                                                    await audio.play();
+                                                                } else {
+                                                                    setPlayingVoiceId(null);
                                                                 }
-                                                            } catch (e) { console.error(e); }
+                                                            } catch (e) {
+                                                                console.error(e);
+                                                                setPlayingVoiceId(null);
+                                                            }
                                                         }}
-                                                        className={`p-4 rounded-3xl border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200 shadow-sm'} active:scale-[0.98]`}
                                                     >
-                                                        <div className="flex flex-col items-center">
-                                                            <div className={`w-16 h-16 rounded-full overflow-hidden mb-3 border-2 ${isSelected ? 'border-blue-500' : 'border-gray-100'}`}>
-                                                                <img src={voice.avatar} alt={voice.name} className="w-full h-full object-cover" />
-                                                            </div>
-                                                            <span className="font-bold text-gray-900">{voice.name}</span>
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1">{voice.style}</span>
+                                                        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-4 ring-4 ring-white shadow-md transition-transform duration-300 group-hover:scale-105 z-10">
+                                                            <img src={voice.avatar} alt={voice.name} className="w-full h-full object-cover scale-125 translate-y-1" />
+                                                            {isPlaying && (
+                                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                                                    <AudioWaveform size={20} className="text-white animate-pulse" />
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {isSelected && <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center"><Check size={14} className="text-white" strokeWidth={3} /></div>}
-                                                    </div>
+                                                        <span className={`text-sm font-black truncate w-full text-center tracking-wide z-10 ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>{voice.name}</span>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
@@ -2968,7 +3073,16 @@ export default function App() {
                                 </div>
 
                                 {/* Sign Out */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => { await supabase.auth.signOut(); setView('auth'); }}>
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => {
+                                    try {
+                                        await supabase.auth.signOut();
+                                    } catch (e) {
+                                        console.error('Sign out error:', e);
+                                    } finally {
+                                        setSession(null);
+                                        setView('auth');
+                                    }
+                                }}>
                                     <div className="flex items-start gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
                                             <LogOut size={18} className="stroke-[2.5px]" />
@@ -3261,7 +3375,7 @@ export default function App() {
                GLOBAL NAVIGATION
                ========================================= */}
             {
-                view !== 'auth' && view !== 'onboarding' && view !== 'intro' && (
+                view !== 'auth' && view !== 'login' && view !== 'onboarding' && view !== 'intro' && (
                     <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-gray-200/50 flex justify-around items-center py-4 px-6 z-[999] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
 
                         {/* Inbox Tab */}
