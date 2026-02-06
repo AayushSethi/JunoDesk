@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+
+
 import {
     Phone, MessageSquare, Menu, RefreshCw, ChevronRight, User,
     ChevronLeft, Settings, HelpCircle, PhoneCall,
@@ -172,8 +174,6 @@ export default function App() {
         email: "",
         address: "",
         website: "",
-        websiteTraining: false,
-        emergencyNumber: "",
         useEmergencyNumber: false,
         businessDetails: "",
         instructions: ""
@@ -186,8 +186,6 @@ export default function App() {
     // --- Archive State ---
     const [activeInboxTab, setActiveInboxTab] = useState('inbox'); // 'inbox' | 'archived'
     const [archivedIds, setArchivedIds] = useState([]);
-    const [deletedIds, setDeletedIds] = useState([]);
-    const [readCallIds, setReadCallIds] = useState([]);
 
     const handleArchiveCall = async (callId) => {
         // Optimistic Update
@@ -279,120 +277,95 @@ export default function App() {
                     .eq('owner_user_id', session.user.id)
                     .maybeSingle();
 
+                // Fallback to Phone lookup
                 if (!profile && session.user.phone) {
                     const { data: phoneProfile } = await supabase
                         .from('business_profiles')
                         .select('*')
                         .eq('user_phone_number', session.user.phone)
                         .maybeSingle();
+
                     if (phoneProfile) profile = phoneProfile;
                 }
 
                 if (profileError) throw profileError;
 
-                if (profile) {
+                // 2. Fetch Business Info (Knowledge, Greeting, Ending) - fetch BEFORE processing
+                console.log("🔍 Fetching business_info...");
+                const { data: info, error: infoError } = await supabase
+                    .from('business_info')
+                    .select('*')
+                    .eq('owner_user_id', session.user.id);
 
+                if (infoError) throw infoError;
+
+                // 3. Process Profile
+                if (profile) {
                     console.log("✅ Profile exists, processing...");
-                    // REMOVED: Auto-redirect to onboarding - always allow inbox for demo
-                    // if (!profile.company_name) setView('onboarding');
 
                     setUserInfo(prev => ({
                         ...prev,
                         company: profile.company_name || '',
                         businessType: profile.industry || '',
-                        email: profile.support_email || session.user.email || '',
+                        email: profile.support_email || '',
                         address: profile.address || '',
                         website: profile.website || '',
                         websiteTraining: profile.website_training_enabled || false,
                         emergencyNumber: profile.emergency_phone || '',
                         useEmergencyNumber: profile.emergency_transfer_enabled || false,
                         businessDetails: profile.business_description || '',
-                        google_access_token: profile.google_access_token || null, // LOAD TOKEN STATE
+                        google_access_token: profile.google_access_token || null,
                         instructions: profile.instructions || '',
-                        vapiPhoneNumber: profile.vapi_phone_number || '' // Added Vapi Number
+                        profileId: profile.id || '',
+                        vapiPhoneNumber: profile.vapi_phone_number || '',
+                        userPhoneNumber: profile.user_phone_number || ''
                     }));
                     console.log("✅ UserInfo updated");
-                }
 
-                console.log("🔍 Fetching business_info...");
-                // 2. Fetch Business Info (Knowledge, Greeting, Ending)
-                const { data: info, error: infoError } = await supabase
-                    .from('business_info')
-                    .select('*')
-                    .eq('owner_user_id', session.user.id);
-
-                console.log("📊 Business Info:", info);
-                if (infoError) throw infoError;
-
-                if (info) {
-                    console.log("Loaded Business Info:", info); // DEBUG
                     // Extract Personality (Prioritize Profile for Voice)
-                    // Extract Personality (Prioritize Profile for Voice)
-                    const personalityItem = info.find(i => i.type === 'personality');
-
-                    const savedVoiceId = profile?.voice_id || personalityItem?.content?.voiceId;
-                    let savedName = profile?.assistant_name || personalityItem?.content?.name || "Assistant";
+                    const personalityItem = info?.find(i => i.type === 'personality');
+                    const savedVoiceId = profile.voice_id || personalityItem?.content?.voiceId;
+                    let savedName = profile.assistant_name || personalityItem?.content?.name || "Assistant";
 
                     // If name is generic but we have a valid voice ID, try to resolve the correct name
                     if (savedName === "Assistant" && savedVoiceId) {
-                        const matchedVoice = FALLBACK_VOICES.find(v => v.id === savedVoiceId);
-                        if (matchedVoice) savedName = matchedVoice.name;
+                        const voiceMatch = FALLBACK_VOICES.find(v => v.id === savedVoiceId);
+                        if (voiceMatch) savedName = voiceMatch.name;
                     }
 
                     setPersonality({
                         name: savedName,
                         description: "Professional, formal, and polite.",
-                        voiceId: savedVoiceId // Prioritize profile voice_id
+                        voiceId: savedVoiceId
                     });
+                    console.log("✅ Personality set:", savedName, savedVoiceId);
+                }
+
+                // 4. Process Business Info
+                if (info) {
+                    console.log("📊 Business Info:", info);
 
                     // Extract Greeting
                     const greetingItem = info.find(i => i.type === 'greeting');
-                    if (greetingItem?.content?.text) setGreeting(greetingItem.content.text);
+                    if (greetingItem?.content?.text) {
+                        setGreeting(greetingItem.content.text);
+                        console.log("✅ Greeting loaded:", greetingItem.content.text);
+                    }
 
                     // Extract Knowledge Items (QA, Fact, Instruction)
-                    const items = info.filter(i => ['qa', 'fact', 'instruction'].includes(i.type));
+                    const items = info.filter(i => ['qa', 'fact', 'instruction', 'website_content'].includes(i.type));
                     setKnowledgeItems(items);
 
-                    // Extract Languages
-                    const langItem = info.find(i => i.type === 'languages');
-                    if (langItem?.content?.languages) setLanguages(langItem.content.languages);
-
-                    // Extract Archived Calls
-                    const archiveItem = info.find(i => i.type === 'archived_calls');
-                    if (archiveItem?.content?.ids) setArchivedIds(archiveItem.content.ids);
-
-                    // Extract Deleted Calls
-                    const deletedItem = info.find(i => i.type === 'deleted_calls');
-                    if (deletedItem?.content?.ids) setDeletedIds(deletedItem.content.ids);
-
-                    // Extract Read Calls (Handle potential duplicates by taking the one with most IDs or just the last one)
-                    const readItems = info.filter(i => i.type === 'read_calls');
-                    console.log("Read Items Found:", readItems); // DEBUG
-                    if (readItems.length > 0) {
-                        // Use the last one (most recent likely) or merge? 
-                        // Merging is safer if we had partial saves, but "Delete-Insert" strategy implies last one is source of truth.
-                        // Let's just grab the one with content.ids
-                        const validItem = readItems.find(i => i.content?.ids) || readItems[0];
-                        if (validItem?.content?.ids) {
-                            console.log("Setting Read IDs:", validItem.content.ids);
-                            setReadCallIds(validItem.content.ids);
-                        }
-                    }
+                    console.log("✅ Knowledge items loaded:", items.length);
                 }
 
             } catch (err) {
                 console.error("Error loading user data:", err);
-                console.error("Error details:", {
-                    message: err.message,
-                    code: err.code,
-                    details: err.details,
-                    hint: err.hint
-                });
             }
         };
 
         loadUserData();
-    }, [session]);
+    }, [session, view]); // Re-fetch when view changes (e.g. wizard -> receptionist)
 
 
 
@@ -412,8 +385,6 @@ export default function App() {
     const [expandedCallId, setExpandedCallId] = useState(null);
     const [showTranscript, setShowTranscript] = useState(false);
     const [showLanguageModal, setShowLanguageModal] = useState(false);
-
-    const [knowledgeKeywords, setKnowledgeKeywords] = useState([]);
     const [voiceOptions] = useState(FALLBACK_VOICES);
     const [languages, setLanguages] = useState(['English']);
     // const [playingVoiceId, setPlayingVoiceId] = useState(null); // Moved to top
@@ -473,25 +444,39 @@ export default function App() {
             // --- DEV BYPASS for Twilio Block ---
             if (otpCode === '123456') {
                 console.log("Using Dev Bypass");
-                // Use the known test account to get a valid session
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: 'vapi@gmail.com',
-                    password: 'runrunrun'
-                });
+                try {
+                    // Call backend to create real user (bypasses SMS, uses service role key)
+                    const res = await fetch('/api/dev-signup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: authPhone })
+                    });
+                    const result = await res.json();
 
-                if (error) {
-                    console.warn("Dev Bypass Login Failed - Using Mock Session", error);
-                    // FORCE MOCK SESSION for Demo Mode
-                    const mockSession = { user: { id: 'mock-user-id', email: 'vapi@gmail.com' }, access_token: 'mock-token' };
-                    setSession(mockSession);
-                    setView('inbox'); // Redirect to Inbox for Demo
-                    showToast("Demo Mode Activated 🚀");
-                    return true;
-                } else if (data?.session) {
-                    setSession(data.session);
-                    setView('inbox'); // Force inbox view for demo
+                    if (!res.ok || result.error) {
+                        throw new Error(result.error || 'Dev signup failed');
+                    }
+
+                    // Set real Supabase session using returned tokens
+                    const { error: sessionErr } = await supabase.auth.setSession({
+                        access_token: result.accessToken,
+                        refresh_token: result.refreshToken
+                    });
+
+                    if (sessionErr) throw sessionErr;
+
+                    const { data: { session: newSession } } = await supabase.auth.getSession();
+                    setSession(newSession);
+                    console.log("✅ Dev session established for:", result.userId);
+
+                    setView('onboarding');
+                    setOnboardingStep(3); // Skip phone verification steps
                     showToast("Dev Access Granted 🔓");
                     return true;
+                } catch (devErr) {
+                    console.error("❌ Dev bypass failed:", devErr);
+                    setAuthError("Dev bypass failed: " + devErr.message);
+                    return false;
                 }
             }
 
@@ -533,6 +518,14 @@ export default function App() {
                             .eq('id', profile.id);
                     }
                 }
+
+                // Save phone number to profile if not already set
+                const phoneWithPlus = authPhone.startsWith('+') ? authPhone : `+1${authPhone}`;
+                await supabase.from('business_profiles').upsert({
+                    owner_user_id: currentUser.id,
+                    user_phone_number: phoneWithPlus
+                }, { onConflict: 'owner_user_id' });
+                console.log("✅ Saved phone to profile (OTP):", phoneWithPlus);
 
                 // For demo, always go to inbox
                 setView('inbox');
@@ -770,7 +763,6 @@ export default function App() {
     };
 
     // --- Styles ---
-    const headerGradient = "bg-gradient-to-b from-blue-300 via-blue-500 to-blue-800";
 
     const [provisioning, setProvisioning] = useState(false);
     const [isScraping, setIsScraping] = useState(false);
@@ -779,10 +771,16 @@ export default function App() {
         if (!session?.user) return;
         setProvisioning(true);
         try {
+            const phoneWithPlus = authPhone.startsWith('+') ? authPhone : `+1${authPhone}`;
             const res = await fetch('/api/provision', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: session.user.id })
+                body: JSON.stringify({
+                    userId: session.user.id,
+                    companyName: onboardingData.companyName || userInfo.company,
+                    industry: userInfo.businessType,
+                    userPhone: phoneWithPlus
+                })
             });
             const data = await res.json();
 
@@ -1632,17 +1630,18 @@ export default function App() {
                                                                 showToast("Failed to save voice");
                                                             }
                                                         }}
-                                                        className={`relative flex flex-col items-center p-4 rounded-3xl border transition-all duration-300 group overflow-hidden ${isSelected ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200 shadow-sm'} active:scale-[0.98]`}
+                                                        className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
                                                     >
-                                                        <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-4 ring-4 ring-white shadow-md transition-transform duration-300 group-hover:scale-105 z-10">
-                                                            <img src={p.avatar} alt={p.name} className="w-full h-full object-cover scale-125 translate-y-1" />
+                                                        <div className={`w-20 h-20 rounded-full overflow-hidden relative transition-all ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-white shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'ring-2 ring-gray-200'}`}>
+                                                            <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
                                                             {isPlaying && (
-                                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                                                     <AudioWaveform size={20} className="text-white animate-pulse" />
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <span className={`text-sm font-black truncate w-full text-center tracking-wide z-10 ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>{p.name}</span>
+                                                        <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{p.name}</span>
+                                                        {isSelected && <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
                                                     </button>
                                                 )
                                             }) : (
@@ -1945,7 +1944,14 @@ export default function App() {
                                                     type="text"
                                                     value={userInfo.website}
                                                     onChange={(e) => setUserInfo({ ...userInfo, website: e.target.value })}
-                                                    onBlur={(e) => saveProfileField('website', e.target.value)}
+                                                    onBlur={(e) => {
+                                                        let val = e.target.value.trim();
+                                                        if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                                                            val = 'https://' + val;
+                                                            setUserInfo(prev => ({ ...prev, website: val }));
+                                                        }
+                                                        saveProfileField('website', val);
+                                                    }}
                                                     placeholder="https://example.com"
                                                     disabled={isScraping}
                                                     className="w-full bg-transparent border-none text-base font-medium text-gray-900 focus:ring-0 px-3 placeholder:text-gray-300"
@@ -1978,7 +1984,7 @@ export default function App() {
 
                                                             if (deleteError) console.error("Delete warning:", deleteError);
 
-                                                            const { error: insertError } = await supabase.from('business_info').insert({
+                                                            const { error: insertError, data: newItem } = await supabase.from('business_info').insert({
                                                                 owner_user_id: session.user.id,
                                                                 type: 'instruction',
                                                                 content: {
@@ -1986,9 +1992,14 @@ export default function App() {
                                                                     source: 'website_scrape',
                                                                     url: userInfo.website
                                                                 }
-                                                            });
+                                                            }).select().single();
 
                                                             if (insertError) throw insertError;
+
+                                                            // Add to local state so dropdown appears immediately
+                                                            if (newItem) {
+                                                                setKnowledgeItems(prev => [...prev, newItem]);
+                                                            }
 
                                                             showToast("Website Synced Successfully!");
                                                             syncAssistant();
@@ -2349,7 +2360,7 @@ export default function App() {
                                                     </div>
 
                                                     <div className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-lg font-medium text-gray-900 tracking-tight flex items-center justify-center mb-4">
-                                                        +1 (281) 650-5521
+                                                        {userInfo.userPhoneNumber || 'No phone number saved'}
                                                     </div>
 
                                                     <div className="flex items-start gap-2">
@@ -2829,16 +2840,43 @@ export default function App() {
 
                                             <button
                                                 onClick={async () => {
-                                                    // Trigger OTP
-                                                    const success = await handleSendOtp();
-                                                    if (success) {
+                                                    setAuthLoading(true);
+                                                    setAuthError(null);
+                                                    try {
+                                                        // Create real Supabase user via backend (bypasses SMS)
+                                                        const res = await fetch('/api/dev-signup', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ phone: authPhone })
+                                                        });
+                                                        const result = await res.json();
+
+                                                        if (!res.ok || result.error) {
+                                                            throw new Error(result.error || 'Signup failed');
+                                                        }
+
+                                                        // Set real Supabase session
+                                                        await supabase.auth.setSession({
+                                                            access_token: result.accessToken,
+                                                            refresh_token: result.refreshToken
+                                                        });
+
+                                                        const { data: { session: newSession } } = await supabase.auth.getSession();
+                                                        setSession(newSession);
+                                                        console.log('✅ Real session established for:', result.userId);
+                                                        showToast('Account created!');
                                                         setOnboardingStep(2);
+                                                    } catch (err) {
+                                                        console.error('Signup error:', err);
+                                                        setAuthError(err.message);
+                                                    } finally {
+                                                        setAuthLoading(false);
                                                     }
                                                 }}
                                                 disabled={authLoading || authPhone.length < 10}
                                                 className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] disabled:opacity-50 mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                                             >
-                                                {authLoading ? 'Sending Code...' : 'Send Verification Code'}
+                                                {authLoading ? 'Creating Account...' : 'Continue'}
                                             </button>
                                         </div>
                                     </>
@@ -2872,14 +2910,14 @@ export default function App() {
                                             )}
 
                                             <button
-                                                onClick={async () => {
-                                                    await handleVerifyOtp();
-                                                    // handleVerifyOtp now handles navigation to inbox
+                                                onClick={() => {
+                                                    // Skip OTP verification for now (SMS not active)
+                                                    console.log('⏭️ Skipping OTP verification');
+                                                    setOnboardingStep(3);
                                                 }}
-                                                disabled={authLoading || otpCode.length < 6}
-                                                className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] disabled:opacity-50 mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
+                                                className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                                             >
-                                                {authLoading ? 'Verifying...' : 'Verify'}
+                                                Next
                                             </button>
                                         </div>
                                     </>
@@ -2984,10 +3022,77 @@ export default function App() {
                                         </div>
 
                                         <button
-                                            onClick={() => setOnboardingStep(5)}
-                                            className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
+                                            onClick={async () => {
+                                                setAuthLoading(true);
+                                                try {
+                                                    // Save subscription type to profile
+                                                    const { error: subError } = await supabase
+                                                        .from('business_profiles')
+                                                        .update({ subscription_type: planCycle })
+                                                        .eq('owner_user_id', session.user.id);
+
+                                                    if (subError) {
+                                                        console.warn('Failed to save subscription type:', subError);
+                                                    } else {
+                                                        console.log('✅ Subscription type saved:', planCycle);
+                                                    }
+
+                                                    // Trigger provisioning (assistant + phone number)
+                                                    console.log('🚀 Triggering provisioning after subscription...');
+                                                    const provisionRes = await fetch('/api/provision', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            userId: session.user.id,
+                                                            subscriptionType: planCycle
+                                                        })
+                                                    });
+
+                                                    const provisionData = await provisionRes.json();
+
+                                                    if (provisionRes.ok && provisionData.success) {
+                                                        console.log('✅ Provisioning complete:', provisionData);
+                                                        setUserInfo(prev => ({
+                                                            ...prev,
+                                                            vapiPhoneNumber: provisionData.phoneNumber,
+                                                            vapiAssistantId: provisionData.assistantId,
+                                                            profileId: provisionData.profileId
+                                                        }));
+
+                                                        // Re-fetch profile to get any existing data
+                                                        const { data: refreshedProfile } = await supabase
+                                                            .from('business_profiles')
+                                                            .select('*')
+                                                            .eq('owner_user_id', session.user.id)
+                                                            .maybeSingle();
+
+                                                        if (refreshedProfile) {
+                                                            setUserInfo(prev => ({
+                                                                ...prev,
+                                                                company: refreshedProfile.company_name || prev.company,
+                                                                businessType: refreshedProfile.industry || prev.businessType,
+                                                                profileId: refreshedProfile.id || prev.profileId
+                                                            }));
+                                                        }
+                                                        showToast('Phone number assigned!');
+                                                    } else {
+                                                        console.warn('⚠️ Provisioning warning:', provisionData.error);
+                                                        showToast('Continue setup to get your number');
+                                                    }
+
+                                                    setOnboardingStep(5);
+                                                } catch (err) {
+                                                    console.error('Step 4 error:', err);
+                                                    // Continue even if provisioning fails - they can retry later
+                                                    setOnboardingStep(5);
+                                                } finally {
+                                                    setAuthLoading(false);
+                                                }
+                                            }}
+                                            disabled={authLoading}
+                                            className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all disabled:opacity-50"
                                         >
-                                            Start Free Trial
+                                            {authLoading ? 'Setting up...' : 'Start Free Trial'}
                                         </button>
                                         <p className="text-center text-xs text-gray-400 font-medium mt-4">No charge until trial ends.</p>
                                     </>
@@ -3029,7 +3134,9 @@ export default function App() {
                                         </div>
 
                                         <button
-                                            onClick={() => setOnboardingStep(6)}
+                                            onClick={() => {
+                                                setOnboardingStep(6);
+                                            }}
                                             className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                                         >
                                             Continue
@@ -3076,13 +3183,42 @@ export default function App() {
                                                     placeholder="example.com"
                                                     value={onboardingData.website}
                                                     onChange={e => setOnboardingData({ ...onboardingData, website: e.target.value })}
+                                                    onBlur={e => {
+                                                        let val = e.target.value.trim();
+                                                        if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                                                            val = 'https://' + val;
+                                                            setOnboardingData(prev => ({ ...prev, website: val }));
+                                                        }
+                                                    }}
                                                 />
                                             </div>
                                         </div>
 
                                         <button
                                             disabled={!onboardingData.companyName}
-                                            onClick={() => setOnboardingStep(7)}
+                                            onClick={async () => {
+                                                // Save business info to profile using id (profile exists from provisioning)
+                                                const { error: profileError } = await supabase
+                                                    .from('business_profiles')
+                                                    .update({
+                                                        company_name: onboardingData.companyName,
+                                                        industry: userInfo.businessType,
+                                                        website: onboardingData.website
+                                                    })
+                                                    .eq('id', userInfo.profileId);
+
+                                                if (profileError) {
+                                                    console.warn('Failed to save business info:', profileError);
+                                                } else {
+                                                    console.log('✅ Business info saved:', {
+                                                        company: onboardingData.companyName,
+                                                        industry: userInfo.businessType,
+                                                        website: onboardingData.website
+                                                    });
+                                                }
+
+                                                setOnboardingStep(7);
+                                            }}
                                             className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] disabled:opacity-50 mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                                         >
                                             Continue
@@ -3120,13 +3256,14 @@ export default function App() {
                                                                 } else setPlayingVoiceId(null);
                                                             } catch (e) { setPlayingVoiceId(null); }
                                                         }}
-                                                        className={`relative flex flex-col items-center p-3 rounded-2xl border transition-all ${isSelected ? 'bg-blue-50 border-blue-600 ring-1 ring-blue-600' : 'bg-white border-gray-100 hover:border-gray-300'}`}
+                                                        className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
                                                     >
-                                                        <div className="w-16 h-16 rounded-full overflow-hidden mb-2 relative">
+                                                        <div className={`w-20 h-20 rounded-full overflow-hidden relative transition-all ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-white shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'ring-2 ring-gray-200'}`}>
                                                             <img src={voice.avatar} alt={voice.name} className="w-full h-full object-cover" />
                                                             {isPlaying && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><AudioWaveform size={20} className="text-white animate-pulse" /></div>}
                                                         </div>
-                                                        <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>{voice.name}</span>
+                                                        <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{voice.name}</span>
+                                                        {isSelected && <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
                                                     </button>
                                                 );
                                             })}
@@ -3142,7 +3279,74 @@ export default function App() {
                                         </div>
 
                                         <button
-                                            onClick={() => setOnboardingStep(8)}
+                                            onClick={async () => {
+                                                // Save voice_id to profile
+                                                const { error: voiceError } = await supabase
+                                                    .from('business_profiles')
+                                                    .update({ voice_id: onboardingData.voiceId })
+                                                    .eq('owner_user_id', session.user.id);
+
+                                                if (voiceError) {
+                                                    console.warn('Failed to save voice:', voiceError);
+                                                } else {
+                                                    console.log('✅ Voice saved:', onboardingData.voiceId);
+                                                }
+
+                                                // Save greeting to business_info
+                                                if (onboardingData.greeting) {
+                                                    console.log('💾 Saving greeting:', onboardingData.greeting);
+                                                    const { data: existingGreeting, error: checkErr } = await supabase
+                                                        .from('business_info')
+                                                        .select('id')
+                                                        .eq('owner_user_id', session.user.id)
+                                                        .eq('type', 'greeting')
+                                                        .maybeSingle();
+
+                                                    if (checkErr) console.error('❌ Greeting check error:', checkErr);
+
+                                                    if (existingGreeting) {
+                                                        const { error: updErr } = await supabase
+                                                            .from('business_info')
+                                                            .update({ content: { text: onboardingData.greeting } })
+                                                            .eq('id', existingGreeting.id);
+                                                        if (updErr) console.error('❌ Greeting update error:', updErr);
+                                                        else console.log('✅ Greeting updated');
+                                                    } else {
+                                                        const { error: insErr } = await supabase
+                                                            .from('business_info')
+                                                            .insert({
+                                                                owner_user_id: session.user.id,
+                                                                type: 'greeting',
+                                                                content: { text: onboardingData.greeting }
+                                                            });
+                                                        if (insErr) console.error('❌ Greeting insert error:', insErr);
+                                                        else console.log('✅ Greeting inserted');
+                                                    }
+                                                } else {
+                                                    console.log('⚠️ No greeting to save');
+                                                }
+
+                                                // Update local state immediately so instructions tab shows data
+                                                setGreeting(onboardingData.greeting || '');
+                                                const voiceMatch = FALLBACK_VOICES.find(v => v.id === onboardingData.voiceId);
+                                                setPersonality(prev => ({
+                                                    ...prev,
+                                                    voiceId: onboardingData.voiceId,
+                                                    name: voiceMatch?.name || prev.name
+                                                }));
+
+                                                // Trigger website scraping if website exists
+                                                if (onboardingData.website) {
+                                                    const url = onboardingData.website.startsWith('http') ? onboardingData.website : `https://${onboardingData.website}`;
+                                                    fetch('/api/scrape-website', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ url, userId: session.user.id })
+                                                    }).catch(err => console.warn('Scrape trigger failed', err));
+                                                }
+
+                                                setOnboardingStep(8);
+                                            }}
                                             className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                                         >
                                             Finish Setup
@@ -3251,22 +3455,89 @@ export default function App() {
                                                 showToast("Finishing setup...");
 
                                                 try {
-                                                    // 1. Save Profile (Attempt)
-                                                    await supabase.from('business_profiles').update({
-                                                        company_name: onboardingData.companyName,
-                                                        industry: userInfo.businessType,
-                                                        voice_id: onboardingData.voiceId,
-                                                        capabilities: onboardingData.capabilities
-                                                    }).eq('owner_user_id', session.user.id).catch(e => console.warn("Profile save warning", e));
+                                                    // 1. Save Profile using id (profile exists from provisioning)
+                                                    const phoneWithPlus = authPhone.startsWith('+') ? authPhone : `+1${authPhone}`;
+                                                    const { error: profileSaveErr } = await supabase
+                                                        .from('business_profiles')
+                                                        .update({
+                                                            company_name: onboardingData.companyName,
+                                                            industry: userInfo.businessType,
+                                                            business_description: userInfo.businessDetails,
+                                                            website: onboardingData.website,
+                                                            voice_id: onboardingData.voiceId,
+                                                            user_phone_number: phoneWithPlus
+                                                        })
+                                                        .eq('id', userInfo.profileId);
 
-                                                    // 2. Greeting & Website (Attempt)
+                                                    if (profileSaveErr) console.warn("Profile save warning:", profileSaveErr);
+                                                    else console.log("✅ Profile saved");
+
+                                                    // 2. Greeting (Save to business_info for assistant knowledge)
                                                     if (onboardingData.greeting) {
-                                                        await supabase.from('business_info').upsert({
-                                                            owner_user_id: session.user.id,
-                                                            type: 'greeting',
-                                                            content: { text: onboardingData.greeting }
-                                                        }, { onConflict: 'owner_user_id,type' }).catch(e => console.warn("Greeting save warning", e));
+                                                        // Check for existing greeting
+                                                        const { data: existingGreeting } = await supabase
+                                                            .from('business_info')
+                                                            .select('id')
+                                                            .eq('owner_user_id', session.user.id)
+                                                            .eq('type', 'greeting')
+                                                            .maybeSingle();
+
+                                                        if (existingGreeting) {
+                                                            // Update existing
+                                                            const { error: greetErr } = await supabase
+                                                                .from('business_info')
+                                                                .update({ content: { text: onboardingData.greeting } })
+                                                                .eq('id', existingGreeting.id);
+                                                            if (greetErr) console.warn("Greeting update warning:", greetErr);
+                                                        } else {
+                                                            // Insert new
+                                                            const { error: greetErr } = await supabase
+                                                                .from('business_info')
+                                                                .insert({
+                                                                    owner_user_id: session.user.id,
+                                                                    type: 'greeting',
+                                                                    content: { text: onboardingData.greeting }
+                                                                });
+                                                            if (greetErr) console.warn("Greeting insert warning:", greetErr);
+                                                        }
                                                     }
+
+                                                    // 2b. Business Description as instruction
+                                                    if (userInfo.businessDetails) {
+                                                        const { data: existingDesc } = await supabase
+                                                            .from('business_info')
+                                                            .select('id')
+                                                            .eq('owner_user_id', session.user.id)
+                                                            .eq('type', 'instruction')
+                                                            .eq('content->>source', 'onboarding')
+                                                            .maybeSingle();
+
+                                                        if (existingDesc) {
+                                                            const { error: descErr } = await supabase
+                                                                .from('business_info')
+                                                                .update({ content: { text: `Business Details: ${userInfo.businessDetails}`, source: 'onboarding' } })
+                                                                .eq('id', existingDesc.id);
+                                                            if (descErr) console.warn("Business details update warning:", descErr);
+                                                        } else {
+                                                            const { error: descErr } = await supabase
+                                                                .from('business_info')
+                                                                .insert({
+                                                                    owner_user_id: session.user.id,
+                                                                    type: 'instruction',
+                                                                    content: { text: `Business Details: ${userInfo.businessDetails}`, source: 'onboarding' }
+                                                                });
+                                                            if (descErr) console.warn("Business details insert warning:", descErr);
+                                                        }
+                                                    }
+
+                                                    // Update local state immediately so instructions tab shows data
+                                                    setGreeting(onboardingData.greeting || '');
+                                                    const voiceMatch2 = FALLBACK_VOICES.find(v => v.id === onboardingData.voiceId);
+                                                    setPersonality(prev => ({
+                                                        ...prev,
+                                                        voiceId: onboardingData.voiceId,
+                                                        name: voiceMatch2?.name || prev.name
+                                                    }));
 
                                                     if (onboardingData.website) {
                                                         const url = onboardingData.website.startsWith('http') ? onboardingData.website : `https://${onboardingData.website}`;

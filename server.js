@@ -16,8 +16,8 @@ const PORT = 3000;
 
 // Initialize Twilio
 const twilioClient = twilio(
-    process.env.TWILIO_SID,
-    process.env.TWILIO_TOKEN
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
 );
 
 
@@ -43,6 +43,114 @@ if (supabaseUrl && supabaseUrl.startsWith('http')) {
 // Health Check
 app.get('/', (req, res) => {
     res.send('AI Receptionist Brain is Active 🧠');
+});
+
+// --- DEV BYPASS: Create real user + profile without SMS ---
+app.post('/api/dev-signup', async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) return res.status(400).json({ error: "Missing phone" });
+
+        const phoneWithPlus = phone.startsWith('+') ? phone : `+1${phone}`;
+        const email = `dev_${phone}@junodesk.dev`;
+        const password = 'devpass_' + phone;
+
+        console.log(`🔧 Dev Signup for: ${phoneWithPlus}`);
+
+        let userId;
+        let accessToken;
+        let refreshToken;
+
+        // 1. Try to sign in first (returning user)
+        const { data: signInData } = await supabase.auth.signInWithPassword({
+            email, password
+        });
+
+        if (signInData?.session) {
+            userId = signInData.user.id;
+            accessToken = signInData.session.access_token;
+            refreshToken = signInData.session.refresh_token;
+            console.log("✅ Existing dev user signed in:", userId);
+        } else {
+            // 2. Check if phone is already used by another auth user
+            const { data: existingUsers } = await supabase.auth.admin.listUsers();
+            const existingByPhone = existingUsers?.users?.find(u => u.phone === phoneWithPlus);
+
+            if (existingByPhone) {
+                // Phone exists on another user - update that user's email/password for dev login
+                console.log("📱 Phone already registered, updating user for dev access:", existingByPhone.id);
+                await supabase.auth.admin.updateUser(existingByPhone.id, {
+                    email,
+                    password,
+                    email_confirm: true
+                });
+                userId = existingByPhone.id;
+
+                // Sign in with new credentials
+                const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
+                    email, password
+                });
+                if (loginErr) throw new Error("Updated user but login failed: " + loginErr.message);
+                accessToken = loginData.session.access_token;
+                refreshToken = loginData.session.refresh_token;
+            } else {
+                // 3. Create brand new user (no phone conflict)
+                const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+                    email,
+                    password,
+                    email_confirm: true,
+                    phone: phoneWithPlus,
+                    phone_confirm: true
+                });
+
+                if (createErr) throw new Error(createErr.message);
+
+                userId = newUser.user.id;
+                console.log("✅ Created dev user:", userId);
+
+                // Sign in to get tokens
+                const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
+                    email, password
+                });
+                if (loginErr) throw new Error("Created user but login failed: " + loginErr.message);
+                accessToken = loginData.session.access_token;
+                refreshToken = loginData.session.refresh_token;
+            }
+        }
+
+        // 4. Ensure profile exists
+        const { data: existingProfile } = await supabase
+            .from('business_profiles')
+            .select('id')
+            .eq('owner_user_id', userId)
+            .maybeSingle();
+
+        if (!existingProfile) {
+            await supabase.from('business_profiles').insert({
+                owner_user_id: userId,
+                user_phone_number: phoneWithPlus
+            });
+            console.log("✅ Created business profile for:", userId);
+        } else {
+            await supabase.from('business_profiles')
+                .update({ user_phone_number: phoneWithPlus })
+                .eq('owner_user_id', userId);
+            console.log("✅ Updated phone in profile for:", userId);
+        }
+
+        res.json({
+            success: true,
+            userId,
+            email,
+            accessToken,
+            refreshToken,
+            phone: phoneWithPlus
+        });
+
+    } catch (err) {
+        console.error("❌ Dev Signup Failed:", err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- VAPI INTEGRATION ---
@@ -185,6 +293,9 @@ You represent the business clearly, calmly, and accurately.
 
 Industry: ${profile.industry || 'General'}
 Business description: ${profile.business_description || 'Not specified'}
+${profile.support_email ? `Support email: ${profile.support_email}` : ''}
+${profile.address ? `Business address: ${profile.address}` : ''}
+${profile.website ? `Website: ${profile.website}` : ''}
 
 CORE BEHAVIOR
 
@@ -302,7 +413,7 @@ app.post('/api/webhook/vapi', async (req, res) => {
             if (profile) {
                 // 2. Calculate Duration
                 const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
-                const durationSeconds = Math.round(duration / 1000);
+                const durationSeconds = Math.round(duratio.n / 1000);
 
                 // 3. Spam Detection
                 const summaryText = (analysis?.summary || "").toLowerCase();
@@ -343,11 +454,11 @@ app.post('/api/webhook/vapi', async (req, res) => {
 app.get('/api/sync-calls', async (req, res) => {
     try {
         const { userId } = req.query;
-        if (!userId) return res.status(400).send("Missing userId");
+        if (!userId) return res.status(400).json({ error: "Missing userId" });
 
         // 1. Get Profile
         const { data: profile } = await supabase.from('business_profiles').select('*').eq('owner_user_id', userId).single();
-        if (!profile || !profile.vapi_assistant_id) return res.status(404).send("No assistant linked");
+        if (!profile || !profile.vapi_assistant_id) return res.status(404).json({ error: "No assistant linked" });
 
         // 2. Fetch Calls from Vapi
         // 2. Fetch Calls from Vapi (Fetch up to 1000 recent calls)
@@ -431,7 +542,7 @@ app.get('/api/fix-assistant-link', async (req, res) => {
                 .eq('owner_user_id', userId);
 
             // 5. Also ensure Webhook is set on it!
-            const webhookUrl = "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi";
+            const webhookUrl = `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/webhook/vapi`;
             if (match.serverUrl !== webhookUrl) {
                 await fetch(`${VAPI_BASE_URL}/assistant/${match.id}`, {
                     method: 'PATCH',
@@ -455,189 +566,229 @@ app.get('/api/fix-assistant-link', async (req, res) => {
 
 // 1. Provision a Number & Assistant
 app.post('/api/provision', async (req, res) => {
+    let purchased = null; // For rollback if needed
+
     try {
-        const { userId } = req.body;
+        const { userId, companyName, industry, userPhone } = req.body;
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
         console.log(`🚀 Starting Provisioning for User: ${userId}`);
 
-        const { profile, greeting, instructions, knowledge } = await getContextForUser(userId);
+        // Check if profile exists, create minimal one if not (for mock users)
+        let { data: profile } = await supabase
+            .from('business_profiles')
+            .select('*')
+            .eq('owner_user_id', userId)
+            .maybeSingle();
 
-        // A. Idempotency Check
-        if (profile.vapi_phone_number && profile.vapi_assistant_id) {
-            console.log("✅ User already provisioned. Returning existing data.");
+        if (!profile) {
+            console.log("⚠️ Profile not found, creating minimal profile...");
+            const { data: newProfile, error: createErr } = await supabase
+                .from('business_profiles')
+                .insert({
+                    owner_user_id: userId,
+                    company_name: companyName || 'Demo Company',
+                    industry: industry || 'Other',
+                    user_phone_number: userPhone || null
+                })
+                .select()
+                .single();
+
+            if (createErr) {
+                console.error("❌ Failed to create profile:", createErr);
+                throw new Error(`Cannot create profile: ${createErr.message}`);
+            }
+            profile = newProfile;
+            console.log("✅ Created minimal profile for:", userId);
+        }
+
+        // Load business context (greeting, instructions, knowledge)
+        const { data: info } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('owner_user_id', userId);
+
+        const greeting = info?.find(i => i.type === 'greeting')?.content?.text || "Hello, how can I help you?";
+        const instructions = info?.filter(i => i.type === 'instruction').map(i => i.content.text) || [];
+        const knowledge = info?.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content) || [];
+
+        // CHUNK 0 — Idempotency guard (check ALL provisioning artifacts)
+        if (
+            profile.vapi_assistant_id &&
+            profile.vapi_phone_number &&
+            profile.vapi_phone_id
+        ) {
+            console.log("✅ User fully provisioned. Returning existing data.");
             return res.json({
                 success: true,
                 assistantId: profile.vapi_assistant_id,
-                phoneNumber: profile.vapi_phone_number
+                phoneNumber: profile.vapi_phone_number,
+                vapiPhoneId: profile.vapi_phone_id,
+                profileId: profile.id
             });
         }
 
-        // B. Generate System Prompt
-        const systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge });
-
-        // C. Create Vapi Assistant
-        const assistantPayload = {
-            name: `${profile.company_name} Receptionist`,
-            serverUrl: "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi", // Webhook for Call Reporting
-            model: {
-                provider: "openai",
-                model: "gpt-4o",
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt
-                    }
-                ]
-            },
-            voice: {
-                provider: "11labs",
-                voiceId: "OYTbf65OHHFELVut7v2H" // Default to Woman 2
-            },
-            firstMessage: greeting
-        };
-
-        console.log("🤖 Creating Assistant...", assistantPayload.name);
-        const assistantResponse = await fetch(`${VAPI_BASE_URL}/assistant`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${VAPI_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(assistantPayload)
-        });
-
-        if (!assistantResponse.ok) {
-            const err = await assistantResponse.text();
-            throw new Error(`Vapi Assistant Error: ${err}`);
+        // Check for partial state - if assistant exists but phone import failed
+        if (profile.vapi_assistant_id && !profile.vapi_phone_id) {
+            console.log("⚠️ Partial state detected: assistant exists but no phone. Continuing...");
         }
-        const assistantData = await assistantResponse.json();
-        const assistantId = assistantData.id;
-        console.log("✅ Assistant Created:", assistantId);
 
-        // D. Buy Phone Number (Retry Strategy)
-        console.log("📞 Buying Phone Number...");
+        // CHUNK 1 — Create Vapi assistant FIRST
+        let assistantId = profile.vapi_assistant_id;
 
-        // Strategy: Try "Any" first, then fallback to specific area codes if that results in a zombie number or failure.
-        const strategies = [
-            {}, // Try generic "any" first
-            { numberDesiredAreaCode: "682" }, // Vapi suggested
-            { numberDesiredAreaCode: "681" }, // Vapi suggested
-            { numberDesiredAreaCode: "839" }, // Vapi suggested
-            { numberDesiredAreaCode: "212" }, // NYC
-            { numberDesiredAreaCode: "415" }, // SF
-            { numberDesiredAreaCode: "310" }, // LA
-            { numberDesiredAreaCode: "312" }, // Chicago
-            { numberDesiredAreaCode: "512" }, // Austin
-            { numberDesiredAreaCode: "202" }, // DC
-            { numberDesiredAreaCode: "917" }, // NYC
-            { numberDesiredAreaCode: "718" }, // NYC
-            { numberDesiredAreaCode: "323" }, // LA
-            { numberDesiredAreaCode: "725" }, // Vegas
-            { numberDesiredAreaCode: "469" }  // Dallas
-        ];
+        if (!assistantId) {
+            const systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge });
 
-        let phoneData = null;
-        let lastError = null;
+            const assistantPayload = {
+                name: `${profile.company_name} Receptionist`,
+                serverUrl: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/webhook/vapi`,
+                model: {
+                    provider: "openai",
+                    model: "gpt-4o",
+                    messages: [
+                        {
+                            role: "system",
+                            content: systemPrompt
+                        }
+                    ]
+                },
+                voice: {
+                    provider: "11labs",
+                    voiceId: profile.voice_id || "OYTbf65OHHFELVut7v2H"
+                },
+                firstMessage: greeting
+            };
 
-        for (const strategy of strategies) {
-            try {
-                console.log(`Trying Strategy: ${JSON.stringify(strategy)}...`);
-                // 1. Buy/Provision the number (WITHOUT assistantId first, to avoid potential bugs)
-                const phoneResponse = await fetch(`${VAPI_BASE_URL}/phone-number`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${VAPI_TOKEN}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        provider: "twilio", // Switched from 'vapi' to 'twilio'
-                        smsEnabled: true, // Let Vapi manage SMS webhooks
-                        credentialId: process.env.VAPI_TWILIO_CREDENTIAL_ID, // Use BYO Twilio Credentials
-                        ...strategy
-                    })
+            console.log("🤖 Creating Assistant...", assistantPayload.name);
+            const assistantRes = await fetch(`${VAPI_BASE_URL}/assistant`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${VAPI_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(assistantPayload)
+            });
+
+            if (!assistantRes.ok) {
+                const status = assistantRes.status;
+                const errText = await assistantRes.text();
+                console.error("❌ Assistant creation failed:", status, errText);
+                throw new Error(`Assistant creation failed (${status}): ${errText}`);
+            }
+
+            const assistant = await assistantRes.json();
+            assistantId = assistant.id;
+            console.log("✅ Assistant Created:", assistantId);
+
+            // Save assistant immediately (enables retry safety)
+            await supabase
+                .from('business_profiles')
+                .update({ vapi_assistant_id: assistantId })
+                .eq('owner_user_id', userId);
+        } else {
+            console.log("✅ Assistant already exists:", assistantId);
+        }
+
+        // CHUNK 2 — Buy Twilio number (SMS-capable only)
+        // Skip if we already have a number
+        if (profile.vapi_phone_number && profile.twilio_phone_sid) {
+            console.log("✅ Twilio number already exists:", profile.vapi_phone_number);
+            purchased = { phoneNumber: profile.vapi_phone_number, sid: profile.twilio_phone_sid };
+        } else {
+            console.log("📞 Searching for available SMS-capable numbers on Twilio...");
+
+            const available = await twilioClient
+                .availablePhoneNumbers('US')
+                .local
+                .list({
+                    limit: 1,
+                    smsEnabled: true,
+                    voiceEnabled: true
                 });
 
-
-                if (phoneResponse.ok) {
-                    phoneData = await phoneResponse.json();
-
-                    // 2. VALIDATE THE NUMBER STRING
-                    // If 'number' is missing, we must try to find it.
-                    if (!phoneData.number && phoneData.id) {
-                        console.log("⚠️ Number missing in initial response. Fetching full list to find number string...");
-                        const listRes = await fetch(`${VAPI_BASE_URL}/phone-number`, {
-                            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
-                        });
-
-                        if (listRes.ok) {
-                            const allNumbers = await listRes.json();
-                            const match = allNumbers.find(n => n.id === phoneData.id);
-                            if (match && match.number) {
-                                console.log("✅ Found number in list:", match.number);
-                                phoneData.number = match.number;
-                            }
-                        }
-                    }
-
-                    // 3. DECISION
-                    if (phoneData.number) {
-                        // success! Now update with assistant
-                        console.log("✅ Number acquired. Attaching assistant...");
-                        await fetch(`${VAPI_BASE_URL}/phone-number/${phoneData.id}`, {
-                            method: 'PATCH',
-                            headers: {
-                                'Authorization': `Bearer ${VAPI_TOKEN}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                assistantId: assistantId
-                            })
-                        });
-                        break;
-                    } else {
-                        console.warn("❌ Provisioned resource has no number string. Deleting zombie resource...");
-                        // CLEANUP: Delete the useless number resource
-                        if (phoneData.id) {
-                            await fetch(`${VAPI_BASE_URL}/phone-number/${phoneData.id}`, {
-                                method: 'DELETE',
-                                headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
-                            });
-                        }
-                        phoneData = null; // Reset
-                        lastError = "Provisioned resource had no number (Zombie).";
-                    }
-
-                } else {
-                    lastError = await phoneResponse.text();
-                    console.warn(`Failed Strategy:`, lastError);
-                }
-            } catch (err) {
-                console.error(`Error trying strategy:`, err);
-                lastError = err.message;
+            if (!available.length) {
+                throw new Error("No SMS-capable numbers available from Twilio");
             }
+
+            purchased = await twilioClient.incomingPhoneNumbers.create({
+                phoneNumber: available[0].phoneNumber,
+                friendlyName: `${profile.company_name} - JunoDesk`
+            });
+
+            console.log(`✅ Purchased number: ${purchased.phoneNumber} (SID: ${purchased.sid})`);
+            // DO NOT save to DB yet - enables rollback if Vapi import fails
         }
 
-        if (!phoneData || !phoneData.number) {
-            throw new Error(`Could not buy number. Last error: ${lastError}`);
+        // CHUNK 3 — Import into Vapi (SMS SAFE)
+        let vapiPhoneId = profile.vapi_phone_id;
+
+        if (!vapiPhoneId) {
+            console.log("📥 Importing number to Vapi (SMS-safe mode)...");
+
+            const phonePayload = {
+                provider: "twilio",
+                number: purchased.phoneNumber,
+                twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
+                twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
+                assistantId: assistantId,
+                name: `${profile.company_name} Line`,
+                smsEnabled: false   // 🔒 CRITICAL: Do NOT touch SMS webhooks
+            };
+
+            console.log('📤 Vapi phone payload:', { ...phonePayload, twilioAuthToken: '[REDACTED]' });
+
+            const phoneRes = await fetch(`${VAPI_BASE_URL}/phone-number`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${VAPI_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(phonePayload)
+            });
+
+            if (!phoneRes.ok) {
+                // 🔥 rollback Twilio number on failure
+                if (purchased && purchased.sid && !profile.twilio_phone_sid) {
+                    console.log("🔥 Rolling back Twilio number...");
+                    try {
+                        await twilioClient.incomingPhoneNumbers(purchased.sid).remove();
+                        console.log("✅ Twilio number released");
+                    } catch (rollbackErr) {
+                        console.error("❌ Failed to rollback Twilio number:", rollbackErr.message);
+                    }
+                }
+                const errText = await phoneRes.text();
+                throw new Error(`Vapi phone import failed: ${errText}`);
+            }
+
+            const vapiPhone = await phoneRes.json();
+            vapiPhoneId = vapiPhone.id;
+            console.log("✅ Number imported to Vapi:", vapiPhoneId);
+        } else {
+            console.log("✅ Vapi phone already imported:", vapiPhoneId);
         }
 
-        const phoneNumber = phoneData.number;
-        console.log("✅ Phone Number Acquired:", phoneNumber);
-
-        // E. Save to Business Profile
+        // CHUNK 4 — Final DB commit (atomic)
+        console.log("💾 Final atomic profile update...");
         const { error: updateError } = await supabase
             .from('business_profiles')
             .update({
-                vapi_assistant_id: assistantId,
-                vapi_phone_number: phoneNumber,
-                vapi_phone_id: phoneData.id
+                vapi_phone_number: purchased.phoneNumber,
+                twilio_phone_sid: purchased.sid,
+                vapi_phone_id: vapiPhoneId
             })
             .eq('owner_user_id', userId);
 
         if (updateError) throw new Error(`Supabase Update Error: ${updateError.message}`);
 
-        res.json({ success: true, assistantId, phoneNumber });
+        console.log("🎉 Provisioning Complete!");
+        res.json({
+            success: true,
+            assistantId,
+            phoneNumber: purchased.phoneNumber,
+            vapiPhoneId,
+            profileId: profile.id
+        });
 
     } catch (err) {
         console.error("❌ Provisioning Failed:", err.message);
@@ -688,13 +839,13 @@ app.post('/api/sync-assistant', async (req, res) => {
         console.log("📥 Sync Request Body:", JSON.stringify(req.body, null, 2));
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
-        const { profile, greeting, instructions, knowledge, voiceId } = await getContextForUser(userId);
+        const { profile, greeting, instructions, knowledge, websiteContent, voiceId, calendarContext } = await getContextForUser(userId);
 
         if (!profile.vapi_assistant_id) {
             return res.status(400).json({ error: "No assistant found. Provision first." });
         }
 
-        let systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge });
+        let systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge, websiteContent, calendarContext });
 
         // Append Language Instructions if provided
         if (languages && Array.isArray(languages) && languages.length > 0) {
@@ -747,7 +898,7 @@ app.post('/api/sync-assistant', async (req, res) => {
 
         const updatedPayload = {
             name: assistantName,
-            serverUrl: "https://interorbitally-waxier-versie.ngrok-free.dev/api/webhook/vapi", // Webhook for Call Reporting
+            serverUrl: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/webhook/vapi`,
             voice: {
                 provider: "11labs",
                 voiceId: activeVoiceId,
@@ -780,7 +931,7 @@ app.post('/api/sync-assistant', async (req, res) => {
                             }
                         },
                         server: {
-                            url: "https://interorbitally-waxier-versie.ngrok-free.dev/api/tools/check-availability",
+                            url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/check-availability`,
                         }
                     },
                     {
@@ -799,7 +950,7 @@ app.post('/api/sync-assistant', async (req, res) => {
                             }
                         },
                         server: {
-                            url: "https://interorbitally-waxier-versie.ngrok-free.dev/api/tools/book-appointment",
+                            url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/book-appointment`,
                         }
                     }
                 ] : []
@@ -1143,22 +1294,22 @@ app.post('/api/tools/book-appointment', async (req, res) => {
         if (dbError) console.error("⚠️ Failed to save booking to DB:", dbError);
         else console.log("💾 Booking saved to Supabase.");
 
-        // --- TWILIO SMS NOTIFICATION ---
-        const customerNumber = message.customer?.number || message.call?.customer?.number;
-        if (customerNumber) {
-            try {
-                console.log(`💬 Sending confirmation SMS to ${customerNumber}...`);
-                await twilioClient.messages.create({
-                    body: `Hi! This is ${profile.company_name}. Your meeting for "${args.summary}" is confirmed for ${start.toLocaleString()}. See you then!`,
-                    from: profile.vapi_phone_number, // Use the assigned business number
-                    to: customerNumber
-                });
-                console.log("✅ SMS Sent successfully.");
-            } catch (smsErr) {
-                console.error("❌ Failed to send SMS:", smsErr.message);
-                // We don't fail the whole tool call if SMS fails, but we log it.
-            }
-        }
+        // --- TWILIO SMS NOTIFICATION (DISABLED - waiting for messaging service) ---
+        // const customerNumber = message.customer?.number || message.call?.customer?.number;
+        // if (customerNumber) {
+        //     try {
+        //         console.log(`💬 Sending confirmation SMS to ${customerNumber}...`);
+        //         await twilioClient.messages.create({
+        //             body: `Hi! This is ${profile.company_name}. Your meeting for "${args.summary}" is confirmed for ${start.toLocaleString()}. See you then!`,
+        //             from: profile.vapi_phone_number,
+        //             to: customerNumber
+        //         });
+        //         console.log("✅ SMS Sent successfully.");
+        //     } catch (smsErr) {
+        //         console.error("❌ Failed to send SMS:", smsErr.message);
+        //     }
+        // }
+        console.log("💬 SMS notifications disabled (messaging service not active)");
 
 
         // Return success to Vapi
@@ -1272,6 +1423,17 @@ app.post('/api/scrape-website', async (req, res) => {
         }
 
         const fullContent = `Source: ${url}\nTitle: ${title}\nDescription: ${description}\n\nContent:\n${bodyText}`;
+
+        // Save to business_info for assistant knowledge
+        const { userId } = req.body;
+        if (userId) {
+            await supabase.from('business_info').upsert({
+                owner_user_id: userId,
+                type: 'website_content',
+                content: { text: fullContent, source: 'website_scrape', url }
+            }, { onConflict: 'owner_user_id,type' });
+            console.log(`💾 Saved website content to knowledge for user: ${userId}`);
+        }
 
         res.json({ success: true, text: fullContent, title });
     } catch (e) {
