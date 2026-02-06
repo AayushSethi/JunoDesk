@@ -23,7 +23,8 @@
         "node-fetch": "^3.3.2",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-        "tailwindcss-animate": "^1.0.7"
+        "tailwindcss-animate": "^1.0.7",
+        "twilio": "^5.12.0"
     },
     "devDependencies": {
         "@types/react": "^18.2.64",

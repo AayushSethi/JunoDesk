@@ -5,12 +5,21 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import * as cheerio from 'cheerio';
+import twilio from 'twilio';
+
 
 // Initialize Environment Variables
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Initialize Twilio
+const twilioClient = twilio(
+    process.env.TWILIO_SID,
+    process.env.TWILIO_TOKEN
+);
+
 
 // Middleware
 app.use(cors());
@@ -542,10 +551,13 @@ app.post('/api/provision', async (req, res) => {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        provider: "vapi",
+                        provider: "twilio", // Switched from 'vapi' to 'twilio'
+                        smsEnabled: true, // Let Vapi manage SMS webhooks
+                        credentialId: process.env.VAPI_TWILIO_CREDENTIAL_ID, // Use BYO Twilio Credentials
                         ...strategy
                     })
                 });
+
 
                 if (phoneResponse.ok) {
                     phoneData = await phoneResponse.json();
@@ -1130,6 +1142,24 @@ app.post('/api/tools/book-appointment', async (req, res) => {
 
         if (dbError) console.error("⚠️ Failed to save booking to DB:", dbError);
         else console.log("💾 Booking saved to Supabase.");
+
+        // --- TWILIO SMS NOTIFICATION ---
+        const customerNumber = message.customer?.number || message.call?.customer?.number;
+        if (customerNumber) {
+            try {
+                console.log(`💬 Sending confirmation SMS to ${customerNumber}...`);
+                await twilioClient.messages.create({
+                    body: `Hi! This is ${profile.company_name}. Your meeting for "${args.summary}" is confirmed for ${start.toLocaleString()}. See you then!`,
+                    from: profile.vapi_phone_number, // Use the assigned business number
+                    to: customerNumber
+                });
+                console.log("✅ SMS Sent successfully.");
+            } catch (smsErr) {
+                console.error("❌ Failed to send SMS:", smsErr.message);
+                // We don't fail the whole tool call if SMS fails, but we log it.
+            }
+        }
+
 
         // Return success to Vapi
         res.json({
