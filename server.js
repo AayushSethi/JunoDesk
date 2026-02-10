@@ -597,7 +597,7 @@ app.get('/api/sync-calls', async (req, res) => {
 
                 const { error } = await supabase.from('calls').upsert({
                     id: call.id,
-                    owner_user_id: userId, // Fixed column name
+                    user_id: userId, // MATCHES DB SCHEMA
                     customer_number: call.customer?.number || "Unknown",
                     started_at: call.startedAt,
                     ended_at: call.endedAt,
@@ -605,9 +605,10 @@ app.get('/api/sync-calls', async (req, res) => {
                     summary: call.analysis?.summary || call.summary || "Processing...",
                     transcript: call.transcript || call.analysis?.transcript || "",
                     recording_url: call.artifact?.recordingUrl || call.recordingUrl,
-                    is_spam: isSpam,
-                    is_archived: false, // Default
-                    is_read: false // Default
+                    is_spam: isSpam
+                    // DEBUG: confirming we do not overwrite is_read
+                    // is_archived & is_read are omitted so they use DB defaults for new rows
+                    // and are NOT overwritten for existing rows.
                 }, { onConflict: 'id' });
 
                 if (error) console.error("Upsert fail", error);
@@ -765,6 +766,19 @@ app.post('/api/provision', async (req, res) => {
                         {
                             role: "system",
                             content: systemPrompt
+                        }
+                    ],
+                    tools: [
+                        {
+                            type: "function",
+                            function: {
+                                name: "getCurrentTime",
+                                description: "Get the current date and time. Use this when you need to know today's date or time for booking.",
+                                parameters: { type: "object", properties: {} }
+                            },
+                            server: {
+                                url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/get-current-time`,
+                            }
                         }
                     ]
                 },
@@ -1031,45 +1045,47 @@ app.post('/api/sync-assistant', async (req, res) => {
                         content: systemPrompt
                     }
                 ],
-                tools: profile.google_access_token ? [
-                    {
-                        type: "function",
-                        function: {
-                            name: "checkAvailability",
-                            description: "Check if a specific time slot is available on the calendar. Use this BEFORE booking.",
-                            parameters: {
-                                type: "object",
-                                properties: {
-                                    startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
-                                    durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
-                                },
-                                required: ["startTime"]
+                tools: [
+                    ...(profile.google_access_token ? [
+                        {
+                            type: "function",
+                            function: {
+                                name: "checkAvailability",
+                                description: "Check if a specific time slot is available on the calendar. Use this BEFORE booking.",
+                                parameters: {
+                                    type: "object",
+                                    properties: {
+                                        startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
+                                        durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
+                                    },
+                                    required: ["startTime"]
+                                }
+                            },
+                            server: {
+                                url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/check-availability`,
                             }
                         },
-                        server: {
-                            url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/check-availability`,
-                        }
-                    },
-                    {
-                        type: "function",
-                        function: {
-                            name: "bookAppointment",
-                            description: "Book an appointment or meeting on the calendar. Ask for the date, time, and user's name first.",
-                            parameters: {
-                                type: "object",
-                                properties: {
-                                    summary: { type: "string", description: "Title of the meeting (e.g. 'Meeting with John')" },
-                                    startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
-                                    durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
-                                },
-                                required: ["summary", "startTime"]
+                        {
+                            type: "function",
+                            function: {
+                                name: "bookAppointment",
+                                description: "Book an appointment or meeting on the calendar. Ask for the date, time, and user's name first.",
+                                parameters: {
+                                    type: "object",
+                                    properties: {
+                                        summary: { type: "string", description: "Title of the meeting (e.g. 'Meeting with John')" },
+                                        startTime: { type: "string", description: `ISO 8601 start time (e.g. ${exampleISO})` },
+                                        durationMinutes: { type: "number", description: "Duration in minutes (default 30)" }
+                                    },
+                                    required: ["summary", "startTime"]
+                                }
+                            },
+                            server: {
+                                url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/book-appointment`,
                             }
-                        },
-                        server: {
-                            url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/book-appointment`,
                         }
-                    }
-                ] : [
+                    ] : []),
+                    // Always available tool:
                     {
                         type: "function",
                         function: {

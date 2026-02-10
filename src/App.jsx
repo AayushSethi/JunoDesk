@@ -1133,480 +1133,486 @@ export default function App() {
                 </div>
             )}
 
-            {/* --- Status Bar Area (Mock) --- */}
-            {view !== 'auth' && (
-                <div className={`h-11 w-full absolute top-0 left-0 z-50 flex justify-between items-center px-6 ${view === 'intro' || view === 'settings' ? 'text-gray-900' : 'text-white'} text-xs font-bold pointer-events-none`}>
-                    <span>2:39</span>
-                    <div className="flex items-center space-x-1.5">
-                        {/* Circle indicators removed */}
-                    </div>
-                </div>
-            )}
 
-            {/* =========================================
-               INTRO VIEW
-               ========================================= */}
-            {view === 'intro' && (
-                <div
-                    onClick={() => setView('receptionist')}
-                    className="absolute inset-0 z-[100] bg-white flex flex-col items-center justify-between pb-12 cursor-pointer animate-in fade-in duration-700"
-                >
-                    <div className="flex-1 flex flex-col justify-center items-center">
-                        <h1 className="text-[2.5rem] leading-tight font-black text-gray-900 tracking-tight text-center">
-                            Never Miss<br />Another Call
-                        </h1>
-                    </div>
-                    <div className="text-gray-600 font-bold text-xs uppercase tracking-widest">
-                        Powered by <span className="text-gray-900">NuPhone</span>
-                    </div>
-                </div>
-            )}
 
             {/* =========================================
                INBOX VIEW
                ========================================= */}
-            {view === 'inbox' && (
-                <div className="flex flex-col h-full relative animate-in fade-in duration-500 bg-transparent">
-                    {/* Header */}
-                    <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
-                        <h1 className="text-2xl font-black tracking-tight">
-                            <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                        </h1>
-                    </div>
+            {
+                view === 'inbox' && (
+                    <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
 
-                    <div className="flex-1 overflow-y-auto pb-48 px-4 scrollbar-hide">
-                        {/* Dashboard Stats */}
-                        <div className="mb-8">
-                            {/* Assistant Status Card - Light Blue Theme */}
-                            <div className="bg-blue-50 border border-blue-100 shadow-sm rounded-2xl p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-white border-2 border-white shadow-sm shrink-0">
-                                        <img
-                                            src={voiceOptions.find(v => v.id === personality.voiceId || v.name === personality.name)?.avatar || voiceOptions[0].avatar}
-                                            alt="Assistant"
-                                            className="w-full h-full object-cover scale-110 translate-y-0.5"
-                                        />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 text-lg leading-tight tracking-tight">{personality.name}</h3>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-[#2563EB] animate-pulse' : 'bg-gray-400'}`}></div>
-                                            <span className={`text-[11px] font-bold uppercase tracking-wide ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-500'}`}>
-                                                {isReceptionistActive ? "Active 24/7" : "Offline"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => { showToast("Refreshing..."); fetchCalls(); }}
-                                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-[#2563EB] shadow-sm hover:bg-blue-100 transition-all active:scale-95 border border-blue-100"
-                                >
-                                    <RefreshCw size={16} />
-                                </button>
+                        {/* Header (Matches Inbox Style) */}
+                        <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-black tracking-tighter">
+                                    <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                                </h1>
+                                <div className="h-6 w-px bg-gray-200"></div>
+                                <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                                    AI Receptionist
+                                </span>
                             </div>
                         </div>
 
-                        {/* Tabs - Consistent Style with Borders */}
-                        <div className="flex items-center gap-2 mb-6 w-full">
-                            {['inbox', 'unread', 'archived'].map(tab => {
-                                const isActive = activeInboxTab === tab;
-                                const count = calls.filter(c => {
-                                    if (tab === 'inbox') return !c.isSpam && !c.isArchived;
-                                    if (tab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
-                                    if (tab === 'archived') return c.isArchived;
-                                    return false;
-                                }).length;
 
-                                return (
+                        <div className="flex-1 pb-48 px-4">
+                            {/* Dashboard Stats */}
+                            <div className="mb-8">
+                                {/* Assistant Status Card - Light Blue Theme */}
+                                <div className="bg-blue-50 border border-blue-100 shadow-sm rounded-2xl p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-white border-2 border-white shadow-sm shrink-0">
+                                            <img
+                                                src={voiceOptions.find(v => v.id === personality.voiceId || v.name === personality.name)?.avatar || voiceOptions[0].avatar}
+                                                alt="Assistant"
+                                                className="w-full h-full object-cover scale-110 translate-y-0.5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-900 text-lg leading-tight tracking-tight">{personality.name}</h3>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <div className={`w-2 h-2 rounded-full ${isReceptionistActive ? 'bg-[#2563EB] animate-pulse' : 'bg-gray-400'}`}></div>
+                                                <span className={`text-[11px] font-bold uppercase tracking-wide ${isReceptionistActive ? 'text-[#2563EB]' : 'text-gray-500'}`}>
+                                                    {isReceptionistActive ? "Active 24/7" : "Offline"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <button
-                                        key={tab}
-                                        onClick={() => setActiveInboxTab(tab)}
-                                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
-                                            ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
-                                            : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
-                                            }`}
+                                        onClick={() => { showToast("Refreshing..."); fetchCalls(); }}
+                                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-[#2563EB] shadow-sm hover:bg-blue-100 transition-all active:scale-95 border border-blue-100"
                                     >
-                                        <span className="capitalize">{tab}</span>
-                                        {count > 0 && (
-                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                                {count}
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* Calls List */}
-                        <div className="space-y-4">
-                            {authLoading ? (
-                                <div className="text-center py-12 text-gray-400">Loading calls...</div>
-                            ) : calls.filter(c => {
-                                if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
-                                if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && (!c.isRead || expandedCallId === c.id);
-                                if (activeInboxTab === 'archived') return c.isArchived;
-                                return false;
-                            }).length === 0 ? (
-                                <div className="text-center py-12 text-gray-400">
-                                    <p className="mb-4">No calls in this view.</p>
-                                    <button
-                                        onClick={async () => {
-                                            setToast("Fixing connection...");
-                                            try {
-                                                const res = await fetch(`/api/fix-assistant-link?userId=${session.user.id}`);
-                                                const d = await res.json();
-                                                if (d.fixed) {
-                                                    showToast("Connection Fixed! Syncing...");
-                                                    // Trigger sync
-                                                    fetch(`/api/sync-calls?userId=${session.user.id}`)
-                                                        .then(r => r.json())
-                                                        .then(data => {
-                                                            if (data.count > 0) fetchCalls();
-                                                            showToast(`Fixed & Synced ${data.count} calls`);
-                                                        });
-                                                } else if (d.error) {
-                                                    showToast("Fix Failed: " + d.error);
-                                                } else {
-                                                    showToast("Connection seems fine. No Assistant mis-match found.");
-                                                }
-                                            } catch (e) {
-                                                showToast("Error: " + e.message);
-                                            }
-                                        }}
-                                        className="text-xs text-blue-500 font-bold hover:underline"
-                                    >
-                                        Missing calls? Fix Connection
+                                        <RefreshCw size={16} />
                                     </button>
                                 </div>
-                            ) : (() => {
-                                const visibleCalls = calls.filter(c => {
+                            </div>
+
+                            {/* Tabs - Consistent Style with Borders */}
+                            <div className="flex items-center gap-2 mb-6 w-full">
+                                {['inbox', 'unread', 'archived'].map(tab => {
+                                    const isActive = activeInboxTab === tab;
+                                    const count = calls.filter(c => {
+                                        if (tab === 'inbox') return !c.isSpam && !c.isArchived;
+                                        if (tab === 'unread') return !c.isSpam && !c.isArchived && !c.isRead;
+                                        if (tab === 'archived') return c.isArchived;
+                                        return false;
+                                    }).length;
+
+                                    return (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveInboxTab(tab)}
+                                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
+                                                ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
+                                                : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            <span className="capitalize">{tab}</span>
+                                            {count > 0 && (
+                                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {count}
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Calls List */}
+                            <div className="space-y-4">
+                                {authLoading ? (
+                                    <div className="text-center py-12 text-gray-400">Loading calls...</div>
+                                ) : calls.filter(c => {
                                     if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
                                     if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && (!c.isRead || expandedCallId === c.id);
                                     if (activeInboxTab === 'archived') return c.isArchived;
                                     return false;
-                                });
+                                }).length === 0 ? (
+                                    <div className="text-center py-12 text-gray-400">
+                                        <p className="mb-4">No calls in this view.</p>
+                                        <button
+                                            onClick={async () => {
+                                                setToast("Fixing connection...");
+                                                try {
+                                                    const res = await fetch(`/api/fix-assistant-link?userId=${session.user.id}`);
+                                                    const d = await res.json();
+                                                    if (d.fixed) {
+                                                        showToast("Connection Fixed! Syncing...");
+                                                        // Trigger sync
+                                                        fetch(`/api/sync-calls?userId=${session.user.id}`)
+                                                            .then(r => r.json())
+                                                            .then(data => {
+                                                                if (data.count > 0) fetchCalls();
+                                                                showToast(`Fixed & Synced ${data.count} calls`);
+                                                            });
+                                                    } else if (d.error) {
+                                                        showToast("Fix Failed: " + d.error);
+                                                    } else {
+                                                        showToast("Connection seems fine. No Assistant mis-match found.");
+                                                    }
+                                                } catch (e) {
+                                                    showToast("Error: " + e.message);
+                                                }
+                                            }}
+                                            className="text-xs text-blue-500 font-bold hover:underline"
+                                        >
+                                            Missing calls? Fix Connection
+                                        </button>
+                                    </div>
+                                ) : (() => {
+                                    const visibleCalls = calls.filter(c => {
+                                        if (activeInboxTab === 'inbox') return !c.isSpam && !c.isArchived;
+                                        if (activeInboxTab === 'unread') return !c.isSpam && !c.isArchived && (!c.isRead || expandedCallId === c.id);
+                                        if (activeInboxTab === 'archived') return c.isArchived;
+                                        return false;
+                                    });
 
-                                const grouped = visibleCalls.reduce((acc, call) => {
-                                    const date = new Date(call.rawTime);
-                                    const now = new Date();
-                                    const diffTime = Math.abs(now - date);
-                                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                    // Helper: Date Formatter
+                                    const fmtDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                                    const now = new Date(); // Current time
 
-                                    let label = "Older";
-                                    if (diffDays === 0 && now.getDate() === date.getDate()) label = "Today";
-                                    else if (diffDays === 1) label = "Yesterday";
-                                    else if (diffDays <= 7) label = "Previous 7 Days";
-                                    else if (diffDays <= 30) label = "Last 30 Days";
+                                    const grouped = visibleCalls.reduce((acc, call) => {
+                                        const date = new Date(call.rawTime);
 
-                                    if (!acc[label]) acc[label] = [];
-                                    acc[label].push(call);
-                                    return acc;
-                                }, {});
+                                        // Reset hours to start of day for accurate day comparison
+                                        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                        const startOfCallDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-                                const order = ["Today", "Yesterday", "Previous 7 Days", "Last 30 Days", "Older"];
+                                        const diffTime = startOfToday - startOfCallDate;
+                                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-                                return order.map(label => {
-                                    if (!grouped[label] || grouped[label].length === 0) return null;
-                                    return (
-                                        <div key={label}>
-                                            <h3 className="text-[#2563EB] font-bold text-sm mb-3 pl-1">{label}</h3>
-                                            <div className="space-y-4">
-                                                {grouped[label].map(call => {
+                                        let label = "Older";
 
-                                                    const isExpanded = expandedCallId === call.id;
-                                                    const isUnread = !call.isRead;
+                                        if (diffDays === 0) label = "Today";
+                                        else if (diffDays === 1) label = "Yesterday";
+                                        else if (diffDays < 7) {
+                                            // For individual days up to a week, show exact date (e.g., "Feb 5")
+                                            label = fmtDate(date);
+                                        }
+                                        else if (diffDays < 14) label = "2 Weeks Ago";
+                                        else if (diffDays < 30) label = "Last 30 Days";
 
-                                                    return (
-                                                        <div
-                                                            onClick={async () => {
-                                                                const isCurrentlyExpanded = expandedCallId === call.id;
-                                                                setExpandedCallId(isCurrentlyExpanded ? null : call.id);
-                                                                setShowTranscript(false);
+                                        if (!acc[label]) acc[label] = [];
+                                        acc[label].push(call);
+                                        return acc;
+                                    }, {});
 
-                                                                // Mark as Read Logic (DB Update)
-                                                                if (!isCurrentlyExpanded && !call.isRead) {
-                                                                    // Optimistic Update
-                                                                    setCalls(prev => prev.map(c => c.id === call.id ? { ...c, isRead: true } : c));
+                                    // Generate dynamic order keys based on what we found (plus fixed ones)
+                                    // We want: Today, Yesterday, [Dynamic Dates descending], 2 Weeks Ago, Last 30 Days, Older
 
-                                                                    try {
-                                                                        const { error } = await supabase
-                                                                            .from('calls')
-                                                                            .update({ is_read: true })
-                                                                            .eq('id', call.id);
+                                    // Get all keys that are purely dates (not special labels)
+                                    const dateKeys = Object.keys(grouped).filter(k =>
+                                        k !== "Today" && k !== "Yesterday" && k !== "2 Weeks Ago" && k !== "Last 30 Days" && k !== "Older"
+                                    );
 
-                                                                        if (error) console.error("Failed to mark read:", error);
-                                                                    } catch (err) {
-                                                                        console.error("Mark read exception:", err);
+                                    // Sort date keys descending (newest first)
+                                    dateKeys.sort((a, b) => new Date(b + ` ${now.getFullYear()}`) - new Date(a + ` ${now.getFullYear()}`));
+
+                                    const order = ["Today", "Yesterday", ...dateKeys, "2 Weeks Ago", "Last 30 Days", "Older"];
+
+                                    return order.map(label => {
+                                        if (!grouped[label] || grouped[label].length === 0) return null;
+                                        return (
+                                            <div key={label}>
+                                                <h3 className="text-[#2563EB] font-bold text-sm mb-3 pl-1">{label}</h3>
+                                                <div className="space-y-4">
+                                                    {grouped[label].map(call => {
+
+                                                        const isExpanded = expandedCallId === call.id;
+                                                        const isUnread = !call.isRead;
+
+                                                        return (
+                                                            <div
+                                                                onClick={async () => {
+                                                                    const isCurrentlyExpanded = expandedCallId === call.id;
+                                                                    setExpandedCallId(isCurrentlyExpanded ? null : call.id);
+                                                                    setShowTranscript(false);
+
+                                                                    // Mark as Read Logic (DB Update)
+                                                                    if (!isCurrentlyExpanded && !call.isRead) {
+                                                                        // Optimistic Update
+                                                                        setCalls(prev => prev.map(c => c.id === call.id ? { ...c, isRead: true } : c));
+
+                                                                        try {
+                                                                            const { error } = await supabase
+                                                                                .from('calls')
+                                                                                .update({ is_read: true })
+                                                                                .eq('id', call.id);
+
+                                                                            if (error) console.error("Failed to mark read:", error);
+                                                                        } catch (err) {
+                                                                            console.error("Mark read exception:", err);
+                                                                        }
                                                                     }
-                                                                }
-                                                            }}
-                                                            className={`bg-white rounded-2xl p-5 border transition-all duration-300 relative group overflow-hidden ${isExpanded
-                                                                ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.1)] ring-1 ring-blue-100 transform scale-[1.01]'
-                                                                : 'border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:border-blue-100 hover:shadow-[0_4px_12px_-2px_rgba(37,99,235,0.08)] active:scale-[0.99]'
-                                                                }`}
-                                                        >
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <div>
-                                                                    <h4 className="font-bold text-gray-900 text-base flex items-center gap-2 tracking-tight">
-                                                                        {call.name === "Unknown Caller" ? call.number : call.name}
-                                                                        {isUnread && (
-                                                                            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.4)]"></span>
-                                                                        )}
-                                                                    </h4>
-                                                                    <div className="text-[11px] font-medium text-gray-400 mt-0.5 flex items-center gap-1.5">
-                                                                        {call.name !== "Unknown Caller" && call.number}
+                                                                }}
+                                                                className={`bg-white rounded-2xl p-5 border transition-all duration-300 relative group overflow-hidden ${isExpanded
+                                                                    ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.1)] ring-1 ring-blue-100 transform scale-[1.01]'
+                                                                    : 'border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:border-blue-100 hover:shadow-[0_4px_12px_-2px_rgba(37,99,235,0.08)] active:scale-[0.99]'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <div>
+                                                                        <h4 className="font-semibold text-gray-700 text-lg flex items-center gap-2 tracking-tight">
+                                                                            {call.name === "Unknown Caller" ? call.number : call.name}
+                                                                            {isUnread && (
+                                                                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.4)]"></span>
+                                                                            )}
+                                                                        </h4>
+                                                                        <div className="text-[11px] font-medium text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                                                            {call.name !== "Unknown Caller" && call.number}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-xs font-bold text-gray-900">
+                                                                    <span className="text-sm font-medium text-gray-400">
                                                                         {new Date(call.rawTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                                                     </span>
-                                                                    <span className="text-[10px] font-semibold text-gray-400">
-                                                                        {new Date(call.rawTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                                    </span>
                                                                 </div>
-                                                            </div>
-
-                                                            {/* Summary / Preview */}
-                                                            {!isExpanded && (
-                                                                <p className="text-gray-600 text-xs truncate font-medium mt-1">
-                                                                    {call.summary}
-                                                                </p>
-                                                            )}
-
-                                                            {/* Expanded View Content */}
-                                                            {isExpanded && (
-                                                                <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-2">
-                                                                    <p className="text-gray-700 text-sm font-medium leading-relaxed mb-6">
-                                                                        {call.summary}
-                                                                    </p>
-
-                                                                    {/* Compact Meeting Status Pill */}
-                                                                    {call.actionItem && (
-                                                                        <div
-                                                                            className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+                                                                {/* Compact Meeting Status Pill */}
+                                                                {call.actionItem && (
+                                                                    <div
+                                                                        className="mb-4 inline-flex items-center gap-2 px-2 py-1.2 rounded-full
                bg-blue-50 border border-blue-200/60 text-blue-900
                text-[11px] font-semibold tracking-tight
                hover:bg-blue-100 transition-colors cursor-pointer"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                if (call.actionItem.link) {
-                                                                                    window.open(call.actionItem.link, "_blank");
-                                                                                }
-                                                                            }}
-                                                                            title="View in Calendar"
-                                                                        >
-                                                                            <div className="w-5 h-5 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-sm">
-                                                                                <CalendarCheck size={11} strokeWidth={3} />
-                                                                            </div>
-
-                                                                            <span className="whitespace-nowrap">
-                                                                                Booking Confirmed · {call.actionItem.displayTime}
-                                                                            </span>
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (call.actionItem.link) {
+                                                                                window.open(call.actionItem.link, "_blank");
+                                                                            }
+                                                                        }}
+                                                                        title="View in Calendar"
+                                                                    >
+                                                                        <div className="w-5 h-5 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-sm">
+                                                                            <CalendarCheck size={11} strokeWidth={3} />
                                                                         </div>
-                                                                    )}
 
-                                                                    {/* Actions */}
-                                                                    <div className="flex items-center gap-2 mb-6">
-                                                                        <button className="bg-[#2563EB] text-white px-5 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">
-                                                                            <Phone size={13} className="fill-current" /> Call
-                                                                        </button>
-                                                                        <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 hover:bg-gray-200 transition-colors whitespace-nowrap">
-                                                                            <UserPlus size={13} /> Add
-                                                                        </button>
-                                                                        <div className="flex gap-1.5 ml-auto">
-                                                                            <button
-                                                                                onClick={(e) => { e.stopPropagation(); showToast("Sharing options..."); }}
-                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                                                                                title="Share"
-                                                                            >
-                                                                                <Share2 size={14} />
-                                                                            </button>
-                                                                            {!call.isArchived && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        handleArchiveCall(call.id);
-                                                                                    }}
-                                                                                    className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-                                                                                    title="Archive"
-                                                                                >
-                                                                                    <Archive size={14} />
-                                                                                </button>
-                                                                            )}
-                                                                            {call.isArchived && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        handleUnarchiveCall(call.id);
-                                                                                    }}
-                                                                                    className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-green-50 transition-colors"
-                                                                                    title="Move to Inbox"
-                                                                                >
-                                                                                    <Inbox size={14} />
-                                                                                </button>
-                                                                            )}
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleDeleteCall(call.id);
-                                                                                }}
-                                                                                className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        </div>
+                                                                        <span className="whitespace-nowrap">
+                                                                            Booked · {call.actionItem.displayTime}
+                                                                        </span>
                                                                     </div>
+                                                                )}
 
-                                                                    {/* Audio Player (Music Player Style) */}
-                                                                    {call.recordingUrl && (
-                                                                        <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3 mb-6 shadow-sm z-10 relative" onClick={(e) => e.stopPropagation()}>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    const audioId = `audio-${call.id}`;
-                                                                                    const audioEl = document.getElementById(audioId);
-                                                                                    if (audioEl) {
-                                                                                        if (audioEl.paused) {
-                                                                                            document.querySelectorAll('audio').forEach(el => { if (el.id !== audioId) el.pause(); });
-                                                                                            audioEl.play();
-                                                                                        } else {
-                                                                                            audioEl.pause();
-                                                                                        }
-                                                                                        if (playingVoiceId !== call.id) {
-                                                                                            setPlayingVoiceId(call.id);
-                                                                                            setAudioProgress(0);
-                                                                                        } else {
-                                                                                            // If pausing same audio, keep ID but we know it is paused from UI toggle logic
-                                                                                            // actually, usually simpler to clear ID on pause or track 'isPlaying' state.
-                                                                                            // For this simple implementation, we toggle ID on play, keep it on pause?
-                                                                                            // No, if we pause, we usually want to show play icon. 
-                                                                                            // Since our icon logic is `playingVoiceId === call.id`, pausing updates the UI to play icon? 
-                                                                                            // Wait, existing logic was: onPause={() => setPlayingVoiceId(null)}
-                                                                                            // So pausing clears the ID.
-                                                                                        }
-                                                                                    }
-                                                                                }}
-                                                                                className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-md shrink-0 transition-all active:scale-95 ${playingVoiceId === call.id ? 'bg-[#2563EB] shadow-blue-200' : 'bg-gray-900 shadow-gray-200'}`}
-                                                                            >
-                                                                                {playingVoiceId === call.id ? <Pause size={12} className="fill-current" /> : <Play size={12} className="fill-current ml-0.5" />}
-                                                                            </button>
+                                                                {/* Summary / Preview */}
+                                                                {
+                                                                    !isExpanded && (
+                                                                        <p className="text-gray-600 text-xs truncate font-medium mt-1">
+                                                                            {call.summary}
+                                                                        </p>
+                                                                    )
+                                                                }
 
-                                                                            <audio
-                                                                                id={`audio-${call.id}`}
-                                                                                src={call.recordingUrl}
-                                                                                onEnded={() => { setPlayingVoiceId(null); setAudioProgress(0); }}
-                                                                                onPlay={() => setPlayingVoiceId(call.id)}
-                                                                                onPause={() => setPlayingVoiceId(null)}
-                                                                                onTimeUpdate={(e) => {
-                                                                                    const p = (e.currentTarget.currentTime / e.currentTarget.duration) * 100;
-                                                                                    setAudioProgress(p || 0);
-                                                                                }}
-                                                                                className="hidden"
-                                                                            />
+                                                                {/* Expanded View Content */}
+                                                                {
+                                                                    isExpanded && (
+                                                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300 pt-2">
+                                                                            <p className="text-gray-700 text-sm font-medium leading-relaxed mb-6">
+                                                                                {call.summary}
+                                                                            </p>
 
-                                                                            {/* Real-time Progress Bar */}
-                                                                            <div className="flex-1 h-3.5 bg-gray-100 rounded-full overflow-hidden relative group cursor-pointer"
-                                                                                onClick={(e) => {
-                                                                                    // Optional: Click to seek
-                                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                                    const x = e.clientX - rect.left;
-                                                                                    const width = rect.width;
-                                                                                    const percent = x / width;
-                                                                                    const audioId = `audio-${call.id}`;
-                                                                                    const audioEl = document.getElementById(audioId);
-                                                                                    if (audioEl && Number.isFinite(audioEl.duration)) {
-                                                                                        audioEl.currentTime = percent * audioEl.duration;
-                                                                                        setAudioProgress(percent * 100);
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                {/* Background Track */}
-                                                                                <div className="absolute inset-0 bg-gray-200/50"></div>
 
-                                                                                {/* Progress Fill */}
-                                                                                <div
-                                                                                    className="h-full bg-[#2563EB] rounded-full transition-all duration-75 relative"
-                                                                                    style={{ width: `${playingVoiceId === call.id ? audioProgress : 0}%` }}
-                                                                                >
-                                                                                    {/* Knob (Visible on hover or when playing) */}
-                                                                                    {playingVoiceId === call.id && (
-                                                                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm border border-gray-100 translate-x-1/2"></div>
+                                                                            {/* Actions */}
+                                                                            <div className="flex items-center gap-2 mb-6">
+                                                                                <button className="bg-[#2563EB] text-white px-5 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">
+                                                                                    <Phone size={13} className="fill-current" /> Call
+                                                                                </button>
+                                                                                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl font-bold text-[11px] flex items-center gap-1.5 hover:bg-gray-200 transition-colors whitespace-nowrap">
+                                                                                    <UserPlus size={13} /> Add
+                                                                                </button>
+                                                                                <div className="flex gap-1.5 ml-auto">
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); showToast("Sharing options..."); }}
+                                                                                        className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                                                        title="Share"
+                                                                                    >
+                                                                                        <Share2 size={14} />
+                                                                                    </button>
+                                                                                    {!call.isArchived && (
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleArchiveCall(call.id);
+                                                                                            }}
+                                                                                            className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                                            title="Archive"
+                                                                                        >
+                                                                                            <Archive size={14} />
+                                                                                        </button>
                                                                                     )}
+                                                                                    {call.isArchived && (
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleUnarchiveCall(call.id);
+                                                                                            }}
+                                                                                            className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-green-50 transition-colors"
+                                                                                            title="Move to Inbox"
+                                                                                        >
+                                                                                            <Inbox size={14} />
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleDeleteCall(call.id);
+                                                                                        }}
+                                                                                        className="w-8 h-8 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                                    >
+                                                                                        <Trash2 size={14} />
+                                                                                    </button>
                                                                                 </div>
                                                                             </div>
 
-                                                                            <span className="text-[10px] font-bold text-gray-400 tabular-nums min-w-[24px]">
-                                                                                {playingVoiceId === call.id ? (
-                                                                                    // Format Current Time
-                                                                                    (() => {
-                                                                                        const audioId = `audio-${call.id}`;
-                                                                                        const el = document.getElementById(audioId);
-                                                                                        if (!el) return "0:00";
-                                                                                        const mins = Math.floor(el.currentTime / 60);
-                                                                                        const secs = Math.floor(el.currentTime % 60);
-                                                                                        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                                                                                    })()
-                                                                                ) : "0:00"}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
+                                                                            {/* Audio Player (Music Player Style) */}
+                                                                            {call.recordingUrl && (
+                                                                                <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3 mb-6 shadow-sm z-10 relative" onClick={(e) => e.stopPropagation()}>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const audioId = `audio-${call.id}`;
+                                                                                            const audioEl = document.getElementById(audioId);
+                                                                                            if (audioEl) {
+                                                                                                if (audioEl.paused) {
+                                                                                                    document.querySelectorAll('audio').forEach(el => { if (el.id !== audioId) el.pause(); });
+                                                                                                    audioEl.play();
+                                                                                                } else {
+                                                                                                    audioEl.pause();
+                                                                                                }
+                                                                                                if (playingVoiceId !== call.id) {
+                                                                                                    setPlayingVoiceId(call.id);
+                                                                                                    setAudioProgress(0);
+                                                                                                } else {
+                                                                                                    // If pausing same audio, keep ID but we know it is paused from UI toggle logic
+                                                                                                    // actually, usually simpler to clear ID on pause or track 'isPlaying' state.
+                                                                                                    // For this simple implementation, we toggle ID on play, keep it on pause?
+                                                                                                    // No, if we pause, we usually want to show play icon. 
+                                                                                                    // Since our icon logic is `playingVoiceId === call.id`, pausing updates the UI to play icon? 
+                                                                                                    // Wait, existing logic was: onPause={() => setPlayingVoiceId(null)}
+                                                                                                    // So pausing clears the ID.
+                                                                                                }
+                                                                                            }
+                                                                                        }}
+                                                                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-md shrink-0 transition-all active:scale-95 ${playingVoiceId === call.id ? 'bg-[#2563EB] shadow-blue-200' : 'bg-gray-900 shadow-gray-200'}`}
+                                                                                    >
+                                                                                        {playingVoiceId === call.id ? <Pause size={12} className="fill-current" /> : <Play size={12} className="fill-current ml-0.5" />}
+                                                                                    </button>
 
-                                                                    {/* Transcript Chat (Collapsible) */}
-                                                                    <div className="space-y-3">
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); setShowTranscript(!showTranscript); }}
-                                                                            className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors py-2"
-                                                                        >
-                                                                            {showTranscript ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronRight size={14} strokeWidth={2.5} />}
-                                                                            Read Transcript
-                                                                        </button>
+                                                                                    <audio
+                                                                                        id={`audio-${call.id}`}
+                                                                                        src={call.recordingUrl}
+                                                                                        onEnded={() => { setPlayingVoiceId(null); setAudioProgress(0); }}
+                                                                                        onPlay={() => setPlayingVoiceId(call.id)}
+                                                                                        onPause={() => setPlayingVoiceId(null)}
+                                                                                        onTimeUpdate={(e) => {
+                                                                                            const p = (e.currentTarget.currentTime / e.currentTarget.duration) * 100;
+                                                                                            setAudioProgress(p || 0);
+                                                                                        }}
+                                                                                        className="hidden"
+                                                                                    />
 
-                                                                        {showTranscript && (
-                                                                            <div className="pt-2 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                                {/* Parse Transcript */}
-                                                                                {call.transcript ? (
-                                                                                    call.transcript.split(/(?=AI:|User:)/g).map((msg, i) => {
-                                                                                        const isAI = msg.trim().startsWith("AI:");
-                                                                                        const cleanMsg = msg.replace(/^(AI:|User:)/i, '').trim();
-                                                                                        if (!cleanMsg) return null;
+                                                                                    {/* Real-time Progress Bar */}
+                                                                                    <div className="flex-1 h-3.5 bg-gray-100 rounded-full overflow-hidden relative group cursor-pointer"
+                                                                                        onClick={(e) => {
+                                                                                            // Optional: Click to seek
+                                                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                                                            const x = e.clientX - rect.left;
+                                                                                            const width = rect.width;
+                                                                                            const percent = x / width;
+                                                                                            const audioId = `audio-${call.id}`;
+                                                                                            const audioEl = document.getElementById(audioId);
+                                                                                            if (audioEl && Number.isFinite(audioEl.duration)) {
+                                                                                                audioEl.currentTime = percent * audioEl.duration;
+                                                                                                setAudioProgress(percent * 100);
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        {/* Background Track */}
+                                                                                        <div className="absolute inset-0 bg-gray-200/50"></div>
 
-                                                                                        return (
-                                                                                            <div key={i} className={`flex gap-3 text-[13px] leading-relaxed mb-4 ${isAI ? 'flex-row' : 'flex-row-reverse'}`}>
-                                                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black tracking-wide shadow-sm border ${isAI ? 'bg-white border-blue-100 text-blue-600' : 'bg-gray-900 border-gray-900 text-white'}`}>
-                                                                                                    {isAI ? 'AI' : 'C'}
-                                                                                                </div>
-                                                                                                <div className={`py-2 px-3.5 rounded-2xl max-w-[80%] ${isAI
-                                                                                                    ? 'bg-blue-50/50 text-gray-800 rounded-tl-none border border-blue-100/50'
-                                                                                                    : 'bg-gray-100 text-gray-900 rounded-tr-none'
-                                                                                                    }`}>
-                                                                                                    {cleanMsg}
-                                                                                                </div>
+                                                                                        {/* Progress Fill */}
+                                                                                        <div
+                                                                                            className="h-full bg-[#2563EB] rounded-full transition-all duration-75 relative"
+                                                                                            style={{ width: `${playingVoiceId === call.id ? audioProgress : 0}%` }}
+                                                                                        >
+                                                                                            {/* Knob (Visible on hover or when playing) */}
+                                                                                            {playingVoiceId === call.id && (
+                                                                                                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm border border-gray-100 translate-x-1/2"></div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <span className="text-[10px] font-bold text-gray-400 tabular-nums min-w-[24px]">
+                                                                                        {playingVoiceId === call.id ? (
+                                                                                            // Format Current Time
+                                                                                            (() => {
+                                                                                                const audioId = `audio-${call.id}`;
+                                                                                                const el = document.getElementById(audioId);
+                                                                                                if (!el) return "0:00";
+                                                                                                const mins = Math.floor(el.currentTime / 60);
+                                                                                                const secs = Math.floor(el.currentTime % 60);
+                                                                                                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                                                                                            })()
+                                                                                        ) : "0:00"}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Transcript Chat (Collapsible) */}
+                                                                            <div className="space-y-3">
+                                                                                <button
+                                                                                    onClick={(e) => { e.stopPropagation(); setShowTranscript(!showTranscript); }}
+                                                                                    className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors py-2"
+                                                                                >
+                                                                                    {showTranscript ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronRight size={14} strokeWidth={2.5} />}
+                                                                                    Read Transcript
+                                                                                </button>
+
+                                                                                {showTranscript && (
+                                                                                    <div className="pt-2 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                                        {/* Parse Transcript */}
+                                                                                        {call.transcript ? (
+                                                                                            call.transcript.split(/(?=AI:|User:)/g).map((msg, i) => {
+                                                                                                const isAI = msg.trim().startsWith("AI:");
+                                                                                                const cleanMsg = msg.replace(/^(AI:|User:)/i, '').trim();
+                                                                                                if (!cleanMsg) return null;
+
+                                                                                                return (
+                                                                                                    <div key={i} className={`flex gap-3 text-[13px] leading-relaxed mb-4 ${isAI ? 'flex-row' : 'flex-row-reverse'}`}>
+                                                                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black tracking-wide shadow-sm border ${isAI ? 'bg-white border-blue-100 text-blue-600' : 'bg-gray-900 border-gray-900 text-white'}`}>
+                                                                                                            {isAI ? 'AI' : 'C'}
+                                                                                                        </div>
+                                                                                                        <div className={`py-2 px-3.5 rounded-2xl max-w-[80%] ${isAI
+                                                                                                            ? 'bg-blue-50/50 text-gray-800 rounded-tl-none border border-blue-100/50'
+                                                                                                            : 'bg-gray-100 text-gray-900 rounded-tr-none'
+                                                                                                            }`}>
+                                                                                                            {cleanMsg}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })
+                                                                                        ) : (
+                                                                                            <div className="text-gray-400 text-xs italic p-4 text-center bg-gray-50 rounded-xl">
+                                                                                                No transcript available for this call.
                                                                                             </div>
-                                                                                        );
-                                                                                    })
-                                                                                ) : (
-                                                                                    <div className="text-gray-400 text-xs italic p-4 text-center bg-gray-50 rounded-xl">
-                                                                                        No transcript available for this call.
+                                                                                        )}
                                                                                     </div>
                                                                                 )}
                                                                             </div>
-                                                                        )}
-                                                                    </div>
 
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })}
+                                                                        </div>
+                                                                    )
+                                                                }
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                });
-                            })()}
+                                        );
+                                    });
+                                })()}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
 
 
@@ -1618,10 +1624,16 @@ export default function App() {
                 view === 'receptionist' && (
                     <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
                         {/* Header (Matches Inbox Style) */}
-                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
-                            <h1 className="text-2xl font-black tracking-tight">
-                                <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                            </h1>
+                        <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-black tracking-tighter">
+                                    <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                                </h1>
+                                <div className="h-6 w-px bg-gray-200"></div>
+                                <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                                    AI Receptionist
+                                </span>
+                            </div>
                         </div>
 
                         {/* Tabs (Consistent Square Style) */}
@@ -1694,15 +1706,6 @@ export default function App() {
                                                                     })
                                                                     .eq('owner_user_id', session.user.id);
 
-                                                                // Also update personality name in business_profiles if needed, or keep using business_info for non-core stuff?
-                                                                // For now, only voice_id is mandated to move. 
-                                                                // But we might want to update the name in profile too if that's where we want it.
-                                                                // The user prompt only specified voice_id.
-
-                                                                // Legacy cleanup: Remove voiceId from business_info if it exists there to avoid confusion?
-                                                                // User said: "Remove any writes of voiceId to business_info". 
-                                                                // We won't delete the whole personality item because it might store the Name.
-
                                                                 syncAssistant(p.id);
                                                             } catch (err) {
                                                                 console.error("Failed to save personality", err);
@@ -1720,7 +1723,6 @@ export default function App() {
                                                             )}
                                                         </div>
                                                         <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{p.name}</span>
-                                                        {isSelected && <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
                                                     </button>
                                                 )
                                             }) : (
@@ -3772,15 +3774,23 @@ export default function App() {
             {
                 view === 'settings' && (
                     <div className="flex flex-col h-full bg-transparent relative animate-in slide-in-from-right duration-300">
-                        {/* Header */}
-                        {/* Header */}
-                        <div className="pt-14 pb-2 px-6 flex justify-center items-center shrink-0 z-20">
-                            <h1 className="text-2xl font-black tracking-tight">
-                                <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                            </h1>
+
+                        <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-black tracking-tighter">
+                                    <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                                </h1>
+                                <div className="h-6 w-px bg-gray-200"></div>
+                                <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                                    AI Receptionist
+                                </span>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-4 pb-48">
+
+
+
 
                             {/* --- FEATURES --- */}
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-4">Features</h3>
@@ -3834,7 +3844,7 @@ export default function App() {
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-gray-900">Manage Plan</h4>
-                                            <p className="text-sm font-medium text-gray-500 mt-0.5">View invoices and manage subscription</p>
+                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Manage subscription</p>
                                         </div>
                                     </div>
                                     <ChevronRight size={20} className="text-gray-300" />
