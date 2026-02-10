@@ -11,20 +11,27 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabase';
 
-import woman1 from './assets/avatars/uifaces-human-avatar.jpg';
-import woman2 from './assets/avatars/uifaces-human-avatar (1).jpg';
-import woman3 from './assets/avatars/uifaces-human-avatar (2).jpg';
-import man1 from './assets/avatars/uifaces-human-avatar (3).jpg';
-import man2 from './assets/avatars/uifaces-human-avatar (4).jpg';
-import man3 from './assets/avatars/uifaces-human-avatar (5).jpg';
+import hopeAvatar from './assets/avatars/Avatars/Hope.jpg';
+import jessicaAvatar from './assets/avatars/Avatars/Jessica.jpg';
+import lilyAvatar from './assets/avatars/Avatars/Lily.jpg';
+import billAvatar from './assets/avatars/Avatars/Bill.jpg';
+import jeffAvatar from './assets/avatars/Avatars/Jeff.jpg';
+import markAvatar from './assets/avatars/Avatars/Mark.jpg';
+
+import hopeVoice from './assets/avatars/Voices/Hope.mp3';
+import jessicaVoice from './assets/avatars/Voices/Jessica.mp3';
+import lilyVoice from './assets/avatars/Voices/Lily.mp3';
+import billVoice from './assets/avatars/Voices/Bill.mp3';
+import jeffVoice from './assets/avatars/Voices/Jeff.mp3';
+import markVoice from './assets/avatars/Voices/Mark.mp3';
 
 const FALLBACK_VOICES = [
-    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Sara', provider: '11labs', avatar: woman1 },
-    { id: 'OYTbf65OHHFELVut7v2H', name: 'Emma', provider: '11labs', avatar: woman2 },
-    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Chloe', provider: '11labs', avatar: woman3 },
-    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Mike', provider: '11labs', avatar: man1 },
-    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'David', provider: '11labs', avatar: man2 },
-    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'James', provider: '11labs', avatar: man3 }
+    { id: 'cgSgspJ2msm6clMCkdW9', name: 'Hope', provider: '11labs', avatar: hopeAvatar, preview: hopeVoice },
+    { id: 'flHkNRp1BlvT73UL6gyz', name: 'Jessica', provider: '11labs', avatar: jessicaAvatar, preview: jessicaVoice },
+    { id: 'qBDvhofpxp92JgXJxDjB', name: 'Lily', provider: '11labs', avatar: lilyAvatar, preview: lilyVoice },
+    { id: 'iiidtqDt9FBdT1vfBluA', name: 'Bill', provider: '11labs', avatar: billAvatar, preview: billVoice },
+    { id: '94zOad0g7T7K4oa7zhDq', name: 'Jeff', provider: '11labs', avatar: jeffAvatar, preview: jeffVoice },
+    { id: 'UgBBYS2sOqTuMpoF3BR0', name: 'Mark', provider: '11labs', avatar: markAvatar, preview: markVoice }
 ];
 
 const LANGUAGES = [
@@ -110,15 +117,6 @@ export default function App() {
         return () => subscription.unsubscribe();
     }, []);
 
-    // --- Intro Effect ---
-    useEffect(() => {
-        if (view === 'intro') {
-            const timer = setTimeout(() => {
-                setView('receptionist');
-            }, 3000); // Show intro for 3 seconds
-            return () => clearTimeout(timer);
-        }
-    }, [view]);
 
     // --- Receptionist Settings State ---
     const [greeting, setGreeting] = useState("");
@@ -352,6 +350,13 @@ export default function App() {
                         console.log("✅ Greeting loaded:", greetingItem.content.text);
                     }
 
+                    // Extract Languages
+                    const languagesItem = info.find(i => i.type === 'languages');
+                    if (languagesItem?.content?.languages) {
+                        setLanguages(languagesItem.content.languages);
+                        console.log("✅ Languages loaded:", languagesItem.content.languages);
+                    }
+
                     // Extract Knowledge Items (QA, Fact, Instruction)
                     const items = info.filter(i => ['qa', 'fact', 'instruction', 'website_content'].includes(i.type));
                     setKnowledgeItems(items);
@@ -398,6 +403,8 @@ export default function App() {
     const [otpCode, setOtpCode] = useState('');
     const [showOtpInput, setShowOtpInput] = useState(false);
     const [authError, setAuthError] = useState(null);
+    const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' | 'password'
+    const [authPassword, setAuthPassword] = useState('');
 
     const handleSendOtp = async () => {
         if (!authPhone || authPhone.length < 10) {
@@ -425,6 +432,46 @@ export default function App() {
         } catch (err) {
             console.error("OTP Send Exception:", err);
             setAuthError("Failed to send code. Please try again.");
+            return false;
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    const handlePasswordLogin = async () => {
+        if (!authPhone || authPhone.length < 10) {
+            setAuthError("Please enter a valid phone number");
+            return false;
+        }
+        if (!authPassword) {
+            setAuthError("Please enter your password");
+            return false;
+        }
+
+        setAuthLoading(true);
+        setAuthError(null);
+
+        try {
+            const phone = authPhone.startsWith('+') ? authPhone : `+1${authPhone}`;
+            const { data, error } = await supabase.auth.signInWithPassword({
+                phone,
+                password: authPassword,
+            });
+
+            if (error) {
+                setAuthError(error.message);
+                return false;
+            }
+
+            if (data?.session) {
+                setSession(data.session);
+                setView('inbox');
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error("Password login error:", err);
+            setAuthError("Login failed. Please try again.");
             return false;
         } finally {
             setAuthLoading(false);
@@ -720,7 +767,13 @@ export default function App() {
         syncTimeout = setTimeout(() => {
             if (!isMounted) return;
             fetch(`/api/sync-calls?userId=${session.user.id}`)
-                .then(res => res.json())
+                .then(async res => {
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: res.statusText }));
+                        throw new Error(err.error || res.statusText);
+                    }
+                    return res.json();
+                })
                 .then(data => {
                     if (!isMounted) return;
                     console.log("Sync Response:", data);
@@ -930,7 +983,7 @@ export default function App() {
                     {/* Center Section - Login Form */}
                     <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-md z-10">
                         {/* Logo */}
-                        <div className="mb-8 p-4 bg-white rounded-3xl shadow-xl shadow-blue-500/5 border border-blue-50/50">
+                        <div className="mb-8">
                             <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-20 h-20" />
                         </div>
 
@@ -945,30 +998,66 @@ export default function App() {
                             }
                         </p>
 
+                        {/* Login Method Toggle */}
+                        {!showOtpInput && (
+                            <div className="flex bg-gray-100/80 rounded-full p-1 mb-6 w-full max-w-xs mx-auto">
+                                <button
+                                    onClick={() => { setLoginMethod('otp'); setAuthError(null); }}
+                                    className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all duration-200 ${loginMethod === 'otp' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    Send Code
+                                </button>
+                                <button
+                                    onClick={() => { setLoginMethod('password'); setAuthError(null); }}
+                                    className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all duration-200 ${loginMethod === 'password' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    Use Password
+                                </button>
+                            </div>
+                        )}
+
                         {/* Login Card */}
                         <div className="w-full bg-white/80 backdrop-blur-2xl rounded-[32px] p-8 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] border border-white/50">
                             <div className="space-y-6">
                                 {!showOtpInput ? (
-                                    /* Phone Input */
-                                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex justify-between items-center mb-2 px-1">
-                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.1em]">Phone Number</label>
-                                        </div>
-                                        <div className="relative">
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-[15px]">
-                                                🇺🇸 +1
+                                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+                                        {/* Phone Input */}
+                                        <div>
+                                            <div className="flex justify-between items-center mb-2 px-1">
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.1em]">Phone Number</label>
                                             </div>
-                                            <input
-                                                type="tel"
-                                                value={authPhone}
-                                                onChange={e => {
-                                                    const val = e.target.value.replace(/\D/g, '');
-                                                    if (val.length <= 10) setAuthPhone(val);
-                                                }}
-                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[20px] pl-16 pr-4 py-5 text-[17px] font-bold text-gray-900 placeholder-gray-300 focus:bg-white focus:border-blue-500/10 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all duration-300"
-                                                placeholder="(555) 000-0000"
-                                            />
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-[15px]">
+                                                    🇺🇸 +1
+                                                </div>
+                                                <input
+                                                    type="tel"
+                                                    value={authPhone}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/\D/g, '');
+                                                        if (val.length <= 10) setAuthPhone(val);
+                                                    }}
+                                                    className="w-full bg-gray-50/50 border-2 border-transparent rounded-[20px] pl-16 pr-4 py-5 text-[17px] font-bold text-gray-900 placeholder-gray-300 focus:bg-white focus:border-blue-500/10 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all duration-300"
+                                                    placeholder="(555) 000-0000"
+                                                />
+                                            </div>
                                         </div>
+
+                                        {/* Password Input (only in password mode) */}
+                                        {loginMethod === 'password' && (
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2 px-1">
+                                                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.1em]">Password</label>
+                                                </div>
+                                                <input
+                                                    type="password"
+                                                    value={authPassword}
+                                                    onChange={e => setAuthPassword(e.target.value)}
+                                                    className="w-full bg-gray-50/50 border-2 border-transparent rounded-[20px] px-4 py-5 text-[17px] font-bold text-gray-900 placeholder-gray-300 focus:bg-white focus:border-blue-500/10 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all duration-300"
+                                                    placeholder="Enter your password"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     /* OTP Input */
@@ -1003,7 +1092,7 @@ export default function App() {
                     {/* Bottom Section - Action Button */}
                     <div className="w-full max-w-md z-10">
                         <button
-                            onClick={showOtpInput ? handleVerifyOtp : handleSendOtp}
+                            onClick={showOtpInput ? handleVerifyOtp : (loginMethod === 'password' ? handlePasswordLogin : handleSendOtp)}
                             disabled={authLoading}
                             className="w-full group bg-blue-600 text-white py-5 rounded-[24px] font-black text-lg tracking-wide shadow-[0_20px_50px_-15px_rgba(37,99,235,0.4)] hover:shadow-[0_25px_60px_-10px_rgba(37,99,235,0.5)] hover:bg-blue-700 active:scale-[0.98] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden relative"
                         >
@@ -1017,7 +1106,7 @@ export default function App() {
                                 </span>
                             ) : (
                                 <span className="flex items-center justify-center gap-2">
-                                    {showOtpInput ? 'Verify Account' : 'Send Verification Code'}
+                                    {showOtpInput ? 'Verify Account' : (loginMethod === 'password' ? 'Sign In' : 'Send Verification Code')}
                                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 duration-300 transition-transform" />
                                 </span>
                             )}
@@ -1251,18 +1340,21 @@ export default function App() {
                                                                     }
                                                                 }
                                                             }}
-                                                            className={`bg-white rounded-[1.5rem] p-5 shadow-sm border border-gray-100 transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-[#2563EB]/50 shadow-md transform scale-[1.01]' : 'active:scale-[0.98]'}`}
+                                                            className={`bg-white rounded-2xl p-5 border transition-all duration-300 relative group overflow-hidden ${isExpanded
+                                                                ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.1)] ring-1 ring-blue-100 transform scale-[1.01]'
+                                                                : 'border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:border-blue-100 hover:shadow-[0_4px_12px_-2px_rgba(37,99,235,0.08)] active:scale-[0.99]'
+                                                                }`}
                                                         >
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
-                                                                    <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                                                                        {call.number}
+                                                                    <h4 className="font-bold text-gray-900 text-base flex items-center gap-2 tracking-tight">
+                                                                        {call.name === "Unknown Caller" ? call.number : call.name}
                                                                         {isUnread && (
-                                                                            <span className="w-2.5 h-2.5 bg-[#2563EB] rounded-full animate-pulse shadow-sm shadow-blue-200"></span>
+                                                                            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.4)]"></span>
                                                                         )}
                                                                     </h4>
-                                                                    <div className="text-xs font-bold text-gray-600 mt-0.5 max-w-[200px] truncate">
-                                                                        {call.name === "Unknown Caller" ? "Unknown" : call.name}
+                                                                    <div className="text-[11px] font-medium text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                                                        {call.name !== "Unknown Caller" && call.number}
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex flex-col items-end">
@@ -1289,35 +1381,28 @@ export default function App() {
                                                                         {call.summary}
                                                                     </p>
 
-                                                                    {/* Action Item (Booking) UI */}
+                                                                    {/* Compact Meeting Status Pill */}
                                                                     {call.actionItem && (
-                                                                        <div className="bg-gray-50 rounded-2xl p-4 mb-6">
-                                                                            <div className="flex items-center gap-2.5 mb-3 rounded-full">
-                                                                                <div className="min-w-6 w-6 h-6 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-md shadow-blue-200">
-                                                                                    <CalendarCheck size={12} strokeWidth={3} />
-                                                                                </div>
-                                                                                <span className="font-bold text-gray-900 text-sm tracking-tight">{call.actionItem.label}</span>
-                                                                                <span className="text-gray-400 text-xs font-bold">Confirmed</span>
+                                                                        <div
+                                                                            className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+               bg-blue-50 border border-blue-200/60 text-blue-900
+               text-[11px] font-semibold tracking-tight
+               hover:bg-blue-100 transition-colors cursor-pointer"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (call.actionItem.link) {
+                                                                                    window.open(call.actionItem.link, "_blank");
+                                                                                }
+                                                                            }}
+                                                                            title="View in Calendar"
+                                                                        >
+                                                                            <div className="w-5 h-5 bg-[#2563EB] rounded-full flex items-center justify-center text-white shadow-sm">
+                                                                                <CalendarCheck size={11} strokeWidth={3} />
                                                                             </div>
-                                                                            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                                                                                <p className="text-gray-800 text-[13px] font-semibold leading-relaxed mb-4">
-                                                                                    {call.actionItem.summary} at {call.actionItem.displayTime}.
-                                                                                </p>
-                                                                                {call.actionItem.link ? (
-                                                                                    <a
-                                                                                        href={call.actionItem.link}
-                                                                                        target="_blank"
-                                                                                        rel="noreferrer"
-                                                                                        className="block w-full text-center bg-white border border-gray-200 text-gray-900 text-xs font-bold py-3 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-[0.98]"
-                                                                                    >
-                                                                                        View in Calendar
-                                                                                    </a>
-                                                                                ) : (
-                                                                                    <button disabled className="w-full bg-gray-50 text-gray-400 text-xs font-bold py-3 rounded-xl cursor-not-allowed">
-                                                                                        Link Unavailable
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
+
+                                                                            <span className="whitespace-nowrap">
+                                                                                Booking Confirmed · {call.actionItem.displayTime}
+                                                                            </span>
                                                                         </div>
                                                                     )}
 
@@ -1486,11 +1571,16 @@ export default function App() {
                                                                                         if (!cleanMsg) return null;
 
                                                                                         return (
-                                                                                            <div key={i} className={`p-3 rounded-2xl text-sm font-medium leading-relaxed max-w-[90%] shadow-sm ${isAI ? 'bg-[#2563EB] text-white rounded-tl-sm mr-auto' : 'bg-gray-100 text-gray-800 rounded-tr-sm ml-auto'}`}>
-                                                                                                <span className={`text-[10px] uppercase font-bold block mb-1 ${isAI ? 'text-blue-200' : 'text-gray-400'}`}>
-                                                                                                    {isAI ? 'Assistant' : 'Caller'}
-                                                                                                </span>
-                                                                                                {cleanMsg}
+                                                                                            <div key={i} className={`flex gap-3 text-[13px] leading-relaxed mb-4 ${isAI ? 'flex-row' : 'flex-row-reverse'}`}>
+                                                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black tracking-wide shadow-sm border ${isAI ? 'bg-white border-blue-100 text-blue-600' : 'bg-gray-900 border-gray-900 text-white'}`}>
+                                                                                                    {isAI ? 'AI' : 'C'}
+                                                                                                </div>
+                                                                                                <div className={`py-2 px-3.5 rounded-2xl max-w-[80%] ${isAI
+                                                                                                    ? 'bg-blue-50/50 text-gray-800 rounded-tl-none border border-blue-100/50'
+                                                                                                    : 'bg-gray-100 text-gray-900 rounded-tr-none'
+                                                                                                    }`}>
+                                                                                                    {cleanMsg}
+                                                                                                </div>
                                                                                             </div>
                                                                                         );
                                                                                     })
@@ -1578,28 +1668,18 @@ export default function App() {
                                                     <button
                                                         key={p.id}
                                                         onClick={async () => {
-                                                            // Secure Preview using Backend Proxy
+                                                            // Play Local Preview
                                                             setPlayingVoiceId(p.id);
                                                             try {
-                                                                const res = await fetch("http://localhost:3000/api/voice-preview", {
-                                                                    method: "POST",
-                                                                    headers: { "Content-Type": "application/json" },
-                                                                    body: JSON.stringify({ voiceId: p.id })
-                                                                });
-
-                                                                if (!res.ok) throw new Error("Preview failed");
-
-                                                                const blob = await res.blob();
-                                                                const audio = new Audio(URL.createObjectURL(blob));
-
-
+                                                                const audio = new Audio(p.preview);
                                                                 audio.onended = () => setPlayingVoiceId(null);
-                                                                audio.onerror = () => setPlayingVoiceId(null);
-
+                                                                audio.onerror = () => {
+                                                                    console.error("Audio playback error");
+                                                                    setPlayingVoiceId(null);
+                                                                };
                                                                 await audio.play();
-
                                                             } catch (e) {
-                                                                console.error("Preview play error", e);
+                                                                console.error("Audio play failed", e);
                                                                 setPlayingVoiceId(null);
                                                             }
 
@@ -1610,8 +1690,7 @@ export default function App() {
                                                                 await supabase
                                                                     .from('business_profiles')
                                                                     .update({
-                                                                        voice_id: p.id,
-                                                                        assistant_name: p.name
+                                                                        voice_id: p.id
                                                                     })
                                                                     .eq('owner_user_id', session.user.id);
 
@@ -1652,31 +1731,82 @@ export default function App() {
                                         </div>
                                     </section>
 
+                                    {/* Languages Selection (Premium UI) */}
+                                    <section>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                                <Globe size={18} className="text-[#2563EB]" /> Languages
+                                            </h3>
+                                            <button
+                                                onClick={() => setShowLanguageModal(true)}
+                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+
+                                        <div
+                                            onClick={() => setShowLanguageModal(true)}
+                                            className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group relative overflow-hidden"
+                                        >
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-50/50 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+
+                                            <div className="flex flex-wrap gap-2 relative z-10">
+                                                {languages.length > 0 ? languages.map(lang => {
+                                                    const langObj = LANGUAGES.find(l => l.name === lang);
+                                                    return (
+                                                        <div key={lang} className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm font-bold text-sm text-gray-800 group-hover:border-blue-200 transition-colors">
+                                                            <span className="text-lg leading-none">{langObj?.flag || '🌐'}</span>
+                                                            <span>{lang}</span>
+                                                        </div>
+                                                    );
+                                                }) : (
+                                                    <span className="text-gray-400 text-sm font-medium italic">No languages selected (Defaults to English)</span>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                                                <span>Auto-detect active</span>
+                                            </div>
+                                        </div>
+                                    </section>
+
                                     {/* Greeting Message */}
                                     <section>
                                         <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
                                             <MessageCircle size={18} className="text-[#2563EB]" /> Greeting Message
                                         </h3>
-                                        <p className="text-xs text-gray-500 mb-4">The first message your receptionist says upon accepting a call</p>
+                                        <p className="text-xs text-gray-500 mb-4">
+                                            The first message your receptionist says upon accepting a call
+                                        </p>
 
                                         <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 value={greeting}
                                                 onChange={(e) => setGreeting(e.target.value)}
+                                                onInput={(e) => {
+                                                    // auto-grow height
+                                                    e.currentTarget.style.height = "auto";
+                                                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                                                }}
                                                 onBlur={async () => {
-                                                    await supabase.from('business_info')
+                                                    await supabase
+                                                        .from("business_info")
                                                         .update({ content: { text: greeting } })
-                                                        .eq('owner_user_id', session.user.id)
-                                                        .eq('type', 'greeting');
+                                                        .eq("owner_user_id", session.user.id)
+                                                        .eq("type", "greeting");
+
                                                     showToast("Greeting saved");
                                                     syncAssistant();
                                                 }}
-                                                className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400"
+                                                className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400 resize-none overflow-hidden leading-5"
                                                 placeholder="Hey, thank you for calling LCE. How may I help you?"
+                                                rows={1}
                                             />
                                         </div>
                                     </section>
+
 
 
 
@@ -3241,20 +3371,17 @@ export default function App() {
                                                         key={voice.id}
                                                         onClick={async () => {
                                                             setOnboardingData({ ...onboardingData, voiceId: voice.id });
+                                                            // Play Local Preview
                                                             setPlayingVoiceId(voice.id);
                                                             try {
-                                                                const res = await fetch('/api/voice-preview', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ voiceId: voice.id, text: "Hi, I'm " + voice.name + ", your receptionist." })
-                                                                });
-                                                                if (res.ok) {
-                                                                    const blob = await res.blob();
-                                                                    const audio = new Audio(URL.createObjectURL(blob));
-                                                                    audio.onended = () => setPlayingVoiceId(null);
-                                                                    audio.play();
-                                                                } else setPlayingVoiceId(null);
-                                                            } catch (e) { setPlayingVoiceId(null); }
+                                                                const audio = new Audio(voice.preview);
+                                                                audio.onended = () => setPlayingVoiceId(null);
+                                                                audio.onerror = () => setPlayingVoiceId(null);
+                                                                await audio.play();
+                                                            } catch (e) {
+                                                                console.error("Preview play failed", e);
+                                                                setPlayingVoiceId(null);
+                                                            }
                                                         }}
                                                         className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
                                                     >
@@ -4185,28 +4312,13 @@ export default function App() {
 
             {
                 showLanguageModal && (
-                    <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
-                        <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 duration-500">
-                            <div className="flex justify-between items-center mb-6">
-                                <button onClick={() => setShowLanguageModal(false)} className="text-gray-400 font-bold hover:text-gray-600">Cancel</button>
+                    <div className="fixed inset-0 z-[2000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-sm rounded-[1.5rem] p-5 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
+                            <div className="flex justify-between items-center mb-4 shrink-0">
+                                <button onClick={() => setShowLanguageModal(false)} className="text-gray-400 font-bold text-sm hover:text-gray-600 transition-colors">Cancel</button>
                                 <h3 className="text-lg font-black text-gray-900">Languages</h3>
                                 <button
                                     onClick={async () => {
-                                        // Save Languages
-                                        // We'll update the 'languages' state locally immediately for UI snappiness
-                                        // The parent component should have a proper save handler if we want robust persistence logic here
-                                        // But since we are editing in place, we can just save to DB.
-
-                                        // Note: In a real React app, 'tempLanguages' should be used.
-                                        // But for simplicity in this one-file setup, I'll access the 'languages' state directly?
-                                        // NO, I need a temp state for the modal.
-                                        // Since I can't easily add new state variables outside this block without re-rendering everything or adding complex logic,
-                                        // I'll assume the user modifies `languages` directly? No that's bad UX (live update).
-                                        // I will use a ref or just persist on toggle (a bit aggressive but works).
-                                        // actually, let's just Close. The toggles already updated the state?
-                                        // Wait, the toggles below need to update SOMETHING.
-                                        // I will make the toggles update the main state directly for now to ensure it works without complex temp state injection.
-
                                         await supabase.from('business_info').delete().eq('owner_user_id', session.user.id).eq('type', 'languages');
                                         await supabase.from('business_info').insert({
                                             owner_user_id: session.user.id,
@@ -4216,17 +4328,17 @@ export default function App() {
                                         syncAssistant();
                                         setShowLanguageModal(false);
                                     }}
-                                    className="text-[#2563EB] font-bold hover:text-blue-700"
+                                    className="text-[#2563EB] font-bold text-sm hover:text-blue-700 transition-colors"
                                 >
                                     Save
                                 </button>
                             </div>
 
-                            <p className="text-sm text-gray-500 font-medium mb-6 leading-relaxed">
-                                Choose which languages your assistant can communicate in with callers.
+                            <p className="text-xs text-gray-500 font-medium mb-4 leading-relaxed shrink-0">
+                                Select supported languages.
                             </p>
 
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-3 gap-2 overflow-y-auto pr-1 pb-1">
                                 {LANGUAGES.map(l => {
                                     const isSelected = languages.includes(l.name);
                                     return (
@@ -4239,13 +4351,17 @@ export default function App() {
                                                     setLanguages(prev => [...prev, l.name]);
                                                 }
                                             }}
-                                            className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-[#2563EB] bg-blue-50/50' : 'border-gray-100 bg-white hover:bg-gray-50'}`}
+                                            className={`flex flex-col items-center justify-center py-2 px-2 rounded-xl border transition-all active:scale-95 ${isSelected ? 'border-[#2563EB] bg-blue-50/50 shadow-inner' : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'}`}
                                         >
-                                            <span className="text-2xl mb-2">{l.flag}</span>
-                                            <span className="text-xs font-bold text-gray-900 mb-1">{l.name}</span>
-                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#2563EB] bg-[#2563EB]' : 'border-gray-200'}`}>
-                                                {isSelected && <Check size={10} className="text-white" strokeWidth={4} />}
+                                            <div className="relative mb-1">
+                                                <span className="text-2xl drop-shadow-sm filter grayscale-[0.2] transition-all duration-300 transform group-hover:scale-110">{l.flag}</span>
+                                                {isSelected && (
+                                                    <div className="absolute -top-1 -right-2 bg-[#2563EB] text-white rounded-full p-[2px] shadow-sm animate-in zoom-in duration-200">
+                                                        <Check size={8} strokeWidth={4} />
+                                                    </div>
+                                                )}
                                             </div>
+                                            <span className={`text-[10px] font-bold ${isSelected ? 'text-[#2563EB]' : 'text-gray-600'}`}>{l.name}</span>
                                         </button>
                                     );
                                 })}

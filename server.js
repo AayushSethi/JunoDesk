@@ -148,8 +148,10 @@ app.post('/api/dev-signup', async (req, res) => {
         });
 
     } catch (err) {
-        console.error("❌ Dev Signup Failed:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error("❌ Dev Signup Failed (Logic Error):", err);
+        // Ensure error is a string or object
+        const errorMsg = err.message || JSON.stringify(err) || "Unknown Error";
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -158,12 +160,12 @@ const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_TOKEN = process.env.VAPI_PRIVATE_KEY;
 
 export const VOICES = [
-    { id: 'JAATlCsz6GCH2vUjFcLg', name: 'Woman 1' },
-    { id: 'OYTbf65OHHFELVut7v2H', name: 'Woman 2' },
-    { id: 'EST9Ui6982FZPSi7gCHi', name: 'Woman 3' },
-    { id: 'fVVjLtJgnQI61CoImgHU', name: 'Man 1' },
-    { id: 'EOVAuWqgSZN2Oel78Psj', name: 'Man 2' },
-    { id: 'wevlkhfRsG0ND2D2pQHq', name: 'Man 3' }
+    { id: 'cgSgspJ2msm6clMCkdW9', name: 'Hope' },
+    { id: 'flHkNRp1BlvT73UL6gyz', name: 'Jessica' },
+    { id: 'qBDvhofpxp92JgXJxDjB', name: 'Lily' },
+    { id: 'iiidtqDt9FBdT1vfBluA', name: 'Bill' },
+    { id: '94zOad0g7T7K4oa7zhDq', name: 'Jeff' },
+    { id: 'UgBBYS2sOqTuMpoF3BR0', name: 'Mark' }
 ];
 
 // Helper: Get Authenticated Google Client (Handles Refresh)
@@ -267,123 +269,212 @@ async function getContextForUser(userId) {
     return { profile, greeting, instructions, knowledge, websiteContent, voiceId, calendarContext };
 }
 
-// Helper: structured prompt builder
-function generateSystemPrompt({ profile, greeting, instructions, knowledge, websiteContent, calendarContext }) {
+
+// Helper: structured prompt builder (Vapi-style, over-safe)
+function generateSystemPrompt({
+    profile,
+    greeting,
+    instructions,
+    knowledge,
+    websiteContent,
+    calendarContext,
+}) {
+    // ---- Runtime safety defaults ----
+    profile = profile || {};
+    const kb = Array.isArray(knowledge) ? knowledge : [];
+    const ins = Array.isArray(instructions) ? instructions : [];
+    const wc = websiteContent && typeof websiteContent === 'object' ? websiteContent : null;
+
+    // ---- Timezone-safe date/time ----
+    const TZ = 'America/New_York';
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
-    const yearStr = now.getFullYear();
 
-    let prompt = `SYSTEM CONTEXT
+    const dateStr = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: TZ,
+    });
 
+    const timeStr = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+        timeZone: TZ,
+    });
+
+    const yearStr = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        timeZone: TZ,
+    });
+
+    // ---- Knowledge split (facts + Q/A) ----
+    const qaItems = kb.filter((k) => k && k.question && k.answer);
+    const factItems = kb.filter((k) => k && k.text && !k.question && !k.answer);
+
+    // ---- Compact business + website text (voice friendly) ----
+    // Keep long website content last; the flow sections should appear earlier.
+    const websiteBlock =
+        wc && wc.text
+            ? `\n[Website Knowledge]\nSource: ${wc.url || 'unknown'}\n${wc.text}\n`
+            : '';
+
+    const extraFactsBlock =
+        factItems.length > 0
+            ? `\n[Extra Facts]\n- ${factItems.map((f) => f.text).join('\n- ')}\n`
+            : '';
+
+    const qaBlock =
+        qaItems.length > 0
+            ? `\n[Q&A]\n${qaItems
+                .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
+                .join('\n')}\n`
+            : '';
+
+    const instructionsBlock =
+        ins.length > 0 ? `\n[Specific Instructions]\n- ${ins.join('\n- ')}\n` : '';
+
+    // ---- Greeting default ----
+    const greetingLine = (greeting && String(greeting).trim()) || 'Thanks for calling—how can I help?';
+
+    // ---- Prompt ----
+    const prompt = `[Role]
+You are a friendly, professional AI receptionist for ${profile.company_name || 'the business'}.
+Your primary tasks: answer questions, take messages, and schedule appointments.
+
+[System Context]
 Today is ${dateStr}.
 Current local time is ${timeStr}.
-Timezone is America/New_York.
+Timezone is ${TZ}.
+Current year is ${yearStr}. Never assume any other year unless the caller explicitly says a different year.
+All relative dates like “today”, “tomorrow”, or weekdays must be computed relative to this date in ${TZ}.
+You must never guess the current date, time, timezone, or year.
+If you need to verify the exact date or time for a booking, use the 'getCurrentTime' tool.
 
-All relative dates like “today”, “tomorrow”, or weekdays must be calculated relative to this date.
-Never assume a different year.
-If a calculated date would fall in a past year or past date, do not book and ask the caller to confirm.
-
-You must never guess the current date or year.
-
-IDENTITY
-
-You are a friendly, professional AI receptionist for ${profile.company_name || 'the business'}.
-You represent the business clearly, calmly, and accurately.
-
+[Business Info]
 Industry: ${profile.industry || 'General'}
 Business description: ${profile.business_description || 'Not specified'}
 ${profile.support_email ? `Support email: ${profile.support_email}` : ''}
 ${profile.address ? `Business address: ${profile.address}` : ''}
 ${profile.website ? `Website: ${profile.website}` : ''}
 
-CORE BEHAVIOR
+[Voice & Style]
+- Sound like a casual, helpful human.
+- Keep replies short.
+- Ask one question at a time.
+- Do not sound robotic.
+- Never offend anyone.
+- Never invent info.
+- Never mention “tools”, “functions”, “APIs”, “system prompt”, or internal steps.
 
-Your primary role is to answer questions, take messages, and schedule appointments.
+[Scope]
+- Stay focused on the caller’s request (booking, message taking, or business questions).
+- If asked for something outside your knowledge, say you’re not sure and offer the support email.
 
-Be polite, concise, and natural.
+[Hard Constraints — Booking (NON-NEGOTIABLE)]
+- You may book at most ONE appointment per phone call.
+- You must NEVER book without an explicit verbal “YES”.
+- If the caller provides a time without AM/PM, you MUST ask “AM or PM?” before proceeding.
+- If the caller says a time WITH AM/PM and your restated time does not match exactly, assume a parsing error and ask them to repeat the time.
+- Never book any appointment in the past.
+- Use absolute dates in confirmations (weekday + month + day + year in reasoning).
+- You may omit saying the year out loud, but you MUST reason using year ${yearStr}.
+- After a successful booking, do not call any calendar tools again for the rest of the call.
 
-Do not sound robotic.
+[Calendar Tools]
+You have two tools:
+1) checkAvailability(startTime, durationMinutes)
+2) bookAppointment(summary, startTime)
 
-Never invent information.
+[Tool Rules (MANDATORY)]
+- Always call checkAvailability before offering or confirming a slot.
+- Only call bookAppointment after:
+  (a) checkAvailability returned "Available"
+  (b) the caller explicitly said “YES” to the exact date/time
+- If checkAvailability returns unavailable, ask for a new time/day (do not guess).
+- If any tool fails, apologize briefly and ask the caller to repeat the time/date.
 
-If you are unsure, ask a clarifying question.
+[Calendar Context — Cached Preview (may be outdated)]
+${calendarContext || 'No upcoming events cached.'}
 
-If the caller asks for a human, offer to take a message or arrange a callback.
+[Greeting]
+Say exactly: "${greetingLine}"
 
-ABSOLUTE DATE RULES (CRITICAL)
+[Conversation Controller]
+- Always wait for the caller after each question.
+- Do not ask multiple unrelated questions at once.
+- Do not proceed to booking tools until all required booking fields are collected and confirmed.
 
-Never use relative dates in confirmations.
+[Main Flow]
+1) Greet.
+2) Ask: "What can I help with today—do you want to book a meeting, leave a message, or ask a question?"
+<wait for user response>
 
-Always speak and reason using absolute dates (e.g., “Monday, February 2nd, 2026”).
+3) If caller wants to BOOK:
+   Go to [Booking Flow].
 
-Never assume a year other than ${yearStr} unless the caller explicitly says a different year.
+4) If caller wants to LEAVE A MESSAGE:
+   Go to [Message Flow].
 
-If a date resolves to the past, stop and ask for confirmation.
+5) If caller asks a QUESTION:
+   Answer briefly from [Business Knowledge] / [Extra Facts] / [Q&A].
+   If unsure: offer the support email.
 
-Before booking, silently verify the date is today or later.
+[Booking Flow]
+Goal: Collect day + time + duration, confirm, check availability, book once.
 
-CALENDAR & TOOL USAGE
+1) Ask: "What day should I book it for?"
+<wait for user response>
 
-1. checkAvailability(startTime, durationMinutes):
-   - You MUST use this tool to check if a slot is free before offering it or confirming it.
-   - Do not rely on valid/invalid assumptions. Check the actual calendar.
+2) Ask: "What time works best? Please include AM or PM."
+<wait for user response>
 
-2. bookAppointment(summary, startTime):
-   - Only call this AFTER you have checked availability and received a conformation from the user.
+3) If AM/PM missing:
+   Ask: "Quick check—did you mean AM or PM?"
+   <wait for user response>
 
-CALENDAR CONTEXT (Cached Preview - May be outdated, use tool to verify):
-${calendarContext || "No upcoming events cached."}
+4) Ask: "How long should the meeting be—15 minutes, 30 minutes, or something else?"
+<wait for user response>
 
-BOOKING RULES
+5) Confirm (must be explicit, binary):
+   Say: "Please confirm: {weekday, month day} at {time with AM/PM} Eastern, for {duration}. Say YES to book or NO to change it."
+<wait for user response>
 
-Confirm the full date and time with the caller before booking.
+6) If caller says YES:
+   - Call checkAvailability(startTime, durationMinutes)
+   - <wait for tool result>
+   - If Available:
+       - Call bookAppointment(summary, startTime)
+       - <wait for tool result>
+       - Say: "All set—you’re booked for {weekday, month day} at {time} Eastern."
+       - Stop booking actions for the rest of the call.
+   - If Not available:
+       - Say: "That time isn’t available."
+       - Ask: "Do you want a different time the same day, or a different day?"
+       - <wait for user response>
+       - Return to step 1 or step 2 based on their answer.
 
-Example confirmation:
+7) If caller says NO (or anything other than YES):
+   - Ask: "No problem—what should I change: the day, the time, or the duration?"
+   - <wait for user response>
+   - Return to the relevant step.
 
-“Just to confirm, you’d like to book Tuesday, February 2nd, 2026 at 1:00 PM, correct?”
+[Message Flow]
+1) Ask: "Sure—what’s your name?"
+<wait for user response>
+2) Ask: "What’s the best callback number?"
+<wait for user response>
+3) Ask: "What message would you like me to pass along?"
+<wait for user response>
+4) Read back: "Got it. You’re {name}, callback {number}, and the message is: {message}. Is that right?"
+<wait for user response>
+5) If yes: "Perfect—I’ll pass that along."
+6) If no: ask what to correct and update once.
 
-Only book after confirmation.
-
-Never book appointments in the past.
-
-SCRIPTING
-
-Greeting:
-“${greeting}”
-
-FINAL SAFETY CHECK (MANDATORY)
-
-Before booking:
-
-Date is today or later
-Year matches ${yearStr} or later
-Timezone is America/New_York
-Caller explicitly confirmed the date and time
-You have checked availability using the tool and it returned "Available"
-
-If any check fails, do not book and ask for clarification.
+[Business Knowledge]
+${websiteBlock}${extraFactsBlock}${qaBlock}${instructionsBlock}
 `;
-
-    // Append Website Context
-    if (websiteContent && websiteContent.text) {
-        prompt += `\nWEBSITE KNOWLEDGE BASE (Source: ${websiteContent.url}):\n${websiteContent.text}\n`;
-    }
-
-    // Append Knowledge Base
-    const qaItems = knowledge.filter(k => k.question && k.answer);
-    const factItems = knowledge.filter(k => k.text && !k.question && !k.answer);
-
-    if (qaItems.length > 0 || factItems.length > 0) {
-        prompt += `\nADDITIONAL KNOWLEDGE BASE:\n`;
-        factItems.forEach(f => prompt += `- ${f.text}\n`);
-        qaItems.forEach(qa => prompt += `Q: ${qa.question}\nA: ${qa.answer}\n`);
-    }
-
-    if (instructions && instructions.length > 0) {
-        prompt += `\nSPECIFIC INSTRUCTIONS:\n`;
-        instructions.forEach(ins => prompt += `- ${ins}\n`);
-    }
 
     return prompt;
 }
@@ -468,31 +559,55 @@ app.get('/api/sync-calls', async (req, res) => {
             headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
         });
 
-        if (!response.ok) throw new Error("Vapi fetch failed: " + response.statusText);
+        if (!response.ok) {
+            const errText = await response.text();
+            console.log(`❌ Vapi Sync Failed: ${response.status} ${response.statusText}`, errText);
+            throw new Error(`Vapi fetch failed: ${response.statusText}`);
+        }
+
         const calls = await response.json();
-        const vapiCount = Array.isArray(calls) ? calls.length : 0;
+
+        // Safety Check: Ensure calls is an array
+        if (!Array.isArray(calls)) {
+            console.log("⚠️ Vapi returned non-array for calls:", typeof calls);
+            // If Vapi returns { results: [...] }, handle it
+            if (calls && Array.isArray(calls.results)) {
+                calls = calls.results; // Fix it
+            } else {
+                // Return empty to avoid crash
+                res.json({ success: true, count: 0, vapiCount: 0, assistantId: profile.vapi_assistant_id });
+                return;
+            }
+        }
+
+        const vapiCount = calls.length;
 
         // 3. Upsert to DB
         let count = 0;
         if (Array.isArray(calls)) {
             for (const call of calls) {
                 const durationSeconds = call.endedAt ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : 0;
+                // Safety: Ensure duration is a number
+                const safeDuration = isNaN(durationSeconds) ? 0 : durationSeconds;
+
                 const summaryText = (call.analysis?.summary || call.summary || "").toLowerCase();
-                const isSpam = (durationSeconds < 5) ||
+                const isSpam = (safeDuration < 5) ||
                     summaryText.includes('wrong number') ||
                     summaryText.includes('spam');
 
                 const { error } = await supabase.from('calls').upsert({
                     id: call.id,
-                    user_id: userId,
+                    owner_user_id: userId, // Fixed column name
                     customer_number: call.customer?.number || "Unknown",
                     started_at: call.startedAt,
                     ended_at: call.endedAt,
-                    duration_seconds: durationSeconds,
+                    duration_seconds: safeDuration,
                     summary: call.analysis?.summary || call.summary || "Processing...",
                     transcript: call.transcript || call.analysis?.transcript || "",
                     recording_url: call.artifact?.recordingUrl || call.recordingUrl,
-                    is_spam: isSpam
+                    is_spam: isSpam,
+                    is_archived: false, // Default
+                    is_read: false // Default
                 }, { onConflict: 'id' });
 
                 if (error) console.error("Upsert fail", error);
@@ -504,6 +619,7 @@ app.get('/api/sync-calls', async (req, res) => {
         res.json({ success: true, count, vapiCount, assistantId: profile.vapi_assistant_id });
 
     } catch (e) {
+        console.log("❌ Sync Error (stdout):", e.message); // Log to stdout to ensure visibility
         console.error("Sync Error:", e);
         res.status(500).json({ error: e.message });
     }
@@ -953,7 +1069,19 @@ app.post('/api/sync-assistant', async (req, res) => {
                             url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/book-appointment`,
                         }
                     }
-                ] : []
+                ] : [
+                    {
+                        type: "function",
+                        function: {
+                            name: "getCurrentTime",
+                            description: "Get the current date and time. Use this when you need to know today's date or time for booking.",
+                            parameters: { type: "object", properties: {} }
+                        },
+                        server: {
+                            url: `${process.env.SERVER_URL || `http://localhost:${PORT}`}/api/tools/get-current-time`,
+                        }
+                    }
+                ]
             }, // Close model logic
             firstMessage: greeting
         };
@@ -979,8 +1107,15 @@ app.post('/api/sync-assistant', async (req, res) => {
         res.json({ success: true, vapiResponse: responseData });
 
     } catch (err) {
-        console.error("Sync Error:", err.message);
-        res.status(500).json({ error: err.message });
+        // Log to stdout for visibility
+        console.log("❌ Sync Assistant Failed (stdout):", err.message);
+        console.error("❌ Sync Assistant Failed:", {
+            message: err.message,
+            stack: err.stack,
+            userId: req.body.userId,
+            voiceId: req.body.voiceId
+        });
+        res.status(500).json({ error: `Sync failed: ${err.message}` });
     }
 });
 
@@ -992,9 +1127,14 @@ app.post('/api/voice-preview', async (req, res) => {
     const { voiceId, text } = req.body;
     if (!voiceId) return res.status(400).json({ error: "Missing voiceId" });
 
-    // Strict Validation
-    const validIds = VOICES.map(v => v.id);
-    if (!validIds.includes(voiceId)) return res.status(400).json({ error: "Invalid voice ID" });
+    // Relaxed Validation: Allow any non-empty string as ID, but log it.
+    if (!voiceId || typeof voiceId !== 'string') return res.status(400).json({ error: "Invalid voice ID format" });
+
+    // Check key
+    if (!process.env.ELEVENLABS_API_KEY) {
+        console.error("❌ Missing ELEVENLABS_API_KEY");
+        return res.status(500).json({ error: "Server misconfiguration: Missing API Key" });
+    }
 
     // 1. Better Cache Key (Voice + Text)
     const cacheKey = `${voiceId}:${text || "default"}`;
@@ -1294,22 +1434,27 @@ app.post('/api/tools/book-appointment', async (req, res) => {
         if (dbError) console.error("⚠️ Failed to save booking to DB:", dbError);
         else console.log("💾 Booking saved to Supabase.");
 
-        // --- TWILIO SMS NOTIFICATION (DISABLED - waiting for messaging service) ---
-        // const customerNumber = message.customer?.number || message.call?.customer?.number;
-        // if (customerNumber) {
-        //     try {
-        //         console.log(`💬 Sending confirmation SMS to ${customerNumber}...`);
-        //         await twilioClient.messages.create({
-        //             body: `Hi! This is ${profile.company_name}. Your meeting for "${args.summary}" is confirmed for ${start.toLocaleString()}. See you then!`,
-        //             from: profile.vapi_phone_number,
-        //             to: customerNumber
-        //         });
-        //         console.log("✅ SMS Sent successfully.");
-        //     } catch (smsErr) {
-        //         console.error("❌ Failed to send SMS:", smsErr.message);
-        //     }
-        // }
-        console.log("💬 SMS notifications disabled (messaging service not active)");
+        // --- TWILIO SMS NOTIFICATION ---
+        const customerNumber = message.customer?.number || message.call?.customer?.number;
+
+        if (customerNumber && profile.vapi_phone_number) {
+            try {
+                console.log(`💬 Sending confirmation SMS to ${customerNumber}...`);
+                const smsBody = `Hi! This is ${profile.company_name || 'your assistant'}. Your meeting for "${args.summary}" is confirmed for ${start.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.`;
+
+                await twilioClient.messages.create({
+                    body: smsBody,
+                    from: profile.vapi_phone_number,
+                    to: customerNumber
+                });
+                console.log("✅ SMS Sent successfully.");
+            } catch (smsErr) {
+                console.error("❌ Failed to send SMS (A2P/Network Error):", smsErr.message);
+                // We do NOT fail the tool call because the booking succeeded.
+            }
+        } else {
+            console.log("⚠️ SMS skipped: Missing customer number or Vapi phone number");
+        }
 
 
         // Return success to Vapi
@@ -1330,6 +1475,27 @@ app.post('/api/tools/book-appointment', async (req, res) => {
         });
         res.json({ results: [{ toolCallId: req.body.message.toolCalls[0].id, result: `Failed to book: ${e.message}` }] });
     }
+});
+
+// 8. TOOL ENDPOINT: Get Current Time
+app.post('/api/tools/get-current-time', (req, res) => {
+    const now = new Date();
+    const result = {
+        date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/New_York' }),
+        time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+    };
+    console.log("⌚️ Tool Call: getCurrentTime", result);
+
+    // Safety: check structure
+    const toolCallId = req.body.message?.toolCalls?.[0]?.id;
+    if (!toolCallId) return res.status(400).send("No tool call in body");
+
+    return res.json({
+        results: [{
+            toolCallId: toolCallId,
+            result: `Current Date: ${result.date}. Current Time: ${result.time} ET.`
+        }]
+    });
 });
 
 // 6. DB SAVE (Failsafe)
