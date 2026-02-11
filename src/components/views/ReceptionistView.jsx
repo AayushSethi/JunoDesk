@@ -1,0 +1,1103 @@
+import React from 'react';
+import {
+    AudioWaveform, Globe, MessageCircle, FileText, Calendar,
+    Plus, X, RefreshCw, ChevronDown, Check, Phone,
+    Copy, ArrowUpRight, ArrowRight, ChevronLeft, Settings, Info, PhoneCall, HelpCircle, XCircle
+} from 'lucide-react';
+
+export default function ReceptionistView({
+    activeReceptionistTab,
+    setActiveReceptionistTab,
+    personality,
+    setPersonality,
+    voiceOptions,
+    playingVoiceId,
+    setPlayingVoiceId,
+    greeting,
+    setGreeting,
+    endingMessage,
+    setEndingMessage,
+    knowledgeItems,
+    setKnowledgeItems,
+    newInstruction,
+    setNewInstruction,
+    userInfo,
+    setUserInfo,
+    isScraping,
+    setIsScraping,
+    newFact,
+    setNewFact,
+    newCommonWord,
+    setNewCommonWord,
+    isForwardingSetupOpen,
+    setIsForwardingSetupOpen,
+    forwardingMode,
+    setForwardingMode,
+    activationStep,
+    setActivationStep,
+    selectedCarrier,
+    setSelectedCarrier,
+    isReceptionistActive,
+    setIsReceptionistActive,
+    carriers,
+    currentCarrierConfig,
+    showToast,
+    syncAssistant,
+    saveProfileField,
+    handleProvision,
+    session,
+    supabase,
+    languages,
+    LANGUAGES,
+    setShowLanguageModal,
+    setActiveModal,
+    provisioning
+}) {
+    return (
+        <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
+            {/* Header (Matches Inbox Style) */}
+            <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-black tracking-tighter">
+                        <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                    </h1>
+                    <div className="h-6 w-px bg-gray-200"></div>
+                    <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                        AI Receptionist
+                    </span>
+                </div>
+            </div>
+
+            {/* Tabs (Consistent Square Style) */}
+            <div className="flex items-center gap-2 mb-6 px-4 w-full">
+                {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
+                    const isActive = activeReceptionistTab === tab.toLowerCase();
+                    return (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
+                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
+                                ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
+                                : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
+                                }`}
+                        >
+                            {tab}
+                        </button>
+                    );
+                })}
+            </div>
+
+
+            {/* --- Tab Content --- */}
+            <div className="w-full flex-auto bg-transparent relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
+                {activeReceptionistTab === 'instructions' && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                        {/* Voice & Personality Grid */}
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                    <AudioWaveform size={18} className="text-[#2563EB]" /> Voice
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                {voiceOptions.length > 0 ? voiceOptions.map((p) => {
+                                    const isSelected = personality.voiceId === p.id;
+                                    const isPlaying = playingVoiceId === p.id;
+
+                                    return (
+                                        <button
+                                            key={p.id}
+                                            onClick={async () => {
+                                                // Play Local Preview
+                                                setPlayingVoiceId(p.id);
+                                                try {
+                                                    const audio = new Audio(p.preview);
+                                                    audio.onended = () => setPlayingVoiceId(null);
+                                                    audio.onerror = () => {
+                                                        console.error("Audio playback error");
+                                                        setPlayingVoiceId(null);
+                                                    };
+                                                    await audio.play();
+                                                } catch (e) {
+                                                    console.error("Audio play failed", e);
+                                                    setPlayingVoiceId(null);
+                                                }
+
+                                                setPersonality(prev => ({ ...prev, name: p.name, voiceId: p.id }));
+
+                                                // Sync to DB (business_profiles is source of truth for voice)
+                                                try {
+                                                    await supabase
+                                                        .from('business_profiles')
+                                                        .update({
+                                                            voice_id: p.id
+                                                        })
+                                                        .eq('owner_user_id', session.user.id);
+
+                                                    syncAssistant(p.id);
+                                                } catch (err) {
+                                                    console.error("Failed to save personality", err);
+                                                    showToast("Failed to save voice");
+                                                }
+                                            }}
+                                            className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
+                                        >
+                                            <div className={`w-20 h-20 rounded-full overflow-hidden relative transition-all ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-white shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'ring-2 ring-gray-200'}`}>
+                                                <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                                                {isPlaying && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <AudioWaveform size={20} className="text-white animate-pulse" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{p.name}</span>
+                                        </button>
+                                    )
+                                }) : (
+                                    <div className="col-span-3 text-center py-8 text-gray-400 text-sm font-medium">
+                                        Loading voices...
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* Languages Selection (Premium UI) */}
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                    <Globe size={18} className="text-[#2563EB]" /> Languages
+                                </h3>
+                                <button
+                                    onClick={() => setShowLanguageModal(true)}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
+                                >
+                                    Edit
+                                </button>
+                            </div>
+
+                            <div
+                                onClick={() => setShowLanguageModal(true)}
+                                className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-50/50 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+
+                                <div className="flex flex-wrap gap-2 relative z-10">
+                                    {languages.length > 0 ? languages.map(lang => {
+                                        const langObj = LANGUAGES.find(l => l.name === lang);
+                                        return (
+                                            <div key={lang} className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm font-bold text-sm text-gray-800 group-hover:border-blue-200 transition-colors">
+                                                <span className="text-lg leading-none">{langObj?.flag || '🌐'}</span>
+                                                <span>{lang}</span>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <span className="text-gray-400 text-sm font-medium italic">No languages selected (Defaults to English)</span>
+                                    )}
+                                </div>
+
+                                <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                                    <span>Auto-detect active</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Greeting Message */}
+                        <section>
+                            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                <MessageCircle size={18} className="text-[#2563EB]" /> Greeting Message
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">
+                                The first message your receptionist says upon accepting a call
+                            </p>
+
+                            <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
+                                <textarea
+                                    value={greeting}
+                                    onChange={(e) => setGreeting(e.target.value)}
+                                    onInput={(e) => {
+                                        // auto-grow height
+                                        e.currentTarget.style.height = "auto";
+                                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                                    }}
+                                    onBlur={async () => {
+                                        await supabase
+                                            .from("business_info")
+                                            .update({ content: { text: greeting } })
+                                            .eq("owner_user_id", session.user.id)
+                                            .eq("type", "greeting");
+
+                                        showToast("Greeting saved");
+                                        syncAssistant();
+                                    }}
+                                    className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400 resize-none overflow-hidden leading-5"
+                                    placeholder="Hey, thank you for calling LCE. How may I help you?"
+                                    rows={1}
+                                />
+                            </div>
+                        </section>
+
+                        {/* Ending Message */}
+                        <section>
+                            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                <XCircle size={18} className="text-[#2563EB]" /> Ending Message
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">
+                                The last message your receptionist says before hanging up
+                            </p>
+
+                            <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
+                                <textarea
+                                    value={endingMessage}
+                                    onChange={(e) => setEndingMessage(e.target.value)}
+                                    onInput={(e) => {
+                                        // auto-grow height
+                                        e.currentTarget.style.height = "auto";
+                                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                                    }}
+                                    onBlur={async () => {
+                                        // Use upsert because it might not exist yet
+                                        await supabase
+                                            .from("business_info")
+                                            .upsert({
+                                                owner_user_id: session.user.id,
+                                                type: "ending_message",
+                                                content: { text: endingMessage }
+                                            }, { onConflict: 'owner_user_id,type' });
+
+                                        showToast("Ending message saved");
+                                        syncAssistant();
+                                    }}
+                                    className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400 resize-none overflow-hidden leading-5"
+                                    placeholder="Thank you for calling. Have a great day!"
+                                    rows={1}
+                                />
+                            </div>
+                        </section>
+
+
+                        {/* Instructions */}
+                        <section>
+                            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                <FileText size={18} className="text-[#2563EB]" /> Instructions
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                Specific instructions for how your receptionist should handle calls.
+                            </p>
+
+                            <div className="space-y-3">
+                                {knowledgeItems.filter(i => i.type === 'instruction' && !i.content.text.startsWith('WEBSITE KNOWLEDGE') && i.content.source !== 'website_scrape').map((item) => {
+                                    return (
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group hover:border-gray-200 transition-colors">
+                                            <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
+                                            <button
+                                                onClick={async () => {
+                                                    await supabase.from('business_info').delete().eq('id', item.id);
+                                                    setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                    syncAssistant();
+                                                }}
+                                                className="text-gray-300 hover:text-red-500 transition-colors bg-transparent p-1 hover:bg-red-50 rounded-md"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Add Instruction Input */}
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={newInstruction}
+                                        onChange={(e) => setNewInstruction(e.target.value)}
+                                        placeholder="eg. Never offer refunds"
+                                        className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
+                                        onKeyDown={async (e) => {
+                                            if (e.key === 'Enter' && newInstruction.trim()) {
+                                                const text = newInstruction.trim();
+                                                setNewInstruction(""); // Clear UI immediately
+
+                                                try {
+                                                    const { data, error } = await supabase
+                                                        .from('business_info')
+                                                        .insert([{
+                                                            owner_user_id: session.user.id,
+                                                            type: 'instruction',
+                                                            content: { text: text }
+                                                        }])
+                                                        .select()
+                                                        .single();
+
+                                                    if (error) throw error;
+                                                    setKnowledgeItems(prev => [...prev, data]);
+                                                    syncAssistant();
+                                                } catch (err) {
+                                                    console.error("Error saving instruction:", err);
+                                                    showToast("Failed to save instruction");
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        onClick={async () => {
+                                            if (newInstruction.trim()) {
+                                                const text = newInstruction.trim();
+                                                setNewInstruction("");
+
+                                                try {
+                                                    const { data, error } = await supabase
+                                                        .from('business_info')
+                                                        .insert([{
+                                                            owner_user_id: session.user.id,
+                                                            type: 'instruction',
+                                                            content: { text: text }
+                                                        }])
+                                                        .select()
+                                                        .single();
+
+                                                    if (error) throw error;
+                                                    setKnowledgeItems(prev => [...prev, data]);
+                                                    syncAssistant();
+                                                } catch (err) {
+                                                    console.error("Error saving instruction:", err);
+                                                    showToast("Failed to save instruction");
+                                                }
+                                            }
+                                        }}
+                                        className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Google Calendar Connect */}
+                        <section>
+                            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                <Calendar size={18} className="text-[#2563EB]" /> Calendar Integration
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                Connect your Google Calendar to allow the receptionist to check availability and book appointments.
+                            </p>
+
+                            {userInfo.google_access_token ? (
+                                <div className="w-full bg-blue-50 border border-blue-100 text-blue-700 py-3 rounded-xl font-bold flex items-center justify-between px-5 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        <span className="text-sm">Calendar Connected</span>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            await supabase.from('business_profiles').update({ google_access_token: null, google_refresh_token: null }).eq('owner_user_id', session.user.id);
+                                            setUserInfo({ ...userInfo, google_access_token: null });
+                                            showToast("Calendar disconnected");
+                                        }}
+                                        className="text-xs text-blue-500 hover:text-blue-800 font-bold"
+                                    >
+                                        Disconnect
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={async () => {
+                                        showToast("Redirecting to Google Sign In...");
+                                        try {
+                                            const res = await fetch('http://localhost:3000/api/auth/google-url', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ userId: session.user.id })
+                                            });
+                                            const { url } = await res.json();
+                                            window.location.href = url;
+                                        } catch (e) {
+                                            console.error("Auth Error", e);
+                                            showToast("Failed to initiate Google Login");
+                                        }
+                                    }}
+                                    className="w-full bg-white border border-gray-200 text-gray-900 py-3 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm gap-2"
+                                >
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                    </svg>
+                                    Connect Google Calendar
+                                </button>
+                            )}
+                        </section>
+
+                        {/* Spacer */}
+                        <div className="h-48"></div>
+                    </div>
+                )}
+
+                {activeReceptionistTab === 'knowledge' && (
+                    <div className="space-y-6 animate-in fade-in duration-300 relative pb-32">
+                        <div className="space-y-8 animate-in fade-in duration-300">
+                            {/* Company Basic Info */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Business Name</label>
+                                <input
+                                    type="text"
+                                    value={userInfo.company}
+                                    onChange={(e) => setUserInfo({ ...userInfo, company: e.target.value })}
+                                    onBlur={(e) => saveProfileField('company_name', e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Industry</label>
+                                <input
+                                    type="text"
+                                    value={userInfo.businessType}
+                                    onChange={(e) => setUserInfo({ ...userInfo, businessType: e.target.value })}
+                                    onBlur={(e) => saveProfileField('industry', e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Support Email</label>
+                                <input
+                                    type="text"
+                                    value={userInfo.email}
+                                    onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
+                                    onBlur={(e) => saveProfileField('support_email', e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Address</label>
+                                <input
+                                    type="text"
+                                    value={userInfo.address}
+                                    onChange={(e) => setUserInfo({ ...userInfo, address: e.target.value })}
+                                    onBlur={(e) => saveProfileField('address', e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <h3 className="text-base font-bold text-gray-900">Website Training</h3>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mb-3 leading-tight">
+                                    We will scan this site to answer questions. Click Sync to update.
+                                </p>
+                                <div className="w-full bg-white border border-gray-200 rounded-xl p-2 flex items-center shadow-sm focus-within:ring-2 focus-within:ring-blue-400/20 transition-all">
+                                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 ml-1">
+                                        <Globe size={16} className="text-gray-500" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={userInfo.website}
+                                        onChange={(e) => setUserInfo({ ...userInfo, website: e.target.value })}
+                                        onBlur={(e) => {
+                                            let val = e.target.value.trim();
+                                            if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                                                val = 'https://' + val;
+                                                setUserInfo(prev => ({ ...prev, website: val }));
+                                            }
+                                            saveProfileField('website', val);
+                                        }}
+                                        placeholder="https://example.com"
+                                        disabled={isScraping}
+                                        className="w-full bg-transparent border-none text-base font-medium text-gray-900 focus:ring-0 px-3 placeholder:text-gray-300"
+                                    />
+                                    <button
+                                        disabled={!userInfo.website || isScraping}
+                                        onClick={async () => {
+                                            if (!userInfo.website) return;
+                                            setIsScraping(true);
+                                            try {
+                                                setIsScraping(true);
+                                                const res = await fetch('/api/scrape-website', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        url: userInfo.website,
+                                                        userId: session.user.id
+                                                    })
+                                                });
+                                                const data = await res.json();
+
+                                                if (data.success) {
+                                                    showToast("Website trained successfully!");
+                                                    // Re-fetch knowledge items to show the new content
+                                                    const { data: info } = await supabase
+                                                        .from('business_info')
+                                                        .select('*')
+                                                        .eq('owner_user_id', session.user.id);
+                                                    if (info) {
+                                                        setKnowledgeItems(info.filter(i => ['qa', 'fact', 'instruction', 'common_words', 'website_content'].includes(i.type)));
+                                                    }
+                                                    syncAssistant();
+                                                } else {
+                                                    showToast("Scraping failed: " + data.error);
+                                                }
+                                            } catch (err) {
+                                                console.error("Scrape error:", err);
+                                                showToast("Scraping failed");
+                                            } finally {
+                                                setIsScraping(false);
+                                            }
+                                        }}
+                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-2 ${!userInfo.website ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
+                                            isScraping ? 'bg-blue-100 text-blue-500 cursor-wait' : 'bg-[#2563EB] text-white hover:bg-blue-600 active:scale-95'
+                                            }`}
+                                    >
+                                        {isScraping ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                Scanning
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw size={14} className={isScraping ? "animate-spin" : ""} />
+                                                Sync
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Synced Website Content */}
+                            <div className="space-y-3 mt-4">
+                                {knowledgeItems.filter(i => i.type === 'instruction' && (i.content.text.startsWith('WEBSITE KNOWLEDGE') || i.content.source === 'website_scrape')).map((item) => {
+                                    const titleMatch = item.content.text.match(/WEBSITE KNOWLEDGE \((.*?)\):/);
+                                    const title = titleMatch ? titleMatch[1] : (item.content.url ? new URL(item.content.url).hostname : "Website Content");
+
+                                    return (
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl shadow-sm group overflow-hidden transition-all hover:border-blue-100">
+                                            <details className="group/details">
+                                                <summary className="p-4 flex justify-between items-center cursor-pointer list-none hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                                                            <Globe size={16} />
+                                                        </div>
+                                                        <div className="flex flex-col overflow-hidden">
+                                                            <span className="text-sm font-bold text-gray-900 truncate pr-2">{title}</span>
+                                                            <span className="text-[10px] text-gray-400 font-medium">Synced Knowledge Base</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 shrink-0">
+                                                        <ChevronDown size={14} className="text-gray-400 group-open/details:rotate-180 transition-transform" />
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.preventDefault(); // Stop summary toggle
+                                                                if (!confirm("Remove this website content?")) return;
+                                                                await supabase.from('business_info').delete().eq('id', item.id);
+                                                                setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                                syncAssistant();
+                                                            }}
+                                                            className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                </summary>
+                                                <div className="px-4 pb-4 pt-0">
+                                                    <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap border border-slate-100 leading-relaxed">
+                                                        {item.content.text}
+                                                    </div>
+                                                    <div className="mt-2 text-[10px] text-center text-gray-400 italic">
+                                                        This content is synced with your AI assistant.
+                                                    </div>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Service Description */}
+                            <section>
+                                <h3 className="text-base font-bold text-gray-900 mb-1">Service Description</h3>
+                                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                    Describe what your company does in detail for the best receptionist performance.
+                                </p>
+                                <textarea
+                                    value={userInfo.businessDetails}
+                                    onChange={(e) => setUserInfo({ ...userInfo, businessDetails: e.target.value })}
+                                    onBlur={(e) => saveProfileField('business_description', e.target.value)}
+                                    rows={4}
+                                    className="w-full bg-white border border-gray-200 rounded-xl p-4 text-base font-medium text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-400/20 outline-none resize-none transition-all leading-relaxed placeholder-gray-400"
+                                    placeholder="Describe what your company does..."
+                                />
+                            </section>
+
+                            {/* Common Questions */}
+                            <section>
+                                <h3 className="text-base font-bold text-gray-900 mb-1">Common Questions</h3>
+                                <p className="text-xs text-gray-500 mb-4">Provide questions that your receptionist should know the answer to</p>
+
+                                <div className="space-y-3">
+                                    {knowledgeItems.filter(i => i.type === 'qa').map((item) => (
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors group relative">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-bold text-gray-900 text-sm">{item.content.question}</h4>
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        await supabase.from('business_info').delete().eq('id', item.id);
+                                                        setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                        syncAssistant();
+                                                    }}
+                                                    className="text-gray-300 hover:text-red-500 transition-colors pointer-events-auto"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-gray-400">{item.content.answer}</p>
+                                        </div>
+                                    ))}
+
+                                    <button
+                                        onClick={() => setActiveModal('add-question')}
+                                        className="w-full bg-white border border-gray-200 text-gray-900 py-3.5 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center shadow-sm text-sm tracking-wide"
+                                    >
+                                        <Plus size={18} className="mr-2" />
+                                        Add Question
+                                    </button>
+                                </div>
+                            </section>
+
+                            {/* Common Words */}
+                            <section>
+                                <h3 className="text-base font-bold text-gray-900 mb-1">Common Words</h3>
+                                <p className="text-xs text-gray-500 mb-4">Add jargon, names, or industry terms the AI should recognize</p>
+
+                                <div className="space-y-3">
+                                    {knowledgeItems.filter(i => i.type === 'common_words').map((item) => (
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group transition-all hover:bg-gray-50">
+                                            <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
+                                            <button
+                                                onClick={async () => {
+                                                    await supabase.from('business_info').delete().eq('id', item.id);
+                                                    setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                    syncAssistant();
+                                                }}
+                                                className="text-gray-300 hover:text-red-500 transition-colors bg-white p-1 rounded-md"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {/* Add Common Word Input */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newCommonWord}
+                                            onChange={(e) => setNewCommonWord(e.target.value)}
+                                            placeholder="e.g. JunoDesk, Aayush..."
+                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter' && newCommonWord.trim()) {
+                                                    const text = newCommonWord.trim();
+                                                    setNewCommonWord("");
+
+                                                    try {
+                                                        const { data, error } = await supabase
+                                                            .from('business_info')
+                                                            .insert([{
+                                                                owner_user_id: session.user.id,
+                                                                type: 'common_words',
+                                                                content: { text: text }
+                                                            }])
+                                                            .select()
+                                                            .single();
+
+                                                        if (error) throw error;
+                                                        setKnowledgeItems(prev => [...prev, data]);
+                                                        syncAssistant();
+                                                    } catch (err) {
+                                                        console.error("Error saving common word:", err);
+                                                        showToast("Failed to save common word");
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (newCommonWord.trim()) {
+                                                    const text = newCommonWord.trim();
+                                                    setNewCommonWord("");
+
+                                                    try {
+                                                        const { data, error } = await supabase
+                                                            .from('business_info')
+                                                            .insert([{
+                                                                owner_user_id: session.user.id,
+                                                                type: 'common_words',
+                                                                content: { text: text }
+                                                            }])
+                                                            .select()
+                                                            .single();
+
+                                                        if (error) throw error;
+                                                        setKnowledgeItems(prev => [...prev, data]);
+                                                        syncAssistant();
+                                                    } catch (err) {
+                                                        console.error("Error saving common word:", err);
+                                                        showToast("Failed to save common word");
+                                                    }
+                                                }
+                                            }}
+                                            className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
+                                        >
+                                            <Plus size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Additional Info (Facts) */}
+                            <section>
+                                <h3 className="text-base font-bold text-gray-900 mb-1">Additional Information</h3>
+                                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                    Specific facts about your business (e.g. Parking, Wifi, Specials).
+                                </p>
+
+                                <div className="space-y-3">
+                                    {knowledgeItems.filter(i => i.type === 'fact').map((item) => (
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group">
+                                            <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
+                                            <button
+                                                onClick={async () => {
+                                                    await supabase.from('business_info').delete().eq('id', item.id);
+                                                    setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                    syncAssistant();
+                                                }}
+                                                className="text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {/* Add Fact Input */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newFact}
+                                            onChange={(e) => setNewFact(e.target.value)}
+                                            placeholder="Add a new fact..."
+                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter' && newFact.trim()) {
+                                                    const text = newFact.trim();
+                                                    setNewFact(""); // Clear UI immediately
+
+                                                    try {
+                                                        const { data, error } = await supabase
+                                                            .from('business_info')
+                                                            .insert([{
+                                                                owner_user_id: session.user.id,
+                                                                type: 'fact',
+                                                                content: { text: text }
+                                                            }])
+                                                            .select()
+                                                            .single();
+
+                                                        if (error) throw error;
+                                                        setKnowledgeItems(prev => [...prev, data]);
+                                                    } catch (err) {
+                                                        console.error("Error saving fact:", err);
+                                                        showToast("Failed to save fact");
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (newFact.trim()) {
+                                                    const text = newFact.trim();
+                                                    setNewFact("");
+
+                                                    try {
+                                                        const { data, error } = await supabase
+                                                            .from('business_info')
+                                                            .insert([{
+                                                                owner_user_id: session.user.id,
+                                                                type: 'fact',
+                                                                content: { text: text }
+                                                            }])
+                                                            .select()
+                                                            .single();
+
+                                                        if (error) throw error;
+                                                        setKnowledgeItems(prev => [...prev, data]);
+                                                    } catch (err) {
+                                                        console.error("Error saving fact:", err);
+                                                        showToast("Failed to save fact");
+                                                    }
+                                                }
+                                            }}
+                                            className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
+                                        >
+                                            <Plus size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="h-48"></div>
+                        </div>
+                    </div>
+                )}
+
+                {activeReceptionistTab === 'phone' && (
+                    <div className="pb-32">
+                        {!isForwardingSetupOpen ? (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+
+                                {/* 1. Phone number & Demo */}
+                                <section className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="text-base font-bold text-gray-900">{personality.name}'s Number</h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">Call to test your assistant</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (userInfo.vapiPhoneNumber) {
+                                                    window.location.href = `tel:${userInfo.vapiPhoneNumber}`;
+                                                } else {
+                                                    showToast("No number yet");
+                                                }
+                                            }}
+                                            className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors"
+                                        >
+                                            <Phone size={12} className="fill-current" /> Test Call
+                                        </button>
+                                    </div>
+
+                                    {userInfo.vapiPhoneNumber ? (
+                                        <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-center space-x-3 text-gray-900">
+                                            <span>{userInfo.vapiPhoneNumber}</span>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
+                                                    showToast("Number copied");
+                                                }}
+                                                className="text-gray-300 hover:text-blue-500 transition-colors ml-2"
+                                            >
+                                                <Copy size={16} />
+                                            </button>
+                                        </div>
+                                    ) : provisioning ? (
+                                        <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse">
+                                            <RefreshCw size={16} className="animate-spin" />
+                                            <span>Generating...</span>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleProvision}
+                                            className="w-full bg-red-50 border border-red-100 rounded-2xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-red-600 hover:bg-red-100 transition-colors"
+                                        >
+                                            <RefreshCw size={16} />
+                                            <span>Retry Number Generation</span>
+                                        </button>
+                                    )}
+                                </section>
+
+                                {/* 2. Forwarding Status */}
+                                <section className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${forwardingMode === 'enable' && activationStep > 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                                                <ArrowUpRight size={16} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-base font-bold text-gray-900">Call Forwarding</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {forwardingMode === 'enable' && activationStep > 1 ? (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                                            <div className="flex items-center gap-2 text-blue-800 font-bold text-sm mb-2">
+                                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
+                                                Forwarding Active
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setForwardingMode('disable');
+                                                    setIsForwardingSetupOpen(true);
+                                                }}
+                                                className="text-xs font-bold text-blue-600 hover:underline"
+                                            >
+                                                Disable Forwarding
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <button
+                                                onClick={() => {
+                                                    setForwardingMode('enable');
+                                                    setActivationStep(1);
+                                                    setIsForwardingSetupOpen(true);
+                                                }}
+                                                className="w-full bg-[#2563EB] text-white py-3 rounded-2xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-100"
+                                            >
+                                                Setup Forwarding
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setForwardingMode('disable');
+                                                    setIsForwardingSetupOpen(true);
+                                                }}
+                                                className="w-full text-red-500 py-2 rounded-xl font-bold text-xs hover:bg-red-50 transition-colors"
+                                            >
+                                                Deactivate Receptionist
+                                            </button>
+                                        </div>
+                                    )}
+                                </section>
+
+                                {/* 3. Voicemail Toggle */}
+                                <section className="flex items-center justify-between bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                    <div>
+                                        <h3 className="text-base font-bold text-gray-900">Contact Voicemail</h3>
+                                        <p className="text-xs text-gray-500">Allow contacts to bypass AI</p>
+                                    </div>
+                                    <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer">
+                                        <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                    </div>
+                                </section>
+                            </div>
+                        ) : (
+                            <div className="animate-in slide-in-from-right duration-300 bg-white z-30 -mx-6 -mt-8 px-6 pt-8 pb-40 min-h-screen">
+                                <button
+                                    onClick={() => {
+                                        if (forwardingMode === 'enable' && activationStep > 1) {
+                                            setActivationStep(prev => prev - 1);
+                                        } else {
+                                            setIsForwardingSetupOpen(false);
+                                        }
+                                    }}
+                                    className="flex items-center text-gray-900 font-bold mb-6 hover:bg-gray-50 px-2 py-1 rounded-lg -ml-2 transition-colors"
+                                >
+                                    <ChevronLeft size={22} className="mr-0.5" /> Back
+                                </button>
+
+                                {forwardingMode === 'enable' && (
+                                    <div className="space-y-6">
+                                        {activationStep === 1 && (
+                                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                <h2 className="text-2xl font-extrabold text-gray-900 mb-4">Turn off Live Voicemail</h2>
+                                                <p className="text-sm text-gray-500 mb-8 font-medium">This ensures Juno picks up before Apple's voicemail.</p>
+
+                                                <div className="bg-black rounded-3xl p-5 mb-8 text-white shadow-2xl relative overflow-hidden">
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                                                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                                                        <div className="flex items-center space-x-2 text-blue-400 font-bold">
+                                                            <ChevronLeft size={18} />
+                                                            <span>Phone</span>
+                                                        </div>
+                                                        <span className="font-bold">Live Voicemail</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between bg-gray-900/50 rounded-2xl p-4 border border-gray-800">
+                                                        <span className="font-bold">Live Voicemail</span>
+                                                        <div className="w-12 h-7 bg-[#34C759] rounded-full relative shadow-inner">
+                                                            <div className="absolute right-0.5 top-0.5 w-6 h-6 bg-white rounded-full shadow-lg"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setActivationStep(2)}
+                                                    className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    Continue <ArrowRight size={18} />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {activationStep === 2 && (
+                                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                <h2 className="text-2xl font-extrabold text-gray-900 mb-6">Select Carrier</h2>
+                                                <div className="space-y-3 mb-8">
+                                                    {carriers.map(carrier => (
+                                                        <div
+                                                            key={carrier.name}
+                                                            onClick={() => setSelectedCarrier(carrier.name)}
+                                                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedCarrier === carrier.name
+                                                                ? 'border-blue-500 bg-blue-50/50'
+                                                                : 'border-gray-100 hover:border-gray-200'
+                                                                }`}
+                                                        >
+                                                            <span className={`font-bold ${selectedCarrier === carrier.name ? 'text-blue-600' : 'text-gray-900'}`}>{carrier.name}</span>
+                                                            {selectedCarrier === carrier.name && <Check size={16} className="text-blue-500" />}
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setActivationStep(3)}
+                                                    disabled={!selectedCarrier}
+                                                    className={`w-full py-4 rounded-2xl font-bold shadow-xl transition-all ${selectedCarrier ? 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                                >
+                                                    Continue
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {activationStep === 3 && (
+                                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                                <h2 className="text-xl font-extrabold text-gray-900 mb-6">Enable Call Forwarding</h2>
+                                                <p className="text-sm text-gray-500 mb-8 font-medium">Final step: Activate the call forwarding code for your carrier.</p>
+
+                                                <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-4 text-xl font-black tracking-widest text-gray-900 flex items-center justify-center space-x-3 mb-8 shadow-inner">
+                                                    <Copy size={20} className="text-gray-400" />
+                                                    <span>{currentCarrierConfig.code}</span>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setIsReceptionistActive(true);
+                                                        setIsForwardingSetupOpen(false);
+                                                        showToast("Receptionist Activated!");
+                                                    }}
+                                                    className="w-full bg-[#2563EB] text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                                                >
+                                                    Verify Activation
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {forwardingMode === 'disable' && (
+                                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                        <h2 className="text-xl font-extrabold text-gray-900 mb-6">Disable Forwarding</h2>
+                                        <p className="text-sm text-gray-500 mb-8 font-medium">Use the code below to stop forwarding calls to your receptionist.</p>
+
+                                        <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-4 text-xl font-black tracking-widest text-gray-900 flex items-center justify-center space-x-3 mb-8 shadow-inner">
+                                            <Copy size={20} className="text-gray-400" />
+                                            <span>{currentCarrierConfig.disableCode}</span>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setIsReceptionistActive(false);
+                                                setIsForwardingSetupOpen(false);
+                                                showToast("Receptionist Deactivated!");
+                                            }}
+                                            className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold shadow-xl shadow-red-100 hover:bg-red-700 active:scale-[0.98] transition-all"
+                                        >
+                                            Verify Deactivation
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

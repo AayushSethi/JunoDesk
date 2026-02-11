@@ -254,7 +254,9 @@ async function getContextForUser(userId) {
         .eq('owner_user_id', userId);
 
     const greeting = info.find(i => i.type === 'greeting')?.content?.text || "Hello, how can I help you?";
+    const endingMessage = info.find(i => i.type === 'ending_message')?.content?.text || "Thank you for calling. Have a great day!";
     const instructions = info.filter(i => i.type === 'instruction').map(i => i.content.text);
+    const commonWords = info.filter(i => i.type === 'common_words').map(i => i.content.text);
     const knowledge = info.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content);
     const websiteContent = info.find(i => i.type === 'website_content')?.content;
     const personalityItem = info.find(i => i.type === 'personality');
@@ -266,7 +268,7 @@ async function getContextForUser(userId) {
         calendarContext = await getCalendarEvents(userId, profile);
     }
 
-    return { profile, greeting, instructions, knowledge, websiteContent, voiceId, calendarContext };
+    return { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext };
 }
 
 
@@ -274,7 +276,9 @@ async function getContextForUser(userId) {
 function generateSystemPrompt({
     profile,
     greeting,
+    endingMessage,
     instructions,
+    commonWords,
     knowledge,
     websiteContent,
     calendarContext,
@@ -335,8 +339,14 @@ function generateSystemPrompt({
     const instructionsBlock =
         ins.length > 0 ? `\n[Specific Instructions]\n- ${ins.join('\n- ')}\n` : '';
 
+    const keywordsBlock =
+        Array.isArray(commonWords) && commonWords.length > 0
+            ? `\n[Special Vocabulary]\nPay extra attention to these words/names: ${commonWords.join(", ")}\n`
+            : '';
+
     // ---- Greeting default ----
     const greetingLine = (greeting && String(greeting).trim()) || 'Thanks for calling—how can I help?';
+    const endingLine = (endingMessage && String(endingMessage).trim()) || 'Thank you for calling. Have a great day!';
 
     // ---- Prompt ----
     const prompt = `[Role]
@@ -472,8 +482,11 @@ Goal: Collect day + time + duration, confirm, check availability, book once.
 5) If yes: "Perfect—I’ll pass that along."
 6) If no: ask what to correct and update once.
 
+[End of Call]
+When the conversation is over, say exactly: "${endingLine}"
+
 [Business Knowledge]
-${websiteBlock}${extraFactsBlock}${qaBlock}${instructionsBlock}
+${websiteBlock}${extraFactsBlock}${qaBlock}${instructionsBlock}${keywordsBlock}
 `;
 
     return prompt;
@@ -504,7 +517,7 @@ app.post('/api/webhook/vapi', async (req, res) => {
             if (profile) {
                 // 2. Calculate Duration
                 const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
-                const durationSeconds = Math.round(duratio.n / 1000);
+                const durationSeconds = Math.round(duration / 1000);
 
                 // 3. Spam Detection
                 const summaryText = (analysis?.summary || "").toLowerCase();
@@ -969,13 +982,13 @@ app.post('/api/sync-assistant', async (req, res) => {
         console.log("📥 Sync Request Body:", JSON.stringify(req.body, null, 2));
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
-        const { profile, greeting, instructions, knowledge, websiteContent, voiceId, calendarContext } = await getContextForUser(userId);
+        const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext } = await getContextForUser(userId);
 
         if (!profile.vapi_assistant_id) {
             return res.status(400).json({ error: "No assistant found. Provision first." });
         }
 
-        let systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge, websiteContent, calendarContext });
+        let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext });
 
         // Append Language Instructions if provided
         if (languages && Array.isArray(languages) && languages.length > 0) {
