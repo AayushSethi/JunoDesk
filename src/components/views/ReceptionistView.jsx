@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     AudioWaveform, Globe, MessageCircle, FileText, Calendar,
     Plus, X, RefreshCw, ChevronDown, Check, Phone,
-    Copy, ArrowUpRight, ArrowRight, ChevronLeft, Settings, Info, PhoneCall, HelpCircle, XCircle
+    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Settings, Info, PhoneCall, HelpCircle, XCircle
 } from 'lucide-react';
+
+import AddQuestionModal from '../modals/AddQuestionModal';
+import LanguageModal from '../modals/LanguageModal';
 
 export default function ReceptionistView({
     activeReceptionistTab,
@@ -15,8 +18,6 @@ export default function ReceptionistView({
     setPlayingVoiceId,
     greeting,
     setGreeting,
-    endingMessage,
-    setEndingMessage,
     knowledgeItems,
     setKnowledgeItems,
     newInstruction,
@@ -27,8 +28,6 @@ export default function ReceptionistView({
     setIsScraping,
     newFact,
     setNewFact,
-    newCommonWord,
-    setNewCommonWord,
     isForwardingSetupOpen,
     setIsForwardingSetupOpen,
     forwardingMode,
@@ -49,159 +48,59 @@ export default function ReceptionistView({
     supabase,
     languages,
     LANGUAGES,
-    setShowLanguageModal,
-    setActiveModal,
+
+    setLanguages,
     provisioning
 }) {
+    // Local State for Modals
+    const [activeModal, setActiveModal] = useState(null); // 'add-question' etc
+    const [showLanguageModal, setShowLanguageModal] = useState(false);
+    const [tempQuestion, setTempQuestion] = useState({ q: "", a: "" });
+
     return (
         <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-            {/* Header (Matches Inbox Style) */}
-            <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-black tracking-tighter">
-                        <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                    </h1>
-                    <div className="h-6 w-px bg-gray-200"></div>
-                    <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                        AI Receptionist
-                    </span>
+            {/* --- Header Section (Centered Branding) --- */}
+            <header className="px-6 flex flex-col space-y-4 shrink-0 pt-10 pb-0">
+                <div className="flex justify-center items-center z-20">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-black tracking-tighter">
+                            <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
+                        </h1>
+                        <div className="h-6 w-px bg-gray-200"></div>
+                        <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                            AI Receptionist
+                        </span>
+                    </div>
                 </div>
-            </div>
 
-            {/* Tabs (Consistent Square Style) */}
-            <div className="flex items-center gap-2 mb-6 px-4 w-full">
-                {['Instructions', 'Knowledge', 'Phone'].map((tab) => {
-                    const isActive = activeReceptionistTab === tab.toLowerCase();
-                    return (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
-                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${isActive
-                                ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-lg shadow-blue-200 scale-[1.02]'
-                                : 'bg-white text-slate-500 border-gray-200 hover:bg-slate-50 hover:border-gray-300'
-                                }`}
-                        >
-                            {tab}
-                        </button>
-                    );
-                })}
-            </div>
+
+                {/* --- Navigation Tabs (Underline Style) --- */}
+                <nav className="flex space-x-6">
+                    {['Instructions', 'Knowledge', 'Phone'].map(tab => {
+                        const isActive = activeReceptionistTab === tab.toLowerCase();
+                        return (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveReceptionistTab(tab.toLowerCase())}
+                                className={`pb-3 relative text-sm font-bold transition-all ${isActive ? 'text-[#0047AB]' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                {tab}
+                                {isActive && (
+                                    <span className="absolute bottom-0 left-0 w-full h-[3px] bg-[#0047AB] rounded-t-full animate-in slide-in-from-bottom-1"></span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
+                <div className="h-[1px] bg-slate-100 -mx-6"></div>
+            </header>
 
 
             {/* --- Tab Content --- */}
-            <div className="w-full flex-auto bg-transparent relative z-10 px-6 pt-8 pb-32 min-h-[60vh]">
+            <div className="w-full flex-auto bg-transparent relative z-10 px-6 pt-0 pb-32 min-h-[60vh]">
                 {activeReceptionistTab === 'instructions' && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                        {/* Voice & Personality Grid */}
-                        <section>
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                                    <AudioWaveform size={18} className="text-[#2563EB]" /> Voice
-                                </h3>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {voiceOptions.length > 0 ? voiceOptions.map((p) => {
-                                    const isSelected = personality.voiceId === p.id;
-                                    const isPlaying = playingVoiceId === p.id;
-
-                                    return (
-                                        <button
-                                            key={p.id}
-                                            onClick={async () => {
-                                                // Play Local Preview
-                                                setPlayingVoiceId(p.id);
-                                                try {
-                                                    const audio = new Audio(p.preview);
-                                                    audio.onended = () => setPlayingVoiceId(null);
-                                                    audio.onerror = () => {
-                                                        console.error("Audio playback error");
-                                                        setPlayingVoiceId(null);
-                                                    };
-                                                    await audio.play();
-                                                } catch (e) {
-                                                    console.error("Audio play failed", e);
-                                                    setPlayingVoiceId(null);
-                                                }
-
-                                                setPersonality(prev => ({ ...prev, name: p.name, voiceId: p.id }));
-
-                                                // Sync to DB (business_profiles is source of truth for voice)
-                                                try {
-                                                    await supabase
-                                                        .from('business_profiles')
-                                                        .update({
-                                                            voice_id: p.id
-                                                        })
-                                                        .eq('owner_user_id', session.user.id);
-
-                                                    syncAssistant(p.id);
-                                                } catch (err) {
-                                                    console.error("Failed to save personality", err);
-                                                    showToast("Failed to save voice");
-                                                }
-                                            }}
-                                            className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
-                                        >
-                                            <div className={`w-20 h-20 rounded-full overflow-hidden relative transition-all ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-white shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'ring-2 ring-gray-200'}`}>
-                                                <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
-                                                {isPlaying && (
-                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                                        <AudioWaveform size={20} className="text-white animate-pulse" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{p.name}</span>
-                                        </button>
-                                    )
-                                }) : (
-                                    <div className="col-span-3 text-center py-8 text-gray-400 text-sm font-medium">
-                                        Loading voices...
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        {/* Languages Selection (Premium UI) */}
-                        <section>
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                                    <Globe size={18} className="text-[#2563EB]" /> Languages
-                                </h3>
-                                <button
-                                    onClick={() => setShowLanguageModal(true)}
-                                    className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
-                                >
-                                    Edit
-                                </button>
-                            </div>
-
-                            <div
-                                onClick={() => setShowLanguageModal(true)}
-                                className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group relative overflow-hidden"
-                            >
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-50/50 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-
-                                <div className="flex flex-wrap gap-2 relative z-10">
-                                    {languages.length > 0 ? languages.map(lang => {
-                                        const langObj = LANGUAGES.find(l => l.name === lang);
-                                        return (
-                                            <div key={lang} className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm font-bold text-sm text-gray-800 group-hover:border-blue-200 transition-colors">
-                                                <span className="text-lg leading-none">{langObj?.flag || '🌐'}</span>
-                                                <span>{lang}</span>
-                                            </div>
-                                        );
-                                    }) : (
-                                        <span className="text-gray-400 text-sm font-medium italic">No languages selected (Defaults to English)</span>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                                    <span>Auto-detect active</span>
-                                </div>
-                            </div>
-                        </section>
 
                         {/* Greeting Message */}
                         <section>
@@ -238,43 +137,6 @@ export default function ReceptionistView({
                             </div>
                         </section>
 
-                        {/* Ending Message */}
-                        <section>
-                            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
-                                <XCircle size={18} className="text-[#2563EB]" /> Ending Message
-                            </h3>
-                            <p className="text-xs text-gray-500 mb-4">
-                                The last message your receptionist says before hanging up
-                            </p>
-
-                            <div className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white">
-                                <textarea
-                                    value={endingMessage}
-                                    onChange={(e) => setEndingMessage(e.target.value)}
-                                    onInput={(e) => {
-                                        // auto-grow height
-                                        e.currentTarget.style.height = "auto";
-                                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                                    }}
-                                    onBlur={async () => {
-                                        // Use upsert because it might not exist yet
-                                        await supabase
-                                            .from("business_info")
-                                            .upsert({
-                                                owner_user_id: session.user.id,
-                                                type: "ending_message",
-                                                content: { text: endingMessage }
-                                            }, { onConflict: 'owner_user_id,type' });
-
-                                        showToast("Ending message saved");
-                                        syncAssistant();
-                                    }}
-                                    className="w-full text-sm text-gray-900 font-medium outline-none bg-transparent placeholder-gray-400 resize-none overflow-hidden leading-5"
-                                    placeholder="Thank you for calling. Have a great day!"
-                                    rows={1}
-                                />
-                            </div>
-                        </section>
 
 
                         {/* Instructions */}
@@ -373,6 +235,108 @@ export default function ReceptionistView({
                             </div>
                         </section>
 
+
+                        {/* Voice & Personality Grid */}
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                    <AudioWaveform size={18} className="text-[#2563EB]" /> Voice
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                {voiceOptions.length > 0 ? voiceOptions.map((p) => {
+                                    const isSelected = personality.voiceId === p.id;
+                                    const isPlaying = playingVoiceId === p.id;
+
+                                    return (
+                                        <button
+                                            key={p.id}
+                                            onClick={async () => {
+                                                // Play Local Preview
+                                                setPlayingVoiceId(p.id);
+                                                try {
+                                                    const audio = new Audio(p.preview);
+                                                    audio.onended = () => setPlayingVoiceId(null);
+                                                    audio.onerror = () => {
+                                                        console.error("Audio playback error");
+                                                        setPlayingVoiceId(null);
+                                                    };
+                                                    await audio.play();
+                                                } catch (e) {
+                                                    console.error("Audio play failed", e);
+                                                    setPlayingVoiceId(null);
+                                                }
+
+                                                setPersonality(prev => ({ ...prev, name: p.name, voiceId: p.id }));
+
+                                                // Sync to DB (business_profiles is source of truth for voice)
+                                                try {
+                                                    await supabase
+                                                        .from('business_profiles')
+                                                        .update({
+                                                            voice_id: p.id
+                                                        })
+                                                        .eq('owner_user_id', session.user.id);
+
+                                                    syncAssistant(p.id);
+                                                } catch (err) {
+                                                    console.error("Failed to save personality", err);
+                                                    showToast("Failed to save voice");
+                                                }
+                                            }}
+                                            className={`relative flex flex-col items-center justify-center p-2 transition-all ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
+                                        >
+                                            <div className={`w-20 h-20 rounded-full overflow-hidden relative transition-all ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-white shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'ring-2 ring-gray-200'}`}>
+                                                <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                                                {isPlaying && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <AudioWaveform size={20} className="text-white animate-pulse" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className={`text-xs font-bold mt-3 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>{p.name}</span>
+                                        </button>
+                                    )
+                                }) : (
+                                    <div className="col-span-3 text-center py-8 text-gray-400 text-sm font-medium">
+                                        Loading voices...
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* Languages Selection (Premium UI) */}
+                        <section>
+                            <div
+                                onClick={() => setShowLanguageModal(true)}
+                                className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group shadow-sm"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                                        <Globe size={20} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <h3 className="text-base font-bold text-gray-900 leading-tight">Languages</h3>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <div className="flex -space-x-1.5 overflow-hidden py-0.5">
+                                                {languages.slice(0, 3).map(lang => (
+                                                    <div key={lang} className="w-4 h-4 rounded-full bg-gray-50 border border-white flex items-center justify-center text-[10px] z-10 shadow-sm" title={lang}>
+                                                        {LANGUAGES.find(l => l.name === lang)?.flag || '🌐'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <span className="text-xs font-medium text-gray-500 truncate max-w-[180px]">
+                                                {languages.length > 0 ? languages.join(', ') : "English (Default)"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <ChevronRight size={18} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                            </div>
+                        </section>
+
+
                         {/* Google Calendar Connect */}
                         <section>
                             <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
@@ -435,7 +399,7 @@ export default function ReceptionistView({
                 )}
 
                 {activeReceptionistTab === 'knowledge' && (
-                    <div className="space-y-6 animate-in fade-in duration-300 relative pb-32">
+                    <div className="space-y-4 animate-in fade-in duration-300 relative pb-32">
                         <div className="space-y-8 animate-in fade-in duration-300">
                             {/* Company Basic Info */}
                             <div>
@@ -664,99 +628,9 @@ export default function ReceptionistView({
                                 </div>
                             </section>
 
-                            {/* Common Words */}
-                            <section>
-                                <h3 className="text-base font-bold text-gray-900 mb-1">Common Words</h3>
-                                <p className="text-xs text-gray-500 mb-4">Add jargon, names, or industry terms the AI should recognize</p>
-
-                                <div className="space-y-3">
-                                    {knowledgeItems.filter(i => i.type === 'common_words').map((item) => (
-                                        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center group transition-all hover:bg-gray-50">
-                                            <span className="text-sm font-medium text-gray-900">{item.content.text}</span>
-                                            <button
-                                                onClick={async () => {
-                                                    await supabase.from('business_info').delete().eq('id', item.id);
-                                                    setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
-                                                    syncAssistant();
-                                                }}
-                                                className="text-gray-300 hover:text-red-500 transition-colors bg-white p-1 rounded-md"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ))}
-
-                                    {/* Add Common Word Input */}
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={newCommonWord}
-                                            onChange={(e) => setNewCommonWord(e.target.value)}
-                                            placeholder="e.g. JunoDesk, Aayush..."
-                                            className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/20 outline-none"
-                                            onKeyDown={async (e) => {
-                                                if (e.key === 'Enter' && newCommonWord.trim()) {
-                                                    const text = newCommonWord.trim();
-                                                    setNewCommonWord("");
-
-                                                    try {
-                                                        const { data, error } = await supabase
-                                                            .from('business_info')
-                                                            .insert([{
-                                                                owner_user_id: session.user.id,
-                                                                type: 'common_words',
-                                                                content: { text: text }
-                                                            }])
-                                                            .select()
-                                                            .single();
-
-                                                        if (error) throw error;
-                                                        setKnowledgeItems(prev => [...prev, data]);
-                                                        syncAssistant();
-                                                    } catch (err) {
-                                                        console.error("Error saving common word:", err);
-                                                        showToast("Failed to save common word");
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            onClick={async () => {
-                                                if (newCommonWord.trim()) {
-                                                    const text = newCommonWord.trim();
-                                                    setNewCommonWord("");
-
-                                                    try {
-                                                        const { data, error } = await supabase
-                                                            .from('business_info')
-                                                            .insert([{
-                                                                owner_user_id: session.user.id,
-                                                                type: 'common_words',
-                                                                content: { text: text }
-                                                            }])
-                                                            .select()
-                                                            .single();
-
-                                                        if (error) throw error;
-                                                        setKnowledgeItems(prev => [...prev, data]);
-                                                        syncAssistant();
-                                                    } catch (err) {
-                                                        console.error("Error saving common word:", err);
-                                                        showToast("Failed to save common word");
-                                                    }
-                                                }
-                                            }}
-                                            className="bg-[#2563EB] text-white rounded-xl w-12 flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all"
-                                        >
-                                            <Plus size={20} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </section>
-
                             {/* Additional Info (Facts) */}
                             <section>
-                                <h3 className="text-base font-bold text-gray-900 mb-1">Additional Information</h3>
+                                <h3 className="text-base font-bold text-gray-900 mb-1">Additional Information (Optional)</h3>
                                 <p className="text-xs text-gray-500 mb-4 leading-relaxed">
                                     Specific facts about your business (e.g. Parking, Wifi, Specials).
                                 </p>
@@ -852,7 +726,7 @@ export default function ReceptionistView({
                 {activeReceptionistTab === 'phone' && (
                     <div className="pb-32">
                         {!isForwardingSetupOpen ? (
-                            <div className="space-y-6 animate-in fade-in duration-300">
+                            <div className="space-y-4 animate-in fade-in duration-300">
 
                                 {/* 1. Phone number & Demo */}
                                 <section className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
@@ -966,6 +840,30 @@ export default function ReceptionistView({
                                     </div>
                                     <div className="w-11 h-6 bg-gray-200 rounded-full relative cursor-pointer">
                                         <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                    </div>
+                                </section>
+
+                                {/* 4. Connected Phone Number (User's Mobile) */}
+                                <section>
+                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Account Phone Number</h3>
+                                    <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center border border-blue-100">
+                                                <PhoneCall size={18} />
+                                            </div>
+                                            <h3 className="text-base font-bold text-gray-900">Connected Phone Number</h3>
+                                        </div>
+
+                                        <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-center mb-4 text-gray-900">
+                                            {userInfo.userPhoneNumber || 'No phone number saved'}
+                                        </div>
+
+                                        <div className="flex items-start gap-2">
+                                            <HelpCircle size={14} className="text-[#2563EB] mt-0.5 shrink-0" />
+                                            <p className="text-xs font-bold text-[#2563EB] leading-snug cursor-pointer hover:underline">
+                                                Need to change your number or add a line? Speak to support
+                                            </p>
+                                        </div>
                                     </div>
                                 </section>
                             </div>
@@ -1098,6 +996,63 @@ export default function ReceptionistView({
                     </div>
                 )}
             </div>
+            {/* --- Modals Rendered --- */}
+            {activeModal === 'add-question' && (
+                <AddQuestionModal
+                    onClose={() => setActiveModal(null)}
+                    tempQuestion={tempQuestion}
+                    setTempQuestion={setTempQuestion}
+                    onSave={async () => {
+                        if (tempQuestion.q && tempQuestion.a) {
+                            try {
+                                const { data, error } = await supabase
+                                    .from('business_info')
+                                    .insert([{
+                                        owner_user_id: session.user.id,
+                                        type: 'qa',
+                                        content: {
+                                            question: tempQuestion.q,
+                                            answer: tempQuestion.a
+                                        }
+                                    }])
+                                    .select()
+                                    .single();
+
+                                if (error) throw error;
+
+                                setKnowledgeItems(prev => [...prev, data]);
+                                setTempQuestion({ q: "", a: "" });
+                                setActiveModal(null);
+                                showToast("Question saved");
+                                syncAssistant();
+                            } catch (err) {
+                                console.error("Error saving question:", err);
+                                showToast("Failed to save question");
+                            }
+                        }
+                    }}
+                />
+            )}
+
+            {showLanguageModal && (
+                <LanguageModal
+                    onClose={() => setShowLanguageModal(false)}
+                    languages={languages}
+                    setLanguages={setLanguages}
+                    LANGUAGES={LANGUAGES}
+                    onSave={async () => {
+                        await supabase.from('business_info').delete().eq('owner_user_id', session.user.id).eq('type', 'languages');
+                        await supabase.from('business_info').insert({
+                            owner_user_id: session.user.id,
+                            type: 'languages',
+                            content: { languages }
+                        });
+                        syncAssistant();
+                        setShowLanguageModal(false);
+                        showToast("Languages updated");
+                    }}
+                />
+            )}
         </div>
     );
 }

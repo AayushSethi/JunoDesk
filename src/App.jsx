@@ -11,6 +11,22 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabase';
 
+import Hope from './assets/avatars/Voices/Hope.mp3';
+import Jessica from './assets/avatars/Voices/Jessica.mp3';
+import Lily from './assets/avatars/Voices/Lily.mp3';
+import Bill from './assets/avatars/Voices/Bill.mp3';
+import Jeff from './assets/avatars/Voices/Jeff.mp3';
+import Mark from './assets/avatars/Voices/Mark.mp3';
+
+const VOICE_PREVIEWS = {
+    'cgSgspJ2msm6clMCkdW9': Hope,
+    'flHkNRp1BlvT73UL6gyz': Jessica,
+    'qBDvhofpxp92JgXJxDjB': Lily,
+    'iiidtqDt9FBdT1vfBluA': Bill,
+    '94zOad0g7T7K4oa7zhDq': Jeff,
+    'UgBBYS2sOqTuMpoF3BR0': Mark
+};
+
 // Views
 import LandingView from './components/views/LandingView';
 import LoginView from './components/views/LoginView';
@@ -27,9 +43,7 @@ import BottomNav from './components/layout/BottomNav';
 import Toast from './components/ui/Toast';
 
 // Modals
-import AddQuestionModal from './components/modals/AddQuestionModal';
-import LanguageModal from './components/modals/LanguageModal';
-import EditReceptionistModal from './components/modals/EditReceptionistModal';
+
 
 import hopeAvatar from './assets/avatars/Avatars/Hope.jpg';
 import jessicaAvatar from './assets/avatars/Avatars/Jessica.jpg';
@@ -142,7 +156,7 @@ export default function App() {
     const [greeting, setGreeting] = useState("");
     const [endingMessage, setEndingMessage] = useState("");
     const [activeReceptionistTab, setActiveReceptionistTab] = useState('instructions'); // 'instructions', 'knowledge', 'phone'
-    const [isEditingReceptionist, setIsEditingReceptionist] = useState(false);
+
     const [toast, setToast] = useState(null);
     const [toastAction, setToastAction] = useState(null);
     const [isForwardingSetupOpen, setIsForwardingSetupOpen] = useState(false);
@@ -416,10 +430,10 @@ export default function App() {
 
 
     // --- UI State for Interactions ---
-    const [activeModal, setActiveModal] = useState(null); // 'add-question', 'add-appointment', etc.
+
     const [expandedCallId, setExpandedCallId] = useState(null);
     const [showTranscript, setShowTranscript] = useState(false);
-    const [showLanguageModal, setShowLanguageModal] = useState(false);
+
     const [voiceOptions] = useState(FALLBACK_VOICES);
     const [languages, setLanguages] = useState(['English']);
     // const [playingVoiceId, setPlayingVoiceId] = useState(null); // Moved to top
@@ -1092,8 +1106,6 @@ export default function App() {
                     supabase={supabase}
                     languages={languages}
                     LANGUAGES={LANGUAGES}
-                    setShowLanguageModal={setShowLanguageModal}
-                    setActiveModal={setActiveModal}
                     provisioning={provisioning}
                 />
             )}
@@ -1151,408 +1163,18 @@ export default function App() {
             }
 
             {/* =========================================
-               SETTINGS VIEW
+               SETTINGS VIEW (Encapsulated)
                ========================================= */}
-            {
-                view === 'settings' && (
-                    <div className="flex flex-col h-full bg-transparent relative animate-in slide-in-from-right duration-300">
-
-                        <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-2xl font-black tracking-tighter">
-                                    <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                                </h1>
-                                <div className="h-6 w-px bg-gray-200"></div>
-                                <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                                    AI Receptionist
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-4 pb-48">
+            <SettingsView
+                view={view}
+                setView={setView}
+                showToast={showToast}
+                supabase={supabase}
+                setSession={setSession}
+                session={session}
+            />
 
 
-
-
-                            {/* --- FEATURES --- */}
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-4">Features</h3>
-                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
-
-                                {/* Contacts */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Contacts Settings...')}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <Users size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Contacts</h4>
-                                            <p className="text-sm font-medium text-rose-500 mt-0.5">Enable in Settings to sync contacts</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-xs font-bold text-[#2563EB] flex items-center">
-                                        Settings <ChevronRight size={14} className="ml-0.5" />
-                                    </div>
-                                </div>
-
-                                {/* Notifications */}
-                                <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <Bell size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Notifications</h4>
-                                            <p className="text-sm font-medium text-rose-500 mt-0.5">Enable in Settings to receive alerts</p>
-                                        </div>
-                                    </div>
-                                    {/* Mock Toggle */}
-                                    <div className="w-12 h-7 bg-[#2563EB] rounded-full relative transition-colors">
-                                        <div className="absolute right-0.5 top-0.5 w-6 h-6 bg-white rounded-full shadow-sm"></div>
-                                    </div>
-                                </div>
-
-
-                            </div>
-
-                            {/* --- ACCOUNT --- */}
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-4 mt-8">Account</h3>
-                            <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm overflow-hidden">
-
-                                {/* Manage Plan */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setView('manage-plan')}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <CreditCard size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Manage Plan</h4>
-                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Manage subscription</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-
-                                {/* Support */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => window.open('https://calendly.com/aayushsethi37/30min', '_blank')}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <MessageSquare size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Contact Us</h4>
-                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Get help or share your ideas!</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-
-                                {/* Privacy Policy */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => showToast('Opening Privacy Policy...')}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <Lock size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Privacy Policy</h4>
-                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Review privacy practices</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-
-                                {/* Sign Out */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={async () => {
-                                    try {
-                                        await supabase.auth.signOut();
-                                    } catch (e) {
-                                        console.error('Sign out error:', e);
-                                    } finally {
-                                        setSession(null);
-                                        setView('auth');
-                                    }
-                                }}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100">
-                                            <LogOut size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-gray-900">Sign Out</h4>
-                                            <p className="text-sm font-medium text-gray-500 mt-0.5">Log out of your account</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-
-                                {/* Delete Account */}
-                                <div className="flex items-center justify-between p-4 hover:bg-red-50/50 transition-colors cursor-pointer" onClick={() => showToast('Delete Account Flow')}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 border border-red-100">
-                                            <Trash2 size={18} className="stroke-[2.5px]" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-base font-bold text-red-500">Delete Account</h4>
-                                            <p className="text-sm font-medium text-gray-400 mt-0.5">Remove your data</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={20} className="text-gray-300" />
-                                </div>
-                            </div>
-
-
-                        </div>
-                    </div>
-                )
-            }
-
-
-
-            {/* =========================================
-               ACCOUNT VIEW
-               ========================================= */}
-            {
-                view === 'account' && (
-                    <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
-                        {/* Header */}
-                        <div className="px-6 pt-12 pb-4 flex items-center z-20">
-                            <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
-                                <ChevronLeft size={24} className="mr-0.5" />
-                                Back
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            <h1 className="text-2xl font-black text-gray-900">Account</h1>
-
-                            {/* Inputs */}
-                            <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-gray-100 space-y-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                                    <input
-                                        type="text"
-                                        defaultValue="Aayush"
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                                    <input
-                                        type="tel"
-                                        defaultValue="+1 (555) 000-0000"
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    />
-                                </div>
-                            </div>
-
-                            <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-[0.98] transition-all">
-                                Save Changes
-                            </button>
-                        </div>
-                    </div>
-                )
-            }
-
-
-            {/* =========================================
-               MANAGE PLAN (View)
-               ========================================= */}
-            {
-                view === 'manage-plan' && (
-                    <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
-                        {/* Header */}
-                        <div className="px-6 pt-12 pb-4 flex items-center z-20">
-                            <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
-                                <ChevronLeft size={24} className="mr-0.5" />
-                                Back
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide pb-32">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Subscriptions</h2>
-
-                            {/* Plans Card */}
-                            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-2 mb-8">
-                                {/* Monthly */}
-                                <div
-                                    onClick={() => setActivePlan('monthly')}
-                                    className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all ${activePlan === 'monthly' ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-                                >
-                                    <div>
-                                        <div className="font-bold text-gray-900 text-lg">Monthly Plan</div>
-                                        <div className="text-gray-500 font-medium">$29.99</div>
-                                    </div>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${activePlan === 'monthly' ? 'bg-black border-black' : 'border-gray-200'}`}>
-                                        {activePlan === 'monthly' && <Check size={14} className="text-white" />}
-                                    </div>
-                                </div>
-
-                                {/* Annual */}
-                                <div
-                                    onClick={() => setActivePlan('annual')}
-                                    className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all ${activePlan === 'annual' ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-                                >
-                                    <div>
-                                        <div className="font-bold text-gray-900 text-lg">Annual Plan</div>
-                                        <div className="text-gray-500 font-medium">$249.99</div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-blue-400 font-bold text-sm">Save 31%</span>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${activePlan === 'annual' ? 'bg-black border-black' : 'border-gray-200'}`}>
-                                            {activePlan === 'annual' && <Check size={14} className="text-white" />}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <h3 className="text-xl font-bold text-gray-900 mb-4">Benefits</h3>
-                            <div className="space-y-4 pl-1">
-                                {[
-                                    'AI receptionist available 24/7',
-                                    'Customizable hyper-realistic voices',
-                                    'Realtime task automation',
-                                    'Detailed AI call summaries & reports',
-                                    'Live call monitoring',
-                                    'Unlimited call recordings'
-                                ].map((benefit) => (
-                                    <div key={benefit} className="flex items-start gap-3">
-                                        <Check size={18} className="text-blue-400 mt-0.5 shrink-0" />
-                                        <span className="text-gray-500 font-bold text-sm leading-tight">{benefit}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-12 text-center text-xs text-gray-400 font-medium">
-                                Terms | Privacy.
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* =========================================
-               EDIT RECEPTIONIST MODAL
-               ========================================= */}
-            {
-                isEditingReceptionist && (
-                    <div className="absolute inset-0 z-[70] flex items-end justify-center">
-                        {/* Backdrop */}
-                        <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
-                            onClick={() => setIsEditingReceptionist(false)}
-                        ></div>
-
-                        {/* Modal Content */}
-                        <div className="bg-white w-full h-[92%] rounded-t-[2.5rem] relative z-10 animate-in slide-in-from-bottom duration-300 flex flex-col p-6 shadow-2xl overflow-y-auto">
-                            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 shrink-0"></div>
-
-                            {/* Title */}
-                            <h2 className="text-xl font-black text-gray-900 text-center mb-8">Receptionist Profile</h2>
-
-                            {/* Avatar */}
-                            <div className="flex justify-center mb-8">
-                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-blue-50">
-                                    <img
-                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${personality.name}&backgroundColor=b6e3f4`}
-                                        alt={personality.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Form */}
-                            <div className="space-y-6">
-                                {/* Name Input */}
-                                <div>
-                                    <label className="block text-base font-bold text-gray-900 mb-2">Name</label>
-                                    <input
-                                        type="text"
-                                        value={personality.name === "Assistant" ? "" : personality.name}
-                                        placeholder="Assistant Name"
-                                        onChange={(e) => setPersonality({ ...personality, name: e.target.value })}
-                                        onBlur={async () => {
-                                            await supabase.from('business_profiles')
-                                                .update({ assistant_name: personality.name })
-                                                .eq('owner_user_id', session.user.id);
-                                            syncAssistant();
-                                        }}
-                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-base font-medium text-gray-900 outline-none focus:ring-2 focus:ring-blue-400/20 active:scale-[0.99] transition-all"
-                                    />
-                                </div>
-
-                                {/* Voice Selection */}
-                                <div>
-                                    <label className="block text-base font-bold text-gray-900 mb-2">Voice</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {voiceOptions.map(v => (
-                                            <button
-                                                key={v.id}
-                                                onClick={async () => {
-                                                    // 1. Update (Optimistic) UI
-                                                    setPersonality(prev => ({ ...prev, voiceId: v.id }));
-
-                                                    // 2. Play Preview
-                                                    try {
-                                                        const res = await fetch('http://localhost:3000/api/voice-preview', {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ voiceId: v.id, text: "Hello! I am your new receptionist." })
-                                                        });
-                                                        if (res.ok) {
-                                                            const blob = await res.blob();
-                                                            const audio = new Audio(URL.createObjectURL(blob));
-                                                            audio.play();
-                                                        }
-                                                    } catch (e) {
-                                                        console.error("Preview failed", e);
-                                                    }
-
-                                                    // 3. PERSIST via Server (Trusted)
-                                                    console.log("Saving voice_id via Backend API...", v.id);
-                                                    try {
-                                                        const persistRes = await fetch('http://localhost:3000/api/save-voice', {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ userId: session.user.id, voiceId: v.id })
-                                                        });
-                                                        const pData = await persistRes.json();
-                                                        if (!persistRes.ok) console.error("Persist API Failed:", pData);
-                                                        else console.log("✅ DB Persisted via Server");
-                                                    } catch (persistErr) {
-                                                        console.error("Persist Network Error:", persistErr);
-                                                    }
-
-                                                    // 4. SYNC to Vapi
-                                                    // Now that DB is updated, tell server to push to Vapi
-                                                    syncAssistant(v.id);
-                                                }}
-                                                className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden ${personality.voiceId === v.id ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                                            >
-                                                <div className="font-bold text-gray-900 text-sm mb-0.5 relative z-10">{v.name}</div>
-                                                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider relative z-10">
-                                                    {v.provider === '11labs' ? 'Standard' : 'Premium'}
-                                                </div>
-                                                {personality.voiceId === v.id && (
-                                                    <div className="absolute top-2 right-2 text-blue-500 z-10">
-                                                        <div className="w-2 h-2 rounded-full bg-current shadow-sm animate-pulse" />
-                                                    </div>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Demo Section */}
-                                <div>
-                                    <label className="block text-base font-bold text-gray-900 mb-2">Demo</label>
-                                    <button className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 flex items-center justify-center gap-3 text-base font-bold text-gray-900 hover:bg-gray-50 active:scale-[0.99] transition-all shadow-sm">
-                                        <PhoneCall size={20} className="text-gray-400 fill-current" />
-                                        Call {personality.name}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             {/* =========================================
                BOTTOM NAV
@@ -1560,46 +1182,11 @@ export default function App() {
 
 
             {/* =========================================
-               GLOBAL NAVIGATION
+               GLOBAL NAVIGATION (iOS Style)
                ========================================= */}
             {
                 view !== 'auth' && view !== 'login' && view !== 'onboarding' && view !== 'intro' && (
-                    <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-gray-200/50 flex justify-around items-center py-4 px-6 z-[999] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
-
-                        {/* Inbox Tab */}
-                        <button
-                            onClick={() => setView('inbox')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
-                        >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'inbox' || view === 'call-detail' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
-                                <img src="/pics/bot.png" alt="Inbox" className="w-8 h-8 object-contain drop-shadow-sm" />
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'inbox' || view === 'call-detail' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Inbox</span>
-                        </button>
-
-                        {/* Receptionist Tab */}
-                        <button
-                            onClick={() => setView('receptionist')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
-                        >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'receptionist' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
-                                <img src="/pics/man-user.png" alt="Assistant" className="w-6 h-6 object-contain drop-shadow-sm" />
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'receptionist' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Assistant</span>
-                        </button>
-
-                        {/* Settings Tab */}
-                        <button
-                            onClick={() => setView('settings')}
-                            className="flex flex-col items-center justify-center w-20 transition-all active:scale-95 group"
-                        >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-[1.2rem] mb-1 transition-all duration-300 ${view === 'settings' ? 'bg-blue-50 text-blue-600 shadow-inner' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
-                                <img src="/pics/gear.png" alt="Settings" className="w-6 h-6 object-contain drop-shadow-sm" />
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'settings' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>Settings</span>
-                        </button>
-
-                    </div>
+                    <BottomNav view={view} setView={setView} />
                 )
             }
 
@@ -1623,69 +1210,6 @@ export default function App() {
                 )
             }
 
-            {/* =========================================
-               MODALS & OVERLAYS
-               ========================================= */}
-            {
-                activeModal === 'add-question' && (
-                    <AddQuestionModal
-                        onClose={() => setActiveModal(null)}
-                        tempQuestion={tempQuestion}
-                        setTempQuestion={setTempQuestion}
-                        onSave={async () => {
-                            if (tempQuestion.q && tempQuestion.a) {
-                                try {
-                                    const { data, error } = await supabase
-                                        .from('business_info')
-                                        .insert([{
-                                            owner_user_id: session.user.id,
-                                            type: 'qa',
-                                            content: {
-                                                question: tempQuestion.q,
-                                                answer: tempQuestion.a
-                                            }
-                                        }])
-                                        .select()
-                                        .single();
-
-                                    if (error) throw error;
-
-                                    setKnowledgeItems(prev => [...prev, data]);
-                                    setTempQuestion({ q: "", a: "" });
-                                    setActiveModal(null);
-                                    showToast("Question saved");
-                                    syncAssistant();
-                                } catch (err) {
-                                    console.error("Error saving question:", err);
-                                    showToast("Failed to save question");
-                                }
-                            }
-                        }}
-                    />
-                )
-            }
-
-            {
-                showLanguageModal && (
-                    <LanguageModal
-                        onClose={() => setShowLanguageModal(false)}
-                        languages={languages}
-                        setLanguages={setLanguages}
-                        LANGUAGES={LANGUAGES}
-                        onSave={async () => {
-                            await supabase.from('business_info').delete().eq('owner_user_id', session.user.id).eq('type', 'languages');
-                            await supabase.from('business_info').insert({
-                                owner_user_id: session.user.id,
-                                type: 'languages',
-                                content: { languages }
-                            });
-                            syncAssistant();
-                            setShowLanguageModal(false);
-                            showToast("Languages updated");
-                        }}
-                    />
-                )
-            }
         </div>
     );
 }
