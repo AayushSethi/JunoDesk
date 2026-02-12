@@ -42,7 +42,7 @@ export default function LandingView({ setView, setOnboardingStep, session, supab
                     <button
                         onClick={() => {
                             setView('onboarding');
-                            setOnboardingStep(0);
+                            setOnboardingStep(1);
                         }}
                         className="w-full bg-blue-600 text-white py-5 rounded-full font-black text-lg tracking-wide shadow-[0_20px_60px_-15px_rgba(37,99,235,0.8)] hover:shadow-[0_25px_80px_-10px_rgba(37,99,235,0.9)] hover:bg-blue-700 active:scale-[0.97] transition-all duration-300"
                     >
