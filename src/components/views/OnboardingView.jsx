@@ -3,7 +3,7 @@ import {
     ChevronLeft, Check, AudioWaveform, Globe, MessageSquare,
     Settings, ArrowRight, ChevronDown, PhoneCall, ShieldAlert,
     Calendar, Inbox, Trash2, User, HelpCircle, LogOut, Heart,
-    Smartphone, Moon, Sun, Lock
+    Smartphone, Moon, Sun, Lock, Phone, Sparkles
 } from 'lucide-react';
 
 export default function OnboardingView({
@@ -54,10 +54,10 @@ export default function OnboardingView({
         <div className="fixed inset-0 z-[9999] flex flex-col bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF]">
             {/* Navigation: Back */}
             <div className="absolute top-6 left-6 z-50">
-                {onboardingStep > 0 && onboardingStep < 10 && (
+                {onboardingStep >= 0 && onboardingStep < 10 && (
                     <button
                         onClick={() => {
-                            if (onboardingStep === 1) {
+                            if (onboardingStep === 0 || onboardingStep === 1) {
                                 setView('auth');
                             } else {
                                 setOnboardingStep(s => s - 1);
@@ -76,13 +76,105 @@ export default function OnboardingView({
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-100">
                     <div
                         className="h-full bg-blue-600 transition-all duration-500 ease-out"
-                        style={{ width: `${(onboardingStep / 10) * 100}%` }}
+                        style={{ width: `${((onboardingStep + 1) / 11) * 100}%` }}
                     ></div>
                 </div>
             )}
 
             <div className="h-full flex flex-col p-6 max-w-md mx-auto w-full justify-center animate-in slide-in-from-right duration-500">
 
+                {/* Step 0: How it Works */}
+                {onboardingStep === 0 && (
+                    <>
+                        <h2 className="text-2xl font-black text-gray-900 mb-8 text-center">How does it work?</h2>
+
+                        <div className="flex flex-col items-center space-y-4">
+                            {/* Call comes in */}
+                            <div className="bg-white rounded-2xl px-8 py-4 shadow-sm border border-gray-100 text-center min-w-[200px]">
+                                <PhoneCall size={24} className="text-blue-600 mx-auto mb-2" />
+                                <p className="text-sm font-semibold text-gray-900">You receive a call</p>
+                            </div>
+
+                            {/* Arrow down */}
+                            <div className="text-gray-400">
+                                <svg width="20" height="30" viewBox="0 0 20 30" fill="none">
+                                    <path d="M10 0V25M10 25L3 18M10 25L17 18" stroke="currentColor" strokeWidth="2"/>
+                                </svg>
+                            </div>
+
+                            {/* You decide */}
+                            <p className="text-sm font-semibold text-gray-700">You decide</p>
+
+                            {/* Split arrows */}
+                            <div className="flex items-center justify-center w-full max-w-[280px]">
+                                <svg width="120" height="40" viewBox="0 0 120 40" fill="none" className="text-gray-400">
+                                    <path d="M60 0V15M60 15L10 15M10 15V25M60 15L110 15M110 15V25" stroke="currentColor" strokeWidth="2" fill="none"/>
+                                </svg>
+                            </div>
+
+                            {/* Two paths */}
+                            <div className="flex gap-3 w-full max-w-[320px]">
+                                {/* Answer path */}
+                                <div className="flex-1 flex flex-col items-center space-y-3">
+                                    <div className="bg-emerald-50 border-2 border-emerald-400 rounded-xl px-4 py-3 text-center w-full">
+                                        <Phone size={18} className="text-emerald-600 mx-auto mb-1" />
+                                        <p className="text-sm font-bold text-emerald-700">Answer</p>
+                                    </div>
+                                    <div className="text-gray-400">
+                                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
+                                        <Check size={16} className="text-blue-600 mx-auto mb-1" />
+                                        <p className="text-xs font-semibold text-gray-900">You talk directly</p>
+                                    </div>
+                                </div>
+
+                                {/* Don't Answer path */}
+                                <div className="flex-1 flex flex-col items-center space-y-3">
+                                    <div className="bg-purple-50 border-2 border-purple-400 rounded-xl px-4 py-3 text-center w-full">
+                                        <Smartphone size={18} className="text-purple-600 mx-auto mb-1" />
+                                        <p className="text-sm font-bold text-purple-700">Don't Answer</p>
+                                    </div>
+                                    <div className="text-gray-400">
+                                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
+                                        <Sparkles size={16} className="text-blue-600 mx-auto mb-1" />
+                                        <p className="text-xs font-semibold text-gray-900">AI answers for you</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Final arrow from AI path */}
+                            <div className="flex justify-end w-full max-w-[320px] pr-[60px]">
+                                <div className="text-gray-400">
+                                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+                                        <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* Final result */}
+                            <div className="flex justify-end w-full max-w-[320px]">
+                                <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 text-center min-w-[140px]">
+                                    <Check size={16} className="text-blue-600 mx-auto mb-1" />
+                                    <p className="text-xs font-semibold text-gray-900">Get Summary<br/>& Recording</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setOnboardingStep(1)}
+                            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-full font-bold text-lg mt-8 shadow-[0_12px_40px_-12px_rgba(37,99,235,0.6)] hover:shadow-[0_16px_50px_-10px_rgba(37,99,235,0.8)] hover:from-blue-700 hover:to-blue-600 active:scale-[0.97] transition-all duration-300"
+                        >
+                            I Understand
+                        </button>
+                    </>
+                )}
                 {/* Step 1: Phone Entry */}
                 {onboardingStep === 1 && (
                     <>

@@ -29,7 +29,8 @@ export default function InboxView({
     expandedCallId,
     setExpandedCallId,
     showTranscript,
-    setShowTranscript
+    setShowTranscript,
+    userInfo
 }) {
     if (view !== 'inbox') return null;
 
@@ -103,22 +104,34 @@ export default function InboxView({
                 {/* --- Status Cards Grid --- */}
                 <div className="grid grid-cols-2 gap-3">
                     <button className="flex items-center p-3 bg-[#F0F7FF] border border-[#D1E9FF] rounded-2xl text-left transition-all active:scale-95">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-3 shadow-sm">
-                            <div className={`w-2.5 h-2.5 rounded-full ${isReceptionistActive ? 'bg-[#007FFF] animate-pulse shadow-[0_0_8px_#007FFF]' : 'bg-gray-400'}`}></div>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-[#0047AB] uppercase tracking-wider">AI Status</p>
-                            <p className="text-sm font-bold text-slate-800">{isReceptionistActive ? 'AI Active' : 'Offline'}</p>
-                        </div>
+                        <div className={`w-3 h-3 rounded-full mr-3 ${isReceptionistActive ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : 'bg-red-500 shadow-[0_0_8px_#EF4444]'}`}></div>
+                        <p className="text-sm font-bold text-slate-800">{isReceptionistActive ? 'Online' : 'Offline'}</p>
                     </button>
-                    <button className="flex items-center p-3 bg-slate-50 border border-slate-200 rounded-2xl text-left transition-all active:scale-95">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-3 shadow-sm text-slate-400">
-                            <Calendar size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Schedule</p>
-                            <p className="text-sm font-bold text-slate-800">Calendar</p>
-                        </div>
+                    <button
+                        className="flex items-center p-3 bg-slate-50 border border-slate-200 rounded-2xl text-left transition-all active:scale-95"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (userInfo?.google_access_token) {
+                                const calendarId = userInfo.google_calendar_id || 'primary';
+                                const url = `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`;
+                                window.open(url, '_blank', 'noopener');
+                            } else {
+                                showToast('Connect Google Calendar in Receptionist tab to open it here');
+                            }
+                        }}
+                    >
+                        <svg className="mr-3" viewBox="0 0 200 200" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#FFFFFF" d="M148.882,43.618l-47.368-5.263l-57.895,5.263L38.355,96.25l5.263,52.632l52.632,6.579l52.632-6.579l5.263-53.947L148.882,43.618z"/>
+                            <path fill="#1A73E8" d="M65.211,125.276c-3.934-2.658-6.658-6.539-8.145-11.671l9.132-3.763c0.829,3.158,2.276,5.605,4.342,7.342c2.053,1.737,4.553,2.592,7.474,2.592c2.987,0,5.553-0.908,7.697-2.724s3.224-4.132,3.224-6.934c0-2.868-1.132-5.211-3.395-7.026s-5.105-2.724-8.5-2.724h-5.276v-9.039H76.5c2.921,0,5.382-0.789,7.382-2.368c2-1.579,3-3.737,3-6.487c0-2.447-0.895-4.395-2.684-5.855s-4.053-2.197-6.803-2.197c-2.684,0-4.816,0.711-6.395,2.145s-2.724,3.197-3.447,5.276l-9.039-3.763c1.197-3.395,3.395-6.395,6.618-8.987c3.224-2.592,7.342-3.895,12.342-3.895c3.697,0,7.026,0.711,9.974,2.145c2.947,1.434,5.263,3.421,6.934,5.947c1.671,2.539,2.5,5.382,2.5,8.539c0,3.224-0.776,5.947-2.329,8.184c-1.553,2.237-3.461,3.947-5.724,5.145v0.539c2.987,1.25,5.421,3.158,7.342,5.724c1.908,2.566,2.868,5.632,2.868,9.211s-0.908,6.776-2.724,9.579c-1.816,2.803-4.329,5.013-7.513,6.618c-3.197,1.605-6.789,2.421-10.776,2.421C73.408,129.263,69.145,127.934,65.211,125.276z"/>
+                            <path fill="#1A73E8" d="M121.25,79.961l-9.974,7.25l-5.013-7.605l17.987-12.974h6.895v61.197h-9.895L121.25,79.961z"/>
+                            <path fill="#EA4335" d="M148.882,196.25l47.368-47.368l-23.684-10.526l-23.684,10.526l-10.526,23.684L148.882,196.25z"/>
+                            <path fill="#34A853" d="M33.092,172.566l10.526,23.684h105.263v-47.368H43.618L33.092,172.566z"/>
+                            <path fill="#4285F4" d="M12.039-3.75C3.316-3.75-3.75,3.316-3.75,12.039v136.842l23.684,10.526l23.684-10.526V43.618h105.263l10.526-23.684L148.882-3.75H12.039z"/>
+                            <path fill="#188038" d="M-3.75,148.882v31.579c0,8.724,7.066,15.789,15.789,15.789h31.579v-47.368H-3.75z"/>
+                            <path fill="#FBBC04" d="M148.882,43.618v105.263h47.368V43.618l-23.684-10.526L148.882,43.618z"/>
+                            <path fill="#1967D2" d="M196.25,43.618V12.039c0-8.724-7.066-15.789-15.789-15.789h-31.579v47.368H196.25z"/>
+                        </svg>
+                        <p className="text-sm font-bold text-slate-800">Your Calendar</p>
                     </button>
                 </div>
 
@@ -185,7 +198,7 @@ export default function InboxView({
                                             }}
                                             className="group cursor-pointer"
                                         >
-                                            <div className={`py-3 transition-all duration-300 ${isExpanded ? 'px-4 -mx-4 rounded-3xl bg-[#F0F7FF] shadow-sm ring-1 ring-[#D1E9FF]/50 my-2' : ''}`}>
+                                            <div className={`py-3 transition-all duration-300 ${isExpanded ? 'px-3 -mx-3 rounded-2xl bg-[#F0F7FF] shadow-sm ring-1 ring-[#D1E9FF]/50 my-2' : ''}`}>
                                                 {/* --- Call Info Row --- */}
                                                 <div className="flex justify-between items-start mb-0.5">
                                                     <div className="flex-1">
@@ -231,12 +244,12 @@ export default function InboxView({
                                                 {/* --- Expanded Detail --- */}
                                                 {isExpanded && (
                                                     <div className="mt-1 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                        <div className="p-3 rounded-2xl bg-white border border-[#D1E9FF] shadow-sm">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <Sparkles size={14} className="text-[#007FFF]" />
-                                                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0047AB]">AI Assistant Summary</span>
+                                                        <div className="p-2 rounded-xl bg-white border border-[#D1E9FF] shadow-sm">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <Sparkles size={12} className="text-[#007FFF]" />
+                                                                <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#0047AB]">AI Summary</span>
                                                             </div>
-                                                            <p className="text-[14px] leading-relaxed text-slate-700 font-medium">
+                                                            <p className="text-[13px] leading-snug text-slate-700 font-medium">
                                                                 {call.summary}
                                                             </p>
                                                         </div>

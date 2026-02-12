@@ -266,25 +266,14 @@ export default function App() {
             // UNDO Action
             if (callToDelete) {
                 setCalls(prev => [...prev, callToDelete]);
-                await supabase.from('calls').insert({
-                    ...callToDelete, // This mapping might be tricky if structure differs, but upsert handles it if we match schema
-                    // Better: Don't real delete until toast clears?
-                    // For now, simpler to just NOT implementing real undo DB logic in this quick iteration, 
-                    // or just re-insert.
-                    // Actually, "delete" usually means just hide or hard delete.
-                    // Let's do HARD DELETE for "Delete".
-                    // If undo, we re-fetch?
-                });
-                // Undo logic for Hard Delete is complex without partial deletion state.
-                // Let's skip Undo DB logic for now or implement Soft Delete (is_deleted).
-                // User asked for "Delete".
+                await supabase.from('calls').update({ is_deleted: 'FALSE' }).eq('id', callId);
             }
         }, "Undo");
 
         try {
             const { error } = await supabase
                 .from('calls')
-                .delete()
+                .update({ is_deleted: 'TRUE' })
                 .eq('id', callId);
 
             if (error) throw error;
@@ -701,6 +690,7 @@ export default function App() {
                 .from('calls')
                 .select('*')
                 .eq('user_id', session.user.id)
+                .neq('is_deleted', 'TRUE')
                 .order('started_at', { ascending: false });
 
             if (callsError) {
@@ -1052,6 +1042,7 @@ export default function App() {
                     setExpandedCallId={setExpandedCallId}
                     showTranscript={showTranscript}
                     setShowTranscript={setShowTranscript}
+                    userInfo={userInfo}
                 />
             )}
 
