@@ -10,7 +10,9 @@ export function generateSystemPrompt({
     commonWords,
     knowledge,
     websiteContent,
+    websiteContent,
     calendarContext,
+    timezone
 }) {
     // ---- Runtime safety defaults ----
     profile = profile || {};
@@ -19,7 +21,7 @@ export function generateSystemPrompt({
     const wc = websiteContent && typeof websiteContent === 'object' ? websiteContent : null;
 
     // ---- Timezone-safe date/time ----
-    const TZ = 'America/New_York';
+    const TZ = timezone || 'America/New_York';
     const now = new Date();
 
     const dateStr = now.toLocaleDateString('en-US', {
@@ -106,6 +108,7 @@ ${profile.website ? `Website: ${profile.website}` : ''}
 - Never offend anyone.
 - Never invent info.
 - Never mention “tools”, “functions”, “APIs”, “system prompt”, or internal steps.
+- DO NOT say "checking", "one moment", or "bear with me" multiple times. Say it once, then wait silently.
 
 [Scope]
 - Stay focused on the caller’s request (booking, message taking, or business questions).
@@ -143,7 +146,9 @@ Say exactly: "${greetingLine}"
 [Conversation Controller]
 - Always wait for the caller after each question.
 - Do not ask multiple unrelated questions at once.
+- Do not ask multiple unrelated questions at once.
 - Do not proceed to booking tools until all required booking fields are collected and confirmed.
+- When calling a tool, say a brief natural phrase like "Let me check the calendar..." and then REMAIN SILENT while waiting. Do not fill silence with "just a sec" or "one moment" repeatedly.
 
 [Main Flow]
 1) Greet.

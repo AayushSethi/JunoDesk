@@ -38,5 +38,6 @@ export async function getContextForUser(userId) {
         calendarContext = await getCalendarEvents(userId, profile);
     }
 
-    return { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext };
+    const timezone = profile.timezone || 'America/New_York';
+    return { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext, timezone };
 }

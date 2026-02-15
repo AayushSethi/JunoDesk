@@ -176,11 +176,11 @@ export const syncAssistant = async (req, res) => {
 
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
-        const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext } = await getContextForUser(userId);
+        const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext, timezone } = await getContextForUser(userId);
 
         if (!profile.vapi_assistant_id) return res.status(400).json({ error: "No assistant found. Provision first." });
 
-        let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext });
+        let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext, timezone });
 
         if (languages && Array.isArray(languages) && languages.length > 0) {
             systemPrompt += `\n\nIMPORTANT LANGUAGE INSTRUCTION: You are fluent in: ${languages.join(", ")}. Switch language if user speaks it.`;

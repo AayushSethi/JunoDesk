@@ -3,7 +3,7 @@ import {
     ChevronLeft, Check, AudioWaveform, Globe, MessageSquare,
     Settings, ArrowRight, ChevronDown, PhoneCall, ShieldAlert,
     Calendar, Inbox, Trash2, User, HelpCircle, LogOut, Heart,
-    Smartphone, Moon, Sun, Lock, Phone, Sparkles, Globe
+    Smartphone, Moon, Sun, Lock, Phone, Sparkles
 } from 'lucide-react';
 import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
