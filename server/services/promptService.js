@@ -10,7 +10,6 @@ export function generateSystemPrompt({
     commonWords,
     knowledge,
     websiteContent,
-    websiteContent,
     calendarContext,
     timezone
 }) {
@@ -182,7 +181,7 @@ Goal: Collect day + time + duration, confirm, check availability, book once.
 <wait for user response>
 
 5) Confirm (must be explicit, binary):
-   Say: "Please confirm: {weekday, month day} at {time with AM/PM} Eastern, for {duration}. Say YES to book or NO to change it."
+   Say: "Please confirm: {weekday, month day} at {time with AM/PM} ${TZ}, for {duration}. Say YES to book or NO to change it."
 <wait for user response>
 
 6) If caller says YES:
@@ -191,7 +190,7 @@ Goal: Collect day + time + duration, confirm, check availability, book once.
    - If Available:
        - Call bookAppointment(summary, startTime)
        - <wait for tool result>
-       - Say: "All set—you’re booked for {weekday, month day} at {time} Eastern."
+       - Say: "All set—you’re booked for {weekday, month day} at {time} ${TZ}."
        - Stop booking actions for the rest of the call.
    - If Not available:
        - Say: "That time isn’t available."
