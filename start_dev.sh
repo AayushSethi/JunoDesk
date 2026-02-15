@@ -30,11 +30,22 @@ FRONTEND_PID=$!
 echo ""
 echo "🚀 DASHBOARD"
 echo "--------------------------------------"
-echo "Public URL:   $NGROK_URL"
-echo "Backend:      http://localhost:3000"
 echo "Frontend:     http://localhost:5173"
+echo "Backend (Local): http://localhost:3000"
+echo "Backend (Railway): https://junodesk-production.up.railway.app"
+echo "Ngrok Tunnel: $NGROK_URL"
 echo "--------------------------------------"
+echo ""
+echo "✅ Checking Railway backend..."
+curl -s https://junodesk-production.up.railway.app/ > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Railway backend is ONLINE"
+else
+    echo "⚠️  Railway backend is OFFLINE or unreachable"
+fi
+echo ""
 echo "Press Ctrl+C to stop everything."
+echo ""
 
 # Cleanup on exit
 trap "kill $SERVER_PID $FRONTEND_PID; pkill -f ngrok" EXIT

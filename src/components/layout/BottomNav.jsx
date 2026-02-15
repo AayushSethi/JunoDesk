@@ -4,7 +4,7 @@ import { Mail, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 export default function BottomNav({ view, setView }) {
     const tabs = [
         { id: 'inbox', label: 'Inbox', icon: Mail },
-        { id: 'receptionist', label: 'Assistant', icon: Sparkles },
+        { id: 'receptionist', label: 'Receptionist', icon: Sparkles },
         { id: 'settings', label: 'Settings', icon: SettingsIcon }
     ];
 

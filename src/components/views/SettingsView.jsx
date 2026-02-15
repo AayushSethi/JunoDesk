@@ -21,7 +21,7 @@ export default function SettingsView({
             if (!session?.user || view !== 'manage-plan') return;
             setLoadingSubscription(true);
             try {
-                const res = await fetch(`http://localhost:3000/api/subscription-status?userId=${session.user.id}`);
+                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/subscription-status?userId=${session.user.id}`);
                 const data = await res.json();
                 setSubscriptionStatus(data);
             } catch (err) {
