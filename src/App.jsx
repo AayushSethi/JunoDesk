@@ -696,8 +696,9 @@ export default function App() {
             if (callsError) {
                 // Only log non-abort errors
                 if (callsError.message && !callsError.message.includes('AbortError')) {
-                    console.error("Supabase calls fetch error:", callsError);
+                    console.error("❌ Supabase calls fetch error:", callsError);
                 }
+                isFetchingCallsRef.current = false;
                 return;
             }
 
