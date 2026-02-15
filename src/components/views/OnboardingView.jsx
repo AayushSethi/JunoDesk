@@ -98,7 +98,7 @@ export default function OnboardingView({
                             {/* Arrow down */}
                             <div className="text-gray-400">
                                 <svg width="20" height="30" viewBox="0 0 20 30" fill="none">
-                                    <path d="M10 0V25M10 25L3 18M10 25L17 18" stroke="currentColor" strokeWidth="2"/>
+                                    <path d="M10 0V25M10 25L3 18M10 25L17 18" stroke="currentColor" strokeWidth="2" />
                                 </svg>
                             </div>
 
@@ -108,7 +108,7 @@ export default function OnboardingView({
                             {/* Split arrows */}
                             <div className="flex items-center justify-center w-full max-w-[280px]">
                                 <svg width="120" height="40" viewBox="0 0 120 40" fill="none" className="text-gray-400">
-                                    <path d="M60 0V15M60 15L10 15M10 15V25M60 15L110 15M110 15V25" stroke="currentColor" strokeWidth="2" fill="none"/>
+                                    <path d="M60 0V15M60 15L10 15M10 15V25M60 15L110 15M110 15V25" stroke="currentColor" strokeWidth="2" fill="none" />
                                 </svg>
                             </div>
 
@@ -122,7 +122,7 @@ export default function OnboardingView({
                                     </div>
                                     <div className="text-gray-400">
                                         <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
                                         </svg>
                                     </div>
                                     <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
@@ -139,7 +139,7 @@ export default function OnboardingView({
                                     </div>
                                     <div className="text-gray-400">
                                         <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
                                         </svg>
                                     </div>
                                     <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
@@ -153,7 +153,7 @@ export default function OnboardingView({
                             <div className="flex justify-end w-full max-w-[320px] pr-[60px]">
                                 <div className="text-gray-400">
                                     <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                        <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2"/>
+                                        <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
                                     </svg>
                                 </div>
                             </div>
@@ -162,7 +162,7 @@ export default function OnboardingView({
                             <div className="flex justify-end w-full max-w-[320px]">
                                 <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 text-center min-w-[140px]">
                                     <Check size={16} className="text-blue-600 mx-auto mb-1" />
-                                    <p className="text-xs font-semibold text-gray-900">Get Summary<br/>& Recording</p>
+                                    <p className="text-xs font-semibold text-gray-900">Get Summary<br />& Recording</p>
                                 </div>
                             </div>
                         </div>
@@ -204,7 +204,7 @@ export default function OnboardingView({
                                 onClick={async () => {
                                     setAuthLoading(true); setAuthError(null);
                                     try {
-                                        const res = await fetch('/api/dev-signup', {
+                                        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/dev-signup`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ phone: authPhone })
@@ -274,7 +274,7 @@ export default function OnboardingView({
                             setAuthLoading(true);
                             try {
                                 await saveOnboardingProfile({ subscription_type: planCycle });
-                                const res = await fetch('/api/provision', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
+                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/provision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
                                 const d = await res.json();
                                 if (d.success) setUserInfo(prev => ({ ...prev, vapiPhoneNumber: d.phoneNumber, vapiAssistantId: d.assistantId, profileId: d.profileId }));
                                 setOnboardingStep(5);
