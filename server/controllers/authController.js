@@ -171,7 +171,7 @@ export const googleAuthCallback = async (req, res) => {
             return res.status(500).send("Database Error saving tokens.");
         }
 
-        res.redirect('http://localhost:5173/');
+        res.redirect(process.env.CLIENT_URL || 'http://localhost:5173/');
 
     } catch (err) {
         console.error("❌ Google Auth Error:", err);
