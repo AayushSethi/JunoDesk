@@ -714,8 +714,8 @@ export default function ReceptionistView({
                                     <div className="space-y-4 animate-in fade-in duration-300">
 
                                         {/* 1. Phone number & Demo */}
-                                        <section className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                                            <div className="flex justify-between items-center mb-3">
+                                        <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4">
                                                 <div>
                                                     <h3 className="text-sm font-bold text-gray-900">{personality.name}'s Number</h3>
                                                     <p className="text-xs text-gray-500 mt-0.5">Call to test your assistant</p>
@@ -728,69 +728,68 @@ export default function ReceptionistView({
                                                             showToast("No number yet");
                                                         }
                                                     }}
-                                                    className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors"
+                                                    className="bg-white border border-gray-200 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-gray-50 transition-colors shadow-sm"
                                                 >
-                                                    <Phone size={10} className="fill-current" /> Test Call
+                                                    <Phone size={12} className="fill-current" /> Test Call
                                                 </button>
                                             </div>
 
                                             {userInfo.vapiPhoneNumber ? (
-                                                <div className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 text-base font-black tracking-tight flex items-center justify-center space-x-2 text-gray-900">
+                                                <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-between text-gray-900 shadow-sm group cursor-pointer hover:border-blue-300 transition-all" onClick={() => {
+                                                    navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
+                                                    showToast("Number copied");
+                                                }}>
                                                     <span>{userInfo.vapiPhoneNumber}</span>
-                                                    <button
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
-                                                            showToast("Number copied");
-                                                        }}
-                                                        className="text-gray-300 hover:text-blue-500 transition-colors ml-1"
-                                                    >
-                                                        <Copy size={14} />
-                                                    </button>
+                                                    <div className="text-gray-300 group-hover:text-blue-500 transition-colors">
+                                                        <Copy size={16} />
+                                                    </div>
                                                 </div>
                                             ) : provisioning ? (
-                                                <div className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse">
-                                                    <RefreshCw size={14} className="animate-spin" />
-                                                    <span>Generating...</span>
+                                                <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse shadow-sm">
+                                                    <RefreshCw size={16} className="animate-spin" />
+                                                    <span>Generating Number...</span>
                                                 </div>
                                             ) : (
                                                 <button
                                                     onClick={handleProvision}
-                                                    className="w-full bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 font-bold flex items-center justify-center space-x-2 text-red-600 hover:bg-red-100 transition-colors"
+                                                    className="w-full bg-white border border-red-200 rounded-xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-red-500 hover:bg-red-50 transition-colors shadow-sm"
                                                 >
-                                                    <RefreshCw size={14} />
+                                                    <RefreshCw size={16} />
                                                     <span>Retry Number Generation</span>
                                                 </button>
                                             )}
                                         </section>
 
                                         {/* 2. Forwarding Status */}
-                                        <section className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center ${forwardingMode === 'enable' && activationStep > 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                                                        <ArrowUpRight size={14} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-sm font-bold text-gray-900">Call Forwarding</h3>
-                                                    </div>
+                                        <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-900">Call Forwarding</h3>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Send missed calls to AI</p>
+                                                </div>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${forwardingMode === 'enable' && activationStep > 1 ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-white text-gray-400 border-gray-200'}`}>
+                                                    <ArrowUpRight size={16} />
                                                 </div>
                                             </div>
 
                                             {forwardingMode === 'enable' && activationStep > 1 ? (
-                                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                                                    <div className="flex items-center gap-2 text-blue-800 font-bold text-xs mb-2">
-                                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.4)]"></div>
-                                                        Forwarding Active
+                                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2 text-blue-800 font-bold text-sm">
+                                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.4)]"></div>
+                                                            Forwarding Active
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                setForwardingMode('disable');
+                                                                setIsForwardingSetupOpen(true);
+                                                            }}
+                                                            className="text-xs font-bold text-blue-600 hover:underline"
+                                                        >
+                                                            Disable
+                                                        </button>
                                                     </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            setForwardingMode('disable');
-                                                            setIsForwardingSetupOpen(true);
-                                                        }}
-                                                        className="text-xs font-bold text-blue-600 hover:underline"
-                                                    >
-                                                        Disable Forwarding
-                                                    </button>
+                                                    <p className="text-xs text-blue-600/80 font-medium">Your calls are being forwarded to your AI assistant.</p>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2">
@@ -817,38 +816,29 @@ export default function ReceptionistView({
                                             )}
                                         </section>
 
-                                        {/* 3. Voicemail Toggle */}
-                                        <section className="flex items-center justify-between bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                                            <div>
-                                                <h3 className="text-sm font-bold text-gray-900">Contact Voicemail</h3>
-                                                <p className="text-xs text-gray-500">Allow contacts to bypass AI</p>
-                                            </div>
-                                            <div className="w-10 h-5 bg-gray-200 rounded-full relative cursor-pointer">
-                                                <div className="absolute left-[1px] top-[1px] w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                                            </div>
-                                        </section>
+
 
                                         {/* 4. Connected Phone Number (User's Mobile) */}
-                                        <section>
-                                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-2 mt-4">Account Phone Number</h3>
-                                            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                                                        <PhoneCall size={16} />
-                                                    </div>
+                                        <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm mt-4">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white text-blue-600 flex items-center justify-center border border-gray-200 shadow-sm">
+                                                    <PhoneCall size={16} />
+                                                </div>
+                                                <div>
                                                     <h3 className="text-sm font-bold text-gray-900">Connected Phone Number</h3>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Calls forward to this number</p>
                                                 </div>
+                                            </div>
 
-                                                <div className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 text-base font-black tracking-tight flex items-center justify-center mb-3 text-gray-900">
-                                                    {userInfo.userPhoneNumber || 'No phone number saved'}
-                                                </div>
+                                            <div className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-base font-black tracking-tight flex items-center justify-center mb-3 text-gray-900 shadow-sm">
+                                                {userInfo.userPhoneNumber || 'No phone number saved'}
+                                            </div>
 
-                                                <div className="flex items-start gap-2">
-                                                    <HelpCircle size={12} className="text-blue-600 mt-0.5 shrink-0" />
-                                                    <p className="text-xs font-bold text-blue-600 leading-snug cursor-pointer hover:underline">
-                                                        Need to change your number or add a line? Speak to support
-                                                    </p>
-                                                </div>
+                                            <div className="flex items-start gap-2 bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
+                                                <HelpCircle size={12} className="text-blue-600 mt-0.5 shrink-0" />
+                                                <p className="text-[10px] font-bold text-blue-600 leading-snug cursor-pointer hover:underline">
+                                                    Need to change your number or add a line? Speak to support
+                                                </p>
                                             </div>
                                         </section>
                                     </div>
