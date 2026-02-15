@@ -21,11 +21,16 @@ export const scrapeWebsite = async (req, res) => {
         const fullContent = `Source: ${url}\nTitle: ${title}\n\nContent:\n${bodyText}`;
 
         if (userId) {
-            await supabase.from('business_info').upsert({
+            // Simple robust fix: Delete old, add new
+            await supabase.from('business_info').delete()
+                .eq('owner_user_id', userId)
+                .eq('type', 'website_content');
+
+            await supabase.from('business_info').insert({
                 owner_user_id: userId,
                 type: 'website_content',
-                content: { text: fullContent, source: 'website_scrape', url }
-            }, { onConflict: 'owner_user_id,type' });
+                content: { text: fullContent, source: 'website_scrape', url, title }
+            });
         }
 
         res.json({ success: true, text: fullContent, title });
