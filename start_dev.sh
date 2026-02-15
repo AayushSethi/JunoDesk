@@ -9,7 +9,7 @@ node server.js &
 SERVER_PID=$!
 
 echo "💻 Starting Frontend..."
-npm run dev &
+npm run dev < /dev/null &
 FRONTEND_PID=$!
 
 echo ""
