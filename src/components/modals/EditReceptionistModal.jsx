@@ -69,7 +69,7 @@ export default function EditReceptionistModal({
 
                                         // 2. Play Preview
                                         try {
-                                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/voice-preview`, {
+                                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/voice-preview`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ voiceId: v.id, text: "Hello! I am your new receptionist." })
@@ -86,7 +86,7 @@ export default function EditReceptionistModal({
                                         // 3. PERSIST via Server (Trusted)
                                         console.log("Saving voice_id via Backend API...", v.id);
                                         try {
-                                            const persistRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/save-voice`, {
+                                            const persistRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/save-voice`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ userId: session.user.id, voiceId: v.id })

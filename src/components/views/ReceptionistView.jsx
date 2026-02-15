@@ -364,7 +364,7 @@ export default function ReceptionistView({
                                             onClick={async () => {
                                                 showToast("Redirecting to Google Sign In...");
                                                 try {
-                                                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google-url`, {
+                                                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/auth/google-url`, {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
                                                         body: JSON.stringify({ userId: session.user.id })
@@ -477,7 +477,7 @@ export default function ReceptionistView({
                                                 setIsScraping(true);
                                                 try {
                                                     setIsScraping(true);
-                                                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/scrape-website`, {
+                                                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/scrape-website`, {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
                                                         body: JSON.stringify({

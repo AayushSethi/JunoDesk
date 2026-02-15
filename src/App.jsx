@@ -526,7 +526,7 @@ export default function App() {
                 console.log("Using Dev Bypass");
                 try {
                     // Call backend to create real user (bypasses SMS, uses service role key)
-                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/dev-signup`, {
+                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/dev-signup`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone: authPhone })
@@ -802,7 +802,7 @@ export default function App() {
         // Background Sync with delay to avoid race condition
         syncTimeout = setTimeout(() => {
             if (!isMounted) return;
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/sync-calls?userId=${session.user.id}`)
+            fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/sync-calls?userId=${session.user.id}`)
                 .then(async res => {
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -861,7 +861,7 @@ export default function App() {
         setProvisioning(true);
         try {
             const phoneWithPlus = authPhone.startsWith('+') ? authPhone : `+1${authPhone}`;
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/provision`, {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/provision`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -899,7 +899,7 @@ export default function App() {
         syncTimerRef.current = setTimeout(async () => {
             try {
                 console.log("🔄 Syncing Assistant (Debounced)...");
-                await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/sync-assistant`, {
+                await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/sync-assistant`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: session.user.id, languages, voiceId: overrideVoiceId, summaryPrompt: "Summarize the call in 2 sentences max." })
@@ -935,7 +935,7 @@ export default function App() {
 
         // 2. Play Preview
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/voice-preview`, {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/voice-preview`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ voiceId: v.id, text: "Hello! I am your new receptionist." })
@@ -951,7 +951,7 @@ export default function App() {
 
         // 3. PERSIST via Server
         try {
-            await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/save-voice`, {
+            await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/save-voice`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: session.user.id, voiceId: v.id })

@@ -204,7 +204,7 @@ export default function OnboardingView({
                                 onClick={async () => {
                                     setAuthLoading(true); setAuthError(null);
                                     try {
-                                        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/dev-signup`, {
+                                        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/dev-signup`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ phone: authPhone })
@@ -274,7 +274,7 @@ export default function OnboardingView({
                             setAuthLoading(true);
                             try {
                                 await saveOnboardingProfile({ subscription_type: planCycle });
-                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/provision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
+                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/provision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
                                 const d = await res.json();
                                 if (d.success) setUserInfo(prev => ({ ...prev, vapiPhoneNumber: d.phoneNumber, vapiAssistantId: d.assistantId, profileId: d.profileId }));
                                 setOnboardingStep(5);
