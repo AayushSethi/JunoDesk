@@ -3,8 +3,9 @@ import {
     ChevronLeft, Check, AudioWaveform, Globe, MessageSquare,
     Settings, ArrowRight, ChevronDown, PhoneCall, ShieldAlert,
     Calendar, Inbox, Trash2, User, HelpCircle, LogOut, Heart,
-    Smartphone, Moon, Sun, Lock, Phone, Sparkles
+    Smartphone, Moon, Sun, Lock, Phone, Sparkles, Globe
 } from 'lucide-react';
+import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
 export default function OnboardingView({
     onboardingStep,
@@ -316,9 +317,26 @@ export default function OnboardingView({
                                     <option value="">Select Industry...</option><option value="Health">Medical / Dental</option><option value="Home Services">Home Services</option><option value="Legal">Legal</option><option value="Tech">Technology</option><option value="Other">Other</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Timezone</label>
+                                <select
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold"
+                                    value={userInfo.timezone || DEFAULT_TIMEZONE}
+                                    onChange={e => setUserInfo({ ...userInfo, timezone: e.target.value })}
+                                >
+                                    {TIMEZONES.map(tz => (
+                                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <button disabled={!onboardingData.companyName} onClick={async () => {
-                            await saveOnboardingProfile({ company_name: onboardingData.companyName, industry: userInfo.businessType, website: onboardingData.website });
+                            await saveOnboardingProfile({
+                                company_name: onboardingData.companyName,
+                                industry: userInfo.businessType,
+                                website: onboardingData.website,
+                                timezone: userInfo.timezone || DEFAULT_TIMEZONE
+                            });
                             setOnboardingStep(7);
                         }} className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg mt-8 disabled:opacity-50">Continue</button>
                     </>

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import {
     AudioWaveform, Globe, MessageCircle, FileText, Calendar,
     Plus, X, RefreshCw, ChevronDown, Check, Phone,
-    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Settings, Info, PhoneCall, HelpCircle, XCircle
+    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Settings, Info, PhoneCall, HelpCircle, XCircle, Clock
 } from 'lucide-react';
+import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
 import AddQuestionModal from '../modals/AddQuestionModal';
 import LanguageModal from '../modals/LanguageModal';
@@ -840,6 +841,33 @@ export default function ReceptionistView({
                                                     Need to change your number or add a line? Speak to support
                                                 </p>
                                             </div>
+                                        </section>
+
+                                        {/* 5. Timezone Selection */}
+                                        <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm mt-4">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white text-blue-600 flex items-center justify-center border border-gray-200 shadow-sm">
+                                                    <Clock size={16} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-900">Timezone</h3>
+                                                    <p className="text-xs text-gray-500 mt-0.5">For scheduling & availability</p>
+                                                </div>
+                                            </div>
+
+                                            <select
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                                value={userInfo.timezone || DEFAULT_TIMEZONE}
+                                                onChange={(e) => {
+                                                    const newTz = e.target.value;
+                                                    setUserInfo({ ...userInfo, timezone: newTz });
+                                                    saveProfileField('timezone', newTz);
+                                                }}
+                                            >
+                                                {TIMEZONES.map(tz => (
+                                                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                                                ))}
+                                            </select>
                                         </section>
                                     </div>
                                 ) : (

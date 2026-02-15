@@ -25,10 +25,12 @@ export const checkAvailability = async (req, res) => {
         const start = new Date(args.startTime);
         const end = new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
 
+        const timezone = profile.timezone || 'America/New_York';
         const freeBusy = await calendar.freebusy.query({
             requestBody: {
                 timeMin: start.toISOString(),
                 timeMax: end.toISOString(),
+                timeZone: timezone,
                 items: [{ id: profile.google_calendar_id || 'primary' }]
             }
         });
@@ -72,8 +74,8 @@ export const bookAppointment = async (req, res) => {
             calendarId: profile.google_calendar_id || 'primary',
             requestBody: {
                 summary: args.summary,
-                start: { dateTime: start.toISOString(), timeZone: "America/New_York" },
-                end: { dateTime: end.toISOString(), timeZone: "America/New_York" }
+                start: { dateTime: start.toISOString(), timeZone: profile.timezone || 'America/New_York' },
+                end: { dateTime: end.toISOString(), timeZone: profile.timezone || 'America/New_York' }
             }
         });
 
