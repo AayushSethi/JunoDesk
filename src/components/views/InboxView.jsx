@@ -116,7 +116,7 @@ export default function InboxView({
                                 const url = `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`;
                                 window.open(url, '_blank', 'noopener');
                             } else {
-                                showToast('Connect Google Calendar in Receptionist tab to open it here');
+                                showToast('Connect Google Calendar in Receptionist → Instructions tab');
                             }
                         }}
                     >
@@ -131,7 +131,10 @@ export default function InboxView({
                             <path fill="#FBBC04" d="M148.882,43.618v105.263h47.368V43.618l-23.684-10.526L148.882,43.618z"/>
                             <path fill="#1967D2" d="M196.25,43.618V12.039c0-8.724-7.066-15.789-15.789-15.789h-31.579v47.368H196.25z"/>
                         </svg>
-                        <p className="text-sm font-bold text-slate-800">Your Calendar</p>
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${userInfo?.google_access_token ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <p className="text-sm font-bold text-slate-800">{userInfo?.google_access_token ? 'Online' : 'Offline'}</p>
+                        </div>
                     </button>
                 </div>
 

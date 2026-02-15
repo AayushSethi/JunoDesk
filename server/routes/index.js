@@ -6,6 +6,7 @@ import * as callController from '../controllers/callController.js';
 import * as toolsController from '../controllers/toolsController.js';
 import * as voiceController from '../controllers/voiceController.js';
 import * as scrapeController from '../controllers/scrapeController.js';
+import * as subscriptionController from '../controllers/subscriptionController.js';
 
 const router = express.Router();
 
@@ -37,5 +38,9 @@ router.get('/api/voices', voiceController.getVoices);
 
 // --- Utility Routes ---
 router.post('/api/scrape-website', scrapeController.scrapeWebsite);
+
+// --- Subscription Routes ---
+router.post('/api/verify-receipt', subscriptionController.verifyReceipt);
+router.get('/api/subscription-status', subscriptionController.getSubscriptionStatus);
 
 export default router;

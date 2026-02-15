@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Users, Bell, CreditCard, MessageSquare, Lock, LogOut,
     Trash2, ChevronRight, ChevronLeft, Check
@@ -13,6 +13,25 @@ export default function SettingsView({
     session
 }) {
     const [activePlan, setActivePlan] = useState('monthly');
+    const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+    const [loadingSubscription, setLoadingSubscription] = useState(false);
+
+    useEffect(() => {
+        const fetchSubscription = async () => {
+            if (!session?.user || view !== 'manage-plan') return;
+            setLoadingSubscription(true);
+            try {
+                const res = await fetch(`http://localhost:3000/api/subscription-status?userId=${session.user.id}`);
+                const data = await res.json();
+                setSubscriptionStatus(data);
+            } catch (err) {
+                console.error('Failed to fetch subscription:', err);
+            } finally {
+                setLoadingSubscription(false);
+            }
+        };
+        fetchSubscription();
+    }, [session, view]);
 
     if (view !== 'settings' && view !== 'manage-plan' && view !== 'account') return null;
 
@@ -74,59 +93,61 @@ export default function SettingsView({
                 <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide pb-32">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Subscriptions</h2>
 
-                    {/* Plans Card */}
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-2 mb-8">
-                        {/* Monthly */}
-                        <div
-                            onClick={() => setActivePlan('monthly')}
-                            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all ${activePlan === 'monthly' ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <div>
-                                <div className="font-bold text-gray-900 text-lg">Monthly Plan</div>
-                                <div className="text-gray-500 font-medium">$29.99</div>
-                            </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${activePlan === 'monthly' ? 'bg-black border-black' : 'border-gray-200'}`}>
-                                {activePlan === 'monthly' && <Check size={14} className="text-white" />}
-                            </div>
+                    {/* Current Subscription Status */}
+                    {loadingSubscription ? (
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 text-center">
+                            <p className="text-sm text-gray-500 font-medium">Loading subscription...</p>
                         </div>
+                    ) : subscriptionStatus?.hasActiveSubscription ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <h3 className="text-sm font-bold text-gray-900">Active Subscription</h3>
+                            </div>
+                            <p className="text-xs text-gray-600">Plan: {subscriptionStatus.subscription?.productId}</p>
+                            <p className="text-xs text-gray-600">Expires: {new Date(subscriptionStatus.subscription?.expiresAt).toLocaleDateString()}</p>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
+                            <p className="text-sm text-gray-600 font-medium">No active subscription</p>
+                        </div>
+                    )}
 
-                        {/* Annual */}
-                        <div
-                            onClick={() => setActivePlan('annual')}
-                            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all ${activePlan === 'annual' ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <div>
-                                <div className="font-bold text-gray-900 text-lg">Annual Plan</div>
-                                <div className="text-gray-500 font-medium">$249.99</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-blue-400 font-bold text-sm">Save 31%</span>
-                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${activePlan === 'annual' ? 'bg-black border-black' : 'border-gray-200'}`}>
-                                    {activePlan === 'annual' && <Check size={14} className="text-white" />}
-                                </div>
-                            </div>
-                        </div>
+                    {/* Plan Toggle */}
+                    <div className="bg-gray-100 p-1 rounded-xl flex mb-6">
+                        <button onClick={() => setActivePlan('monthly')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${activePlan === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Monthly</button>
+                        <button onClick={() => setActivePlan('annual')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${activePlan === 'annual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Annual <span className="text-green-600 text-[10px]">SAVE 30%</span></button>
                     </div>
 
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Benefits</h3>
-                    <div className="space-y-4 pl-1">
-                        {[
-                            'AI receptionist available 24/7',
-                            'Customizable hyper-realistic voices',
-                            'Realtime task automation',
-                            'Detailed AI call summaries & reports',
-                            'Live call monitoring',
-                            'Unlimited call recordings'
-                        ].map((benefit) => (
-                            <div key={benefit} className="flex items-start gap-3">
-                                <Check size={18} className="text-blue-400 mt-0.5 shrink-0" />
-                                <span className="text-gray-500 font-bold text-sm leading-tight">{benefit}</span>
+                    {/* Plan Card */}
+                    <div className="border-2 border-gray-100 bg-white p-6 rounded-3xl mb-6 shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <div className="text-xl font-bold">Professional</div>
+                                <div className="text-sm text-gray-500">All included</div>
                             </div>
-                        ))}
+                            <div className="text-right">
+                                <div className="text-3xl font-black text-gray-900">{activePlan === 'annual' ? '$14' : '$19'}<span className="text-sm font-medium">/mo</span></div>
+                            </div>
+                        </div>
+                        <ul className="space-y-3">
+                            {['24/7 AI Receptionist', 'Unlimited Minutes', 'Transcripts', 'Spam Blocking'].map(i => (
+                                <li key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                    <Check size={14} className="text-green-600" />{i}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
 
-                    <div className="mt-12 text-center text-xs text-gray-400 font-medium">
-                        Terms | Privacy.
+                    <button 
+                        onClick={() => showToast('Subscription management coming soon')}
+                        className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-[0.98] transition-all"
+                    >
+                        Update Subscription
+                    </button>
+
+                    <div className="mt-8 text-center text-xs text-gray-400 font-medium">
+                        Terms | Privacy
                     </div>
                 </div>
             </div>
