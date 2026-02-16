@@ -22,10 +22,21 @@ export const checkAvailability = async (req, res) => {
         let args = toolCall.function.arguments;
         if (typeof args === 'string') try { args = JSON.parse(args); } catch (e) { }
 
-        const start = new Date(args.startTime);
-        const end = new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
+        // Support both Range Query (new) and Specific Slot Check (legacy/strict)
+        let paramStart = args.queryStartDate || args.startTime;
+        let paramEnd = args.queryEndDate; // Optional, might be missing if legacy
+
+        if (!paramStart) throw new Error("Missing start time");
+
+        const start = new Date(paramStart);
+        // If end is missing, assume it's a specific slot check of duration or default 30m
+        const end = paramEnd
+            ? new Date(paramEnd)
+            : new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
 
         const timezone = profile.timezone || 'America/New_York';
+
+        // 1. Fetch Busy Intervals
         const freeBusy = await calendar.freebusy.query({
             requestBody: {
                 timeMin: start.toISOString(),
@@ -36,10 +47,61 @@ export const checkAvailability = async (req, res) => {
         });
 
         const busySlots = freeBusy.data.calendars[profile.google_calendar_id || 'primary'].busy;
+
+        // 2. Logic: Range Search vs Spot Check
+        const isRangeSearch = !!(args.queryStartDate && args.queryEndDate);
+
+        if (!isRangeSearch) {
+            // Legacy/Strict Spot Check
+            const conflict = busySlots.length > 0;
+            return res.json({
+                results: [{
+                    toolCallId: toolCall.id,
+                    result: conflict ? `Busy. ${busySlots.length} conflict(s).` : "Available."
+                }]
+            });
+        }
+
+        // 3. Smart Slot Finding (Range Search)
+        // We have a window (e.g. 1pm to 4pm). We want to find chunks of [duration] minutes.
+        const durationMs = (args.durationMinutes || 30) * 60000;
+        const availableSlots = [];
+        let cursor = start.getTime();
+        const endWindow = end.getTime();
+
+        while (cursor + durationMs <= endWindow) {
+            const slotStart = cursor;
+            const slotEnd = cursor + durationMs;
+
+            // Check if this candidate slot overlaps with any busy slot
+            const isBusy = busySlots.some(busy => {
+                const bStart = new Date(busy.start).getTime();
+                const bEnd = new Date(busy.end).getTime();
+                return (slotStart < bEnd) && (slotEnd > bStart);
+            });
+
+            if (!isBusy) {
+                availableSlots.push(new Date(slotStart).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: timezone
+                }));
+                // Limit to 5 suggestions to avoid token overflow
+                if (availableSlots.length >= 5) break;
+            }
+
+            // Step forward by 30 mins (standard grid) or duration
+            cursor += 30 * 60000;
+        }
+
+        const resultText = availableSlots.length > 0
+            ? `Available slots: ${availableSlots.join(", ")}.`
+            : "No availability in that window.";
+
         return res.json({
             results: [{
                 toolCallId: toolCall.id,
-                result: busySlots.length > 0 ? `Busy. ${busySlots.length} conflict(s).` : "Available."
+                result: resultText
             }]
         });
 

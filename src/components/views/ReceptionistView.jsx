@@ -648,7 +648,7 @@ export default function ReceptionistView({
                                                 type="text"
                                                 value={newFact}
                                                 onChange={(e) => setNewFact(e.target.value)}
-                                                placeholder="Add a new fact..."
+                                                placeholder="ex.Free parking available"
                                                 className="h-10 flex-1 text-sm font-medium text-gray-900 outline-none bg-white border border-gray-200 rounded-lg px-3 focus:border-blue-500 transition-colors placeholder-gray-400"
                                                 onKeyDown={async (e) => {
                                                     if (e.key === 'Enter' && newFact.trim()) {

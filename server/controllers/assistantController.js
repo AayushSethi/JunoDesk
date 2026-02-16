@@ -7,6 +7,27 @@ import { getContextForUser } from '../services/contextService.js';
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_TOKEN = process.env.VAPI_PRIVATE_KEY;
 
+const SILENCE_HOOKS = [
+    {
+        on: 'customer.speech.timeout',
+        options: { timeoutSeconds: 10, triggerMaxCount: 1, triggerResetMode: 'onUserSpeech' },
+        do: [
+            { type: 'say', exact: "Looks like I’m not hearing anything—feel free to call back anytime." },
+            { type: 'tool', tool: { type: 'endCall' } }
+        ],
+        name: 'end_on_10s_silence'
+    }
+];
+
+const SUMMARY_PLAN = {
+    messages: [
+        { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in 20 words or less. Do not include filler words like 'The caller called to'. Just state the outcome." },
+        { role: "user", content: "Transcript: {{transcript}}" }
+    ],
+    timeoutSeconds: 10,
+    enabled: true
+};
+
 export const provision = async (req, res) => {
     try {
         const { userId, companyName, industry, userPhone } = req.body;
@@ -68,6 +89,8 @@ export const provision = async (req, res) => {
             const assistantPayload = {
                 name: `${profile.company_name} Receptionist`,
                 serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
+                analysisPlan: { summaryPlan: SUMMARY_PLAN },
+                hooks: SILENCE_HOOKS,
                 model: {
                     provider: "openai",
                     model: "gpt-4o",
@@ -194,6 +217,8 @@ export const syncAssistant = async (req, res) => {
         const updatedPayload = {
             name: profile.assistant_name || `${profile.company_name} Receptionist`,
             serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
+            analysisPlan: { summaryPlan: SUMMARY_PLAN },
+            hooks: SILENCE_HOOKS,
             voice: {
                 provider: "11labs",
                 voiceId: activeVoiceId,
@@ -206,17 +231,18 @@ export const syncAssistant = async (req, res) => {
                 tools: [
                     ...(profile.google_access_token ? [
                         {
-                            type: "function",
+                            type: 'function',
                             function: {
-                                name: "checkAvailability",
-                                description: "Check if a specific time slot is available.",
+                                name: 'checkAvailability',
+                                description: 'Check availability within a time range. Returns free slots or confirms a specific time.',
                                 parameters: {
-                                    type: "object",
+                                    type: 'object',
                                     properties: {
-                                        startTime: { type: "string" },
-                                        durationMinutes: { type: "number" }
+                                        queryStartDate: { type: 'string', description: 'Start of the search window (ISO 8601)' },
+                                        queryEndDate: { type: 'string', description: 'End of the search window (ISO 8601)' },
+                                        durationMinutes: { type: 'number', description: 'Duration of the meeting in minutes (default 30)' }
                                     },
-                                    required: ["startTime"]
+                                    required: ['queryStartDate', 'queryEndDate']
                                 }
                             },
                             server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/check-availability` }
