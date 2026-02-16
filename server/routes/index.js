@@ -23,6 +23,9 @@ router.post('/api/provision', assistantController.provision);
 router.post('/api/sync-assistant', assistantController.syncAssistant);
 router.get('/api/fix-assistant-link', assistantController.fixAssistantLink);
 
+// Allow GET or POST for cron to make it easier to trigger
+router.all('/api/cron/refresh-all', assistantController.refreshAllAssistants);
+
 // --- Call Routes ---
 router.get('/api/calls', callController.getCalls);
 router.get('/api/sync-calls', callController.syncCalls);

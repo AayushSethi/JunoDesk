@@ -199,95 +199,15 @@ export const syncAssistant = async (req, res) => {
 
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
-        const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext, timezone } = await getContextForUser(userId);
-
-        if (!profile.vapi_assistant_id) return res.status(400).json({ error: "No assistant found. Provision first." });
-
-        let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext, timezone });
-
-        if (languages && Array.isArray(languages) && languages.length > 0) {
-            systemPrompt += `\n\nIMPORTANT LANGUAGE INSTRUCTION: You are fluent in: ${languages.join(", ")}. Switch language if user speaks it.`;
-        }
-
-        const activeVoiceId = explicitVoiceId || voiceId || "OYTbf65OHHFELVut7v2H";
+        // Update voice if explicitly requested
         if (explicitVoiceId) {
-            await supabase.from('business_profiles').update({ voice_id: activeVoiceId }).eq('owner_user_id', userId);
+            await supabase.from('business_profiles').update({ voice_id: explicitVoiceId }).eq('owner_user_id', userId);
         }
 
-        const updatedPayload = {
-            name: profile.assistant_name || `${profile.company_name} Receptionist`,
-            serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
-            analysisPlan: { summaryPlan: SUMMARY_PLAN },
-            hooks: SILENCE_HOOKS,
-            voice: {
-                provider: "11labs",
-                voiceId: activeVoiceId,
-                model: "eleven_turbo_v2"
-            },
-            model: {
-                provider: "openai",
-                model: "gpt-4o",
-                messages: [{ role: "system", content: systemPrompt }],
-                tools: [
-                    ...(profile.google_access_token ? [
-                        {
-                            type: 'function',
-                            function: {
-                                name: 'checkAvailability',
-                                description: 'Check availability within a time range. Returns free slots or confirms a specific time.',
-                                parameters: {
-                                    type: 'object',
-                                    properties: {
-                                        queryStartDate: { type: 'string', description: 'Start of the search window (ISO 8601)' },
-                                        queryEndDate: { type: 'string', description: 'End of the search window (ISO 8601)' },
-                                        durationMinutes: { type: 'number', description: 'Duration of the meeting in minutes (default 30)' }
-                                    },
-                                    required: ['queryStartDate', 'queryEndDate']
-                                }
-                            },
-                            server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/check-availability` }
-                        },
-                        {
-                            type: "function",
-                            function: {
-                                name: "bookAppointment",
-                                description: "Book an appointment.",
-                                parameters: {
-                                    type: "object",
-                                    properties: {
-                                        summary: { type: "string" },
-                                        startTime: { type: "string" },
-                                        durationMinutes: { type: "number" }
-                                    },
-                                    required: ["summary", "startTime"]
-                                }
-                            },
-                            server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/book-appointment` }
-                        }
-                    ] : []),
-                    {
-                        type: "function",
-                        function: {
-                            name: "getCurrentTime",
-                            description: "Get current date/time.",
-                            parameters: { type: "object", properties: {} }
-                        },
-                        server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/get-current-time` }
-                    }
-                ]
-            },
-            firstMessage: greeting
-        };
+        // Perform Core Sync
+        const vapiResponse = await syncAssistantCore(userId, { languages });
 
-        const response = await fetch(`${VAPI_BASE_URL}/assistant/${profile.vapi_assistant_id}`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedPayload)
-        });
-
-        if (!response.ok) throw new Error(await response.text());
-
-        res.json({ success: true, vapiResponse: await response.json() });
+        res.json({ success: true, vapiResponse });
 
     } catch (err) {
         console.error("❌ Sync Assistant Failed:", err);
@@ -314,6 +234,138 @@ export const fixAssistantLink = async (req, res) => {
         }
 
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// --- Core Sync Logic (Reusable) ---
+export const syncAssistantCore = async (userId, options = {}) => {
+    const { languages } = options;
+
+    // 1. Fetch Context
+    const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId: ctxVoiceId, calendarContext, timezone } = await getContextForUser(userId);
+    if (!profile.vapi_assistant_id) throw new Error("No assistant found");
+
+    // 2. Generate Prompt
+    let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext, timezone });
+
+    if (languages && Array.isArray(languages) && languages.length > 0) {
+        systemPrompt += `\n\nIMPORTANT LANGUAGE INSTRUCTION: You are fluent in: ${languages.join(", ")}. Switch language if user speaks it.`;
+    }
+
+    if (!profile.google_access_token) {
+        systemPrompt += `\n- Calendar is NOT connected. Do NOT offer to book appointments. Take a message instead.`;
+    } else {
+        systemPrompt += `\n- If caller asks what times are available: collect day + duration, then check 3 standard slots and offer up to 3 available options.`;
+    }
+
+    // 3. Construct Payload
+    const updatedPayload = {
+        name: profile.assistant_name || `${profile.company_name} Receptionist`,
+        serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
+        analysisPlan: { summaryPlan: SUMMARY_PLAN },
+        hooks: SILENCE_HOOKS,
+        voice: {
+            provider: "11labs",
+            voiceId: ctxVoiceId || "OYTbf65OHHFELVut7v2H",
+            model: "eleven_turbo_v2"
+        },
+        model: {
+            provider: "openai",
+            model: "gpt-4o",
+            messages: [{ role: "system", content: systemPrompt }],
+            tools: [
+                ...(profile.google_access_token ? [
+                    {
+                        type: 'function',
+                        function: {
+                            name: 'checkAvailability',
+                            description: 'Check availability within a time range. Returns free slots or confirms a specific time.',
+                            parameters: {
+                                type: 'object',
+                                properties: {
+                                    queryStartDate: { type: 'string', description: 'Start of the search window (ISO 8601)' },
+                                    queryEndDate: { type: 'string', description: 'End of the search window (ISO 8601)' },
+                                    durationMinutes: { type: 'number', description: 'Duration of the meeting in minutes (default 30)' }
+                                },
+                                required: ['queryStartDate', 'queryEndDate']
+                            }
+                        },
+                        server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/check-availability` }
+                    },
+                    {
+                        type: "function",
+                        function: {
+                            name: "bookAppointment",
+                            description: "Book an appointment.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    summary: { type: "string" },
+                                    startTime: { type: "string" },
+                                    durationMinutes: { type: "number" }
+                                },
+                                required: ["summary", "startTime"]
+                            }
+                        },
+                        server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/book-appointment` }
+                    }
+                ] : []),
+                {
+                    type: "function",
+                    function: {
+                        name: "getCurrentTime",
+                        description: "Get current date/time.",
+                        parameters: { type: "object", properties: {} }
+                    },
+                    server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/get-current-time` }
+                }
+            ]
+        },
+        firstMessage: greeting
+    };
+
+    // 4. Send to Vapi
+    const response = await fetch(`${VAPI_BASE_URL}/assistant/${profile.vapi_assistant_id}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${VAPI_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPayload)
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+    return await response.json();
+};
+
+export const refreshAllAssistants = async (req, res) => {
+    console.log("🔄 Cron: Refreshing all assistants...");
+    try {
+        const { data: profiles, error } = await supabase
+            .from('business_profiles')
+            .select('owner_user_id, vapi_assistant_id')
+            .not('vapi_assistant_id', 'is', null);
+
+        if (error) throw error;
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+
+        for (const p of profiles) {
+            try {
+                await syncAssistantCore(p.owner_user_id);
+                successCount++;
+            } catch (err) {
+                console.error(`❌ Failed to refresh user ${p.owner_user_id}:`, err.message);
+                failCount++;
+                errors.push({ userId: p.owner_user_id, error: err.message });
+            }
+        }
+
+        console.log(`✅ Cron Finished. Success: ${successCount}, Fail: ${failCount}`);
+        res.json({ success: true, successCount, failCount, errors });
+
+    } catch (e) {
+        console.error("❌ Cron Failed:", e);
         res.status(500).json({ error: e.message });
     }
 };

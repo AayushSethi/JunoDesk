@@ -31,13 +31,6 @@ export function generateSystemPrompt({
         timeZone: TZ,
     });
 
-    const timeStr = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZoneName: 'short',
-        timeZone: TZ,
-    });
-
     const yearStr = now.toLocaleDateString('en-US', {
         year: 'numeric',
         timeZone: TZ,
@@ -84,8 +77,10 @@ You are a friendly, professional AI receptionist for ${profile.company_name || '
 Your primary tasks: answer questions, take messages, and schedule appointments.
 
 [System Context]
+Today is ${dateStr}.
 Timezone is ${TZ}.
-All relative dates like “today”, “tomorrow”, or weekdays must be computed relative to the dynamic date provided at the start of the call.
+Current year is ${yearStr}. Never assume any other year unless the caller explicitly says a different year.
+All relative dates like “today”, “tomorrow”, or weekdays must be computed relative to this date in ${TZ}.
 You must never guess the current date, time, timezone, or year.
 If you need to verify the exact date or time for a booking, use the 'getCurrentTime' tool.
 
