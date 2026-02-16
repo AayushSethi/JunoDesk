@@ -26,11 +26,17 @@ export const scrapeWebsite = async (req, res) => {
                 .eq('owner_user_id', userId)
                 .eq('type', 'website_content');
 
-            await supabase.from('business_info').insert({
+            const { data, error } = await supabase.from('business_info').insert({
                 owner_user_id: userId,
                 type: 'website_content',
                 content: { text: fullContent, source: 'website_scrape', url, title }
-            });
+            }).select();
+
+            if (error) {
+                console.error("❌ Website Insert Error:", error);
+            } else {
+                console.log("✅ Website Insert Success:", data);
+            }
         }
 
         res.json({ success: true, text: fullContent, title });
