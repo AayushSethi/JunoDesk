@@ -9,6 +9,34 @@ export const vapiWebhook = async (req, res) => {
         const { message } = req.body;
         console.log(`📨 Webhook Received: ${message.type}`);
 
+        if (message.type === 'assistant-request') {
+            const now = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: 'full', timeStyle: 'short' });
+            const systemUpdate = `[SYSTEM UPDATE] Current Date and Time: ${now}. You must use this date for all scheduling.`;
+
+            return res.json({
+                assistant: {
+                    ...message.assistant,
+                    model: {
+                        ...message.assistant.model,
+                        messages: [
+                            { role: "system", content: systemUpdate },
+                            ...(message.assistant.model.messages || [])
+                        ]
+                    },
+                    analysisPlan: {
+                        summaryPlan: {
+                            messages: [
+                                { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in STRICTLY 20 WORDS OR LESS. If you exceed 20 words, you fail. Do not include filler words like 'The caller to'. Just state the outcome." },
+                                { role: "user", content: "Transcript: {{transcript}}" }
+                            ],
+                            enabled: true,
+                            timeoutSeconds: 10
+                        }
+                    }
+                }
+            });
+        }
+
         if (message.type === 'end-of-call-report') {
             const { call, customer, analysis, artifact } = message;
             const assistantId = message.assistantId || call.assistantId;
