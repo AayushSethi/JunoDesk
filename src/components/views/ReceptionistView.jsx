@@ -528,7 +528,7 @@ export default function ReceptionistView({
 
                                     {/* Synced Website Content */}
                                     <div className="space-y-2">
-                                        {knowledgeItems.filter(i => i.type === 'instruction' && (i.content.text.startsWith('WEBSITE KNOWLEDGE') || i.content.source === 'website_scrape')).map((item) => {
+                                        {knowledgeItems.filter(i => (i.type === 'instruction' && (i.content.text.startsWith('WEBSITE KNOWLEDGE') || i.content.source === 'website_scrape')) || i.type === 'website_content').map((item) => {
                                             const titleMatch = item.content.text.match(/WEBSITE KNOWLEDGE \((.*?)\):/);
                                             const title = titleMatch ? titleMatch[1] : (item.content.url ? new URL(item.content.url).hostname : "Website Content");
 
