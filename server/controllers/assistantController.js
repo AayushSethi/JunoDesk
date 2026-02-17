@@ -21,7 +21,7 @@ const SILENCE_HOOKS = [
 
 const SUMMARY_PLAN = {
     messages: [
-        { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in 20 words or less. Do not include filler words like 'The caller called to'. Just state the outcome." },
+        { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in 20 words or less. Do not include filler words like 'The caller called to'. Just state the outcome. DO NOT Wtite timezone just date and time." },
         { role: "user", content: "Transcript: {{transcript}}" }
     ],
     timeoutSeconds: 10,
@@ -30,7 +30,7 @@ const SUMMARY_PLAN = {
 
 export const provision = async (req, res) => {
     try {
-        const { userId, companyName, industry, userPhone } = req.body;
+        const { userId, companyName, industry, userPhone, timezone } = req.body;
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
         console.log(`🚀 Starting Provisioning for User: ${userId}`);
@@ -49,7 +49,8 @@ export const provision = async (req, res) => {
                     owner_user_id: userId,
                     company_name: companyName || 'Demo Company',
                     industry: industry || 'Other',
-                    user_phone_number: userPhone || null
+                    user_phone_number: userPhone || null,
+                    timezone: timezone || 'America/New_York'
                 })
                 .select()
                 .single();
@@ -194,14 +195,18 @@ export const provision = async (req, res) => {
 
 export const syncAssistant = async (req, res) => {
     try {
-        const { userId, languages, voiceId: reqVoiceId, voice_id: reqVoiceIdUnderscore } = req.body;
+        const { userId, languages, timezone, voiceId: reqVoiceId, voice_id: reqVoiceIdUnderscore } = req.body;
         const explicitVoiceId = reqVoiceId || reqVoiceIdUnderscore;
 
         if (!userId) return res.status(400).json({ error: "Missing userId" });
 
-        // Update voice if explicitly requested
-        if (explicitVoiceId) {
-            await supabase.from('business_profiles').update({ voice_id: explicitVoiceId }).eq('owner_user_id', userId);
+        // Update profile settings if provided
+        const updates = {};
+        if (explicitVoiceId) updates.voice_id = explicitVoiceId;
+        if (timezone) updates.timezone = timezone;
+
+        if (Object.keys(updates).length > 0) {
+            await supabase.from('business_profiles').update(updates).eq('owner_user_id', userId);
         }
 
         // Perform Core Sync
@@ -326,14 +331,32 @@ export const syncAssistantCore = async (userId, options = {}) => {
     };
 
     // 4. Send to Vapi
-    const response = await fetch(`${VAPI_BASE_URL}/assistant/${profile.vapi_assistant_id}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${VAPI_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedPayload)
-    });
+    const sendUpdate = async (vid) => {
+        const payload = { ...updatedPayload, voice: { ...updatedPayload.voice, voiceId: vid } };
+        const res = await fetch(`${VAPI_BASE_URL}/assistant/${profile.vapi_assistant_id}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(txt);
+        }
+        return await res.json();
+    };
 
-    if (!response.ok) throw new Error(await response.text());
-    return await response.json();
+    try {
+        return await sendUpdate(ctxVoiceId || "OYTbf65OHHFELVut7v2H");
+    } catch (err) {
+        // Self-healing: If voice is bad, retry with default Andrew voice
+        if (err.message.includes("Couldn't Find 11labs Voice") || err.message.includes("Bad Request")) {
+            console.warn(`⚠️ User ${userId} has invalid voice ${ctxVoiceId}. Retrying with default...`);
+            // Update DB to reflect fallback (optional but cleaner)
+            await supabase.from('business_profiles').update({ voice_id: "OYTbf65OHHFELVut7v2H" }).eq('owner_user_id', userId);
+            return await sendUpdate("OYTbf65OHHFELVut7v2H");
+        }
+        throw err;
+    }
 };
 
 export const refreshAllAssistants = async (req, res) => {

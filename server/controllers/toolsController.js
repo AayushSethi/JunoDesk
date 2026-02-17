@@ -154,12 +154,22 @@ export const bookAppointment = async (req, res) => {
         const customerNumber = message.customer?.number || message.call?.customer?.number;
         if (customerNumber && profile.vapi_phone_number) {
             try {
+                const tz = profile.timezone || 'America/New_York';
+                const formattedDate = start.toLocaleString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                    hour: 'numeric', minute: '2-digit', timeZone: tz
+                });
+
+                const smsBody = `Hello! Your appointment with ${profile.company_name || 'us'} is confirmed for ${formattedDate}. Topic: ${args.summary}. See you then!`;
+
                 await twilioClient.messages.create({
-                    body: `Meeting confirmed: "${args.summary}" at ${start.toLocaleString()}.`,
+                    body: smsBody,
                     from: profile.vapi_phone_number,
                     to: customerNumber
                 });
-            } catch (e) { }
+            } catch (e) {
+                console.error("SMS Failed:", e.message);
+            }
         }
 
         res.json({ results: [{ toolCallId: toolCall.id, result: "Success." }] });
@@ -170,12 +180,32 @@ export const bookAppointment = async (req, res) => {
     }
 };
 
-export const getCurrentTime = (req, res) => {
-    const now = new Date();
-    res.json({
-        results: [{
-            toolCallId: req.body.message?.toolCalls?.[0]?.id,
-            result: `Current Time: ${now.toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.`
-        }]
-    });
+export const getCurrentTime = async (req, res) => {
+    try {
+        const assistantId = req.body.message?.assistantId || req.body.call?.assistantId;
+        let timezone = 'America/New_York';
+
+        if (assistantId) {
+            const { data: profile } = await supabase
+                .from('business_profiles')
+                .select('timezone')
+                .eq('vapi_assistant_id', assistantId)
+                .maybeSingle();
+
+            if (profile && profile.timezone) timezone = profile.timezone;
+        }
+
+        const now = new Date();
+        const timestr = now.toLocaleString('en-US', { timeZone: timezone, dateStyle: 'full', timeStyle: 'short' });
+
+        res.json({
+            results: [{
+                toolCallId: req.body.message?.toolCalls?.[0]?.id,
+                result: `Current Date/Time: ${timestr} (${timezone}).`
+            }]
+        });
+    } catch (e) {
+        console.error("getCurrentTime Error:", e);
+        res.status(500).json({ error: e.message });
+    }
 };

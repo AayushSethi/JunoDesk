@@ -10,8 +10,23 @@ export const vapiWebhook = async (req, res) => {
         console.log(`📨 Webhook Received: ${message.type}`);
 
         if (message.type === 'assistant-request') {
-            const now = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: 'full', timeStyle: 'short' });
-            const systemUpdate = `[SYSTEM UPDATE] Current Date and Time: ${now}. You must use this date for all scheduling.`;
+            const assistantId = message.assistantId || (message.assistant && message.assistant.id);
+            let timezone = 'America/New_York';
+
+            if (assistantId) {
+                const { data: profile } = await supabase
+                    .from('business_profiles')
+                    .select('timezone')
+                    .eq('vapi_assistant_id', assistantId)
+                    .maybeSingle(); // Use maybeSingle to avoid errors if not found
+
+                if (profile && profile.timezone) {
+                    timezone = profile.timezone;
+                }
+            }
+
+            const now = new Date().toLocaleString("en-US", { timeZone: timezone, dateStyle: 'full', timeStyle: 'short' });
+            const systemUpdate = `[SYSTEM UPDATE] Current Date and Time: ${now} (${timezone}). You must use this date for all scheduling.`;
 
             return res.json({
                 assistant: {
