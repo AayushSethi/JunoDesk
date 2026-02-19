@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    AudioWaveform, Globe, MessageCircle, FileText, Calendar,
+    AudioWaveform, Globe,
     Plus, X, RefreshCw, ChevronDown, Check, Phone,
-    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Settings, Info, PhoneCall, HelpCircle, XCircle, Clock
+    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, PhoneCall, HelpCircle, Clock
 } from 'lucide-react';
 import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
@@ -57,6 +57,13 @@ export default function ReceptionistView({
     const [activeModal, setActiveModal] = useState(null); // 'add-question' etc
     const [showLanguageModal, setShowLanguageModal] = useState(false);
     const [tempQuestion, setTempQuestion] = useState({ q: "", a: "" });
+
+    // Auto-provision if missing
+    useEffect(() => {
+        if (userInfo && !userInfo.vapiPhoneNumber && !provisioning) {
+            handleProvision();
+        }
+    }, [userInfo, provisioning, handleProvision]);
 
     return (
         <>
@@ -717,9 +724,10 @@ export default function ReceptionistView({
                                         <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
                                             <div className="flex justify-between items-center mb-4">
                                                 <div>
-                                                    <h3 className="text-sm font-bold text-gray-900">{personality.name}'s Number</h3>
+                                                    <h3 className="text-sm font-bold text-gray-900">Your Assistant's Number</h3>
                                                     <p className="text-xs text-gray-500 mt-0.5">Call to test your assistant</p>
                                                 </div>
+
                                                 <button
                                                     onClick={() => {
                                                         if (userInfo.vapiPhoneNumber) {
@@ -735,28 +743,24 @@ export default function ReceptionistView({
                                             </div>
 
                                             {userInfo.vapiPhoneNumber ? (
-                                                <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-between text-gray-900 shadow-sm group cursor-pointer hover:border-blue-300 transition-all" onClick={() => {
-                                                    navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
-                                                    showToast("Number copied");
-                                                }}>
-                                                    <span>{userInfo.vapiPhoneNumber}</span>
-                                                    <div className="text-gray-300 group-hover:text-blue-500 transition-colors">
+                                                <div
+                                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-black tracking-tight flex items-center justify-center text-gray-900 shadow-sm group cursor-pointer hover:border-blue-300 transition-all relative"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(userInfo.vapiPhoneNumber);
+                                                        showToast("Number copied");
+                                                    }}
+                                                >
+                                                    <span className="text-center">{userInfo.vapiPhoneNumber}</span>
+
+                                                    <div className="absolute right-4 text-gray-300 group-hover:text-blue-500 transition-colors">
                                                         <Copy size={16} />
                                                     </div>
                                                 </div>
-                                            ) : provisioning ? (
+                                            ) : (
                                                 <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-gray-400 animate-pulse shadow-sm">
                                                     <RefreshCw size={16} className="animate-spin" />
-                                                    <span>Generating Number...</span>
+                                                    <span>Connecting Assistant...</span>
                                                 </div>
-                                            ) : (
-                                                <button
-                                                    onClick={handleProvision}
-                                                    className="w-full bg-white border border-red-200 rounded-xl px-4 py-3 font-bold flex items-center justify-center space-x-2 text-red-500 hover:bg-red-50 transition-colors shadow-sm"
-                                                >
-                                                    <RefreshCw size={16} />
-                                                    <span>Retry Number Generation</span>
-                                                </button>
                                             )}
                                         </section>
 

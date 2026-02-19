@@ -50,25 +50,21 @@ export default function InboxView({
         const diffTime = startOfToday - startOfCallDate;
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-        let label = "Older";
+        let label = fmtDate(date); // Default to actual date (e.g. "Mon, Feb 17")
 
         if (diffDays === 0) label = "Today";
         else if (diffDays === 1) label = "Yesterday";
-        else if (diffDays < 7) label = fmtDate(date);
-        else if (diffDays < 14) label = "2 Weeks Ago";
-        else if (diffDays < 30) label = "Last 30 Days";
 
         if (!acc[label]) acc[label] = [];
         acc[label].push(call);
         return acc;
     }, {});
 
-    const dateKeys = Object.keys(grouped).filter(k =>
-        k !== "Today" && k !== "Yesterday" && k !== "2 Weeks Ago" && k !== "Last 30 Days" && k !== "Older"
-    );
+    const dateKeys = Object.keys(grouped).filter(k => k !== "Today" && k !== "Yesterday");
 
-    dateKeys.sort((a, b) => new Date(b + ` ${now.getFullYear()}`) - new Date(a + ` ${now.getFullYear()}`));
-    const order = ["Today", "Yesterday", ...dateKeys, "2 Weeks Ago", "Last 30 Days", "Older"];
+    // Sort dates descending
+    dateKeys.sort((a, b) => new Date(b) - new Date(a));
+    const order = ["Today", "Yesterday", ...dateKeys];
 
     return (
         <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">

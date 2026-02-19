@@ -21,7 +21,7 @@ const SILENCE_HOOKS = [
 
 const SUMMARY_PLAN = {
     messages: [
-        { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in 20 words or less. Do not include filler words like 'The caller called to'. Just state the outcome. DO NOT Wtite timezone just date and time." },
+        { role: "system", content: "You are an expert concise summarizer. Output a summary of this call in 20 words or less. Do not include filler words like 'The caller called to'. Just state the outcome. DO NOT Write timezone just date and time." },
         { role: "user", content: "Transcript: {{transcript}}" }
     ],
     timeoutSeconds: 10,
@@ -135,20 +135,70 @@ export const provision = async (req, res) => {
         }
 
         // CHUNK 2 — Buy Twilio number
+        // CHUNK 2 — Buy Twilio number (with fallback)
         let purchased = null;
+
         if (profile.vapi_phone_number && profile.twilio_phone_sid) {
             purchased = { phoneNumber: profile.vapi_phone_number, sid: profile.twilio_phone_sid };
         } else {
-            console.log("📞 Searching for SMS-capable numbers on Twilio...");
-            const available = await twilioClient.availablePhoneNumbers('US').local.list({ limit: 1, smsEnabled: true, voiceEnabled: true });
+            try {
+                console.log("📞 Searching for SMS-capable numbers on Twilio...");
+                // 1. Try to buy a fresh number first (Primary Strategy)
+                const available = await twilioClient.availablePhoneNumbers('US').local.list({
+                    limit: 1,
+                    smsEnabled: true,
+                    voiceEnabled: true
+                });
 
-            if (!available.length) throw new Error("No SMS-capable numbers available");
+                if (!available.length) throw new Error("No numbers found via Twilio API");
 
-            purchased = await twilioClient.incomingPhoneNumbers.create({
-                phoneNumber: available[0].phoneNumber,
-                friendlyName: `${profile.company_name} - JunoDesk`
-            });
-            console.log(`✅ Purchased number: ${purchased.phoneNumber} (SID: ${purchased.sid})`);
+                purchased = await twilioClient.incomingPhoneNumbers.create({
+                    phoneNumber: available[0].phoneNumber,
+                    friendlyName: `${profile.company_name} - JunoDesk`,
+                    voiceUrl: 'https://api.vapi.ai/twilio/inbound_call' // Ensure webhook is set immediately
+                });
+                console.log(`✅ Purchased NEW number: ${purchased.phoneNumber} (SID: ${purchased.sid})`);
+
+            } catch (err) {
+                console.warn(`⚠️ Failed to buy NEW number (${err.message}). Attempting to use BACKUP POOL...`);
+
+                // 2. Fallback to Backup Pool (Secondary Strategy)
+                const { data: backupNumber, error: backupError } = await supabase
+                    .from('backup_numbers')
+                    .select('*')
+                    .eq('status', 'available')
+                    .limit(1)
+                    .maybeSingle();
+
+                if (backupError || !backupNumber) {
+                    console.error("❌ CRITICAL: Backup pool is empty or unreachable!", backupError);
+                    throw new Error("Phone system is currently busy. Please try again in 5 minutes or contact support.");
+                }
+
+                // 3. Claim the backup number atomically
+                const { error: claimError } = await supabase
+                    .from('backup_numbers')
+                    .update({
+                        status: 'assigned',
+                        assigned_user_id: userId
+                    })
+                    .eq('id', backupNumber.id);
+
+                if (claimError) throw new Error("Failed to claim backup number.");
+
+                // 4. Use the backup number
+                purchased = {
+                    phoneNumber: backupNumber.phone_number,
+                    sid: backupNumber.twilio_sid
+                };
+
+                // Optional: Update Twilio Friendly Name asynchronously (fire and forget)
+                twilioClient.incomingPhoneNumbers(purchased.sid)
+                    .update({ friendlyName: `${profile.company_name} - JunoDesk (Backup)` })
+                    .catch(e => console.warn("Failed to rename backup number:", e.message));
+
+                console.log(`✅ Assigned BACKUP number: ${purchased.phoneNumber}`);
+            }
         }
 
         // CHUNK 3 — Import into Vapi
