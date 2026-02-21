@@ -8,6 +8,7 @@ import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
 import AddQuestionModal from '../modals/AddQuestionModal';
 import LanguageModal from '../modals/LanguageModal';
+import AddServiceModal from '../modals/AddServiceModal';
 
 export default function ReceptionistView({
     activeReceptionistTab,
@@ -57,6 +58,7 @@ export default function ReceptionistView({
     const [activeModal, setActiveModal] = useState(null); // 'add-question' etc
     const [showLanguageModal, setShowLanguageModal] = useState(false);
     const [tempQuestion, setTempQuestion] = useState({ q: "", a: "" });
+    const [tempService, setTempService] = useState({ name: "", description: "", price: "", duration: "" });
 
     // Auto-provision if missing
     useEffect(() => {
@@ -502,7 +504,7 @@ export default function ReceptionistView({
                                                             .select('*')
                                                             .eq('owner_user_id', session.user.id);
                                                         if (info) {
-                                                            setKnowledgeItems(info.filter(i => ['qa', 'fact', 'instruction', 'common_words', 'website_content'].includes(i.type)));
+                                                            setKnowledgeItems(info.filter(i => ['qa', 'fact', 'instruction', 'common_words', 'website_content', 'services'].includes(i.type)));
                                                         }
                                                         syncAssistant();
                                                     } else {
@@ -594,6 +596,44 @@ export default function ReceptionistView({
                                         className="w-full text-sm font-medium text-gray-900 outline-none bg-white border border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 transition-colors resize-none leading-relaxed placeholder-gray-400"
                                         placeholder="Describe what your company does..."
                                     />
+                                </div>
+
+                                {/* Services Card */}
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
+                                    <h3 className="text-sm font-bold text-gray-900 mb-3">Services Offered</h3>
+                                    <p className="text-xs text-gray-500 mb-3">List the services your business provides</p>
+                                    <div className="space-y-2">
+                                        {knowledgeItems.filter(i => i.type === 'services').map((item) => (
+                                            <div key={item.id} className="bg-white border border-gray-100 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors group relative">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="font-bold text-gray-900 text-sm">{item.content.name}</h4>
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            await supabase.from('business_info').delete().eq('id', item.id);
+                                                            setKnowledgeItems(prev => prev.filter(k => k.id !== item.id));
+                                                            syncAssistant();
+                                                        }}
+                                                        className="text-gray-300 hover:text-red-500 transition-colors pointer-events-auto"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                                {item.content.description && <p className="text-xs text-gray-500 mb-1">{item.content.description}</p>}
+                                                <div className="flex gap-3 text-[11px] font-medium text-gray-400">
+                                                    {item.content.price && <span>Price: {item.content.price}</span>}
+                                                    {item.content.duration && <span>Duration: {item.content.duration} min</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => setActiveModal('add-service')}
+                                            className="h-10 w-full bg-white border border-gray-200 text-gray-900 rounded-lg font-medium hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center text-sm"
+                                        >
+                                            <Plus size={16} className="mr-2" />
+                                            Add Service
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Questions Card */}
@@ -1004,6 +1044,45 @@ export default function ReceptionistView({
                     </div>
                 </>
                 {/* --- Modals Rendered --- */}
+                {activeModal === 'add-service' && (
+                    <AddServiceModal
+                        onClose={() => setActiveModal(null)}
+                        tempService={tempService}
+                        setTempService={setTempService}
+                        onSave={async () => {
+                            if (tempService.name) {
+                                try {
+                                    const { data, error } = await supabase
+                                        .from('business_info')
+                                        .insert([{
+                                            owner_user_id: session.user.id,
+                                            type: 'services',
+                                            content: {
+                                                name: tempService.name,
+                                                description: tempService.description,
+                                                price: tempService.price,
+                                                duration: tempService.duration
+                                            }
+                                        }])
+                                        .select()
+                                        .single();
+
+                                    if (error) throw error;
+
+                                    setKnowledgeItems(prev => [...prev, data]);
+                                    setTempService({ name: "", description: "", price: "", duration: "" });
+                                    setActiveModal(null);
+                                    showToast("Service added");
+                                    syncAssistant();
+                                } catch (err) {
+                                    console.error("Error saving service:", err);
+                                    showToast("Failed to save service");
+                                }
+                            }
+                        }}
+                    />
+                )}
+
                 {activeModal === 'add-question' && (
                     <AddQuestionModal
                         onClose={() => setActiveModal(null)}

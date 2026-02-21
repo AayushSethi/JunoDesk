@@ -389,8 +389,8 @@ export default function App() {
                         console.log("✅ Languages loaded:", languagesItem.content.languages);
                     }
 
-                    // Extract Knowledge Items (QA, Fact, Instruction, Common Words)
-                    const items = info.filter(i => ['qa', 'fact', 'instruction', 'common_words', 'website_content'].includes(i.type));
+                    // Extract Knowledge Items (QA, Fact, Instruction, Common Words, Services)
+                    const items = info.filter(i => ['qa', 'fact', 'instruction', 'common_words', 'website_content', 'services'].includes(i.type));
                     setKnowledgeItems(items);
 
                     console.log("✅ Knowledge items loaded:", items.length);
@@ -1098,6 +1098,7 @@ export default function App() {
                     session={session}
                     supabase={supabase}
                     languages={languages}
+                    setLanguages={setLanguages}
                     LANGUAGES={LANGUAGES}
                     provisioning={provisioning}
                 />

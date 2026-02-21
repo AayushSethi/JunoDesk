@@ -32,7 +32,10 @@ export default function LanguageModal({
                         return (
                             <button
                                 key={l.name}
-                                onClick={() => {
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     if (isSelected) {
                                         setLanguages(prev => prev.filter(x => x !== l.name));
                                     } else {
