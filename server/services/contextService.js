@@ -28,6 +28,7 @@ export async function getContextForUser(userId) {
     const instructions = info.filter(i => i.type === 'instruction').map(i => i.content.text);
     const commonWords = info.filter(i => i.type === 'common_words').map(i => i.content.text);
     const knowledge = info.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content);
+    const services = info.filter(i => i.type === 'services').map(i => i.content);
     const websiteContent = info.find(i => i.type === 'website_content')?.content;
     const personalityItem = info.find(i => i.type === 'personality');
     const voiceId = profile.voice_id || personalityItem?.content?.voiceId;
@@ -39,5 +40,5 @@ export async function getContextForUser(userId) {
     }
 
     const timezone = profile.timezone || 'America/New_York';
-    return { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext, timezone };
+    return { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId, calendarContext, timezone, services };
 }

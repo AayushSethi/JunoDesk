@@ -11,7 +11,8 @@ export function generateSystemPrompt({
     knowledge,
     websiteContent,
     calendarContext,
-    timezone
+    timezone,
+    services
 }) {
     // ---- Runtime safety defaults ----
     profile = profile || {};
@@ -66,6 +67,18 @@ export function generateSystemPrompt({
         Array.isArray(commonWords) && commonWords.length > 0
             ? `\n[Special Vocabulary]\nPay extra attention to these words/names: ${commonWords.join(", ")}\n`
             : '';
+
+    const svcs = Array.isArray(services) ? services : [];
+    const servicesBlock = svcs.length > 0
+        ? `\n[Services Offered]\n` + svcs.map(s => {
+            let details = [];
+            if (s.price) details.push(`Price: ${s.price}`);
+            if (s.duration) details.push(`Duration: ${s.duration} min`);
+            const detailsStr = details.length > 0 ? ` (${details.join(', ')})` : '';
+            const descStr = s.description ? `\n  Description: ${s.description}` : '';
+            return `- ${s.name}${detailsStr}${descStr}`;
+        }).join('\n') + '\n'
+        : '';
 
     // ---- Greeting default ----
     const greetingLine = (greeting && String(greeting).trim()) || 'Thanks for calling—how can I help?';
@@ -213,7 +226,7 @@ Goal: Collect day + time + duration, confirm, check availability, book once.
 When the conversation is over, say exactly: "${endingLine}"
 
 [Business Knowledge]
-${websiteBlock}${extraFactsBlock}${qaBlock}${instructionsBlock}${keywordsBlock}
+${servicesBlock}${websiteBlock}${extraFactsBlock}${qaBlock}${instructionsBlock}${keywordsBlock}
 `;
 
     return prompt;

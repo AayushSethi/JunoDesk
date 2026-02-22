@@ -69,6 +69,7 @@ export const provision = async (req, res) => {
         const greeting = info?.find(i => i.type === 'greeting')?.content?.text || "Hello, how can I help you?";
         const instructions = info?.filter(i => i.type === 'instruction').map(i => i.content.text) || [];
         const knowledge = info?.filter(i => ['qa', 'fact'].includes(i.type)).map(i => i.content) || [];
+        const services = info?.filter(i => i.type === 'services').map(i => i.content) || [];
 
         // CHUNK 0 — Idempotency guard
         if (profile.vapi_assistant_id && profile.vapi_phone_number && profile.vapi_phone_id) {
@@ -86,7 +87,7 @@ export const provision = async (req, res) => {
         let assistantId = profile.vapi_assistant_id;
 
         if (!assistantId) {
-            const systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge });
+            const systemPrompt = generateSystemPrompt({ profile, greeting, instructions, knowledge, services });
             const assistantPayload = {
                 name: `${profile.company_name} Receptionist`,
                 serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
@@ -298,11 +299,11 @@ export const syncAssistantCore = async (userId, options = {}) => {
     const { languages } = options;
 
     // 1. Fetch Context
-    const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId: ctxVoiceId, calendarContext, timezone } = await getContextForUser(userId);
+    const { profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, voiceId: ctxVoiceId, calendarContext, timezone, services } = await getContextForUser(userId);
     if (!profile.vapi_assistant_id) throw new Error("No assistant found");
 
     // 2. Generate Prompt
-    let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext, timezone });
+    let systemPrompt = generateSystemPrompt({ profile, greeting, endingMessage, instructions, commonWords, knowledge, websiteContent, calendarContext, timezone, services });
 
     if (languages && Array.isArray(languages) && languages.length > 0) {
         systemPrompt += `\n\nIMPORTANT LANGUAGE INSTRUCTION: You are fluent in: ${languages.join(", ")}. Switch language if user speaks it.`;
