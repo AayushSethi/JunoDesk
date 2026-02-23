@@ -1149,6 +1149,7 @@ export default function App() {
                         showToast={showToast}
                         setView={setView}
                         setGreeting={setGreeting}
+                        personality={personality}
                         setPersonality={setPersonality}
                         session={session}
                         supabase={supabase}

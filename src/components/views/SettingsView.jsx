@@ -127,7 +127,8 @@ export default function SettingsView({
                                 <div className="text-sm text-gray-500">All included</div>
                             </div>
                             <div className="text-right">
-                                <div className="text-3xl font-black text-gray-900">{activePlan === 'annual' ? '$14' : '$19'}<span className="text-sm font-medium">/mo</span></div>
+                                <div className="text-3xl font-black text-gray-900">{activePlan === 'annual' ? '$17.49' : '$24.99'}<span className="text-sm font-medium">/mo</span></div>
+                                {activePlan === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $209.88 annually</div>}
                             </div>
                         </div>
                         <ul className="space-y-3">

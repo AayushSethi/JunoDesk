@@ -83,6 +83,33 @@ export const provision = async (req, res) => {
             });
         }
 
+        // --- MOCK MODE: Bypass Twilio & Vapi for Demo/Testing Onboarding
+        const MOCK_PROVISIONING = false;
+        if (MOCK_PROVISIONING) {
+            console.log("⚠️ MOCK PROVISIONING ENABLED: Skipping Twilio and Vapi...");
+
+            const mockAssistantId = "mock_vapi_ast_" + Date.now();
+            const mockVapiPhoneId = "mock_vapi_phone_" + Date.now();
+            const mockTwilioSid = "mock_twilio_sid_" + Date.now();
+            const mockPhoneNumber = "+1555" + Math.floor(1000000 + Math.random() * 9000000); // Fake Number
+
+            await supabase.from('business_profiles').update({
+                vapi_assistant_id: mockAssistantId,
+                vapi_phone_number: mockPhoneNumber,
+                twilio_phone_sid: mockTwilioSid,
+                vapi_phone_id: mockVapiPhoneId
+            }).eq('owner_user_id', userId);
+
+            return res.json({
+                success: true,
+                assistantId: mockAssistantId,
+                phoneNumber: mockPhoneNumber,
+                vapiPhoneId: mockVapiPhoneId,
+                profileId: profile.id
+            });
+        }
+        // --- END MOCK MODE ---
+
         // CHUNK 1 — Create Vapi assistant FIRST
         let assistantId = profile.vapi_assistant_id;
 

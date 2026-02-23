@@ -3,9 +3,10 @@ import {
     ChevronLeft, Check, AudioWaveform, Globe, MessageSquare,
     Settings, ArrowRight, ChevronDown, PhoneCall, ShieldAlert,
     Calendar, Inbox, Trash2, User, HelpCircle, LogOut, Heart,
-    Smartphone, Moon, Sun, Lock, Phone, Sparkles
+    Smartphone, Moon, Sun, Lock, Phone, Sparkles, Copy, ArrowUpRight
 } from 'lucide-react';
 import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
+import googleCalendarIcon from '../../assets/avatars/Logos/Google_Calendar_icon.svg';
 
 export default function OnboardingView({
     onboardingStep,
@@ -34,6 +35,7 @@ export default function OnboardingView({
     showToast,
     setView,
     setGreeting,
+    personality,
     setPersonality,
     session,
     supabase
@@ -87,95 +89,68 @@ export default function OnboardingView({
                 {/* Step 0: How it Works */}
                 {onboardingStep === 0 && (
                     <>
-                        <h2 className="text-2xl font-black text-gray-900 mb-8 text-center">How does it work?</h2>
+                        <h2 className="text-3xl font-black text-gray-900 mb-2 text-center tracking-tight">How it works</h2>
+                        <p className="text-center text-gray-500 font-medium mb-8 text-sm">Your AI receptionist in action</p>
 
-                        <div className="flex flex-col items-center space-y-4">
-                            {/* Call comes in */}
-                            <div className="bg-white rounded-2xl px-8 py-4 shadow-sm border border-gray-100 text-center min-w-[200px]">
-                                <PhoneCall size={24} className="text-blue-600 mx-auto mb-2" />
-                                <p className="text-sm font-semibold text-gray-900">You receive a call</p>
-                            </div>
 
-                            {/* Arrow down */}
-                            <div className="text-gray-400">
-                                <svg width="20" height="30" viewBox="0 0 20 30" fill="none">
-                                    <path d="M10 0V25M10 25L3 18M10 25L17 18" stroke="currentColor" strokeWidth="2" />
-                                </svg>
-                            </div>
-
-                            {/* You decide */}
-                            <p className="text-sm font-semibold text-gray-700">You decide</p>
-
-                            {/* Split arrows */}
-                            <div className="flex items-center justify-center w-full max-w-[280px]">
-                                <svg width="120" height="40" viewBox="0 0 120 40" fill="none" className="text-gray-400">
-                                    <path d="M60 0V15M60 15L10 15M10 15V25M60 15L110 15M110 15V25" stroke="currentColor" strokeWidth="2" fill="none" />
-                                </svg>
-                            </div>
-
-                            {/* Two paths */}
-                            <div className="flex gap-3 w-full max-w-[320px]">
-                                {/* Answer path */}
-                                <div className="flex-1 flex flex-col items-center space-y-3">
-                                    <div className="bg-emerald-50 border-2 border-emerald-400 rounded-xl px-4 py-3 text-center w-full">
-                                        <Phone size={18} className="text-emerald-600 mx-auto mb-1" />
-                                        <p className="text-sm font-bold text-emerald-700">Answer</p>
-                                    </div>
-                                    <div className="text-gray-400">
-                                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
-                                        </svg>
-                                    </div>
-                                    <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
-                                        <Check size={16} className="text-blue-600 mx-auto mb-1" />
-                                        <p className="text-xs font-semibold text-gray-900">You talk directly</p>
-                                    </div>
+                        <div className="space-y-4">
+                            {/* Step 1 Card */}
+                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50 relative">
+                                    <PhoneCall size={20} />
+                                    <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
                                 </div>
-
-                                {/* Don't Answer path */}
-                                <div className="flex-1 flex flex-col items-center space-y-3">
-                                    <div className="bg-purple-50 border-2 border-purple-400 rounded-xl px-4 py-3 text-center w-full">
-                                        <Smartphone size={18} className="text-purple-600 mx-auto mb-1" />
-                                        <p className="text-sm font-bold text-purple-700">Don't Answer</p>
-                                    </div>
-                                    <div className="text-gray-400">
-                                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                            <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
-                                        </svg>
-                                    </div>
-                                    <div className="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 text-center w-full">
-                                        <Sparkles size={16} className="text-blue-600 mx-auto mb-1" />
-                                        <p className="text-xs font-semibold text-gray-900">AI answers for you</p>
-                                    </div>
+                                <div className="pt-1">
+                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">1. A customer calls</h3>
+                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">When someone calls your business number, their call comes through normally.</p>
                                 </div>
                             </div>
 
-                            {/* Final arrow from AI path */}
-                            <div className="flex justify-end w-full max-w-[320px] pr-[60px]">
-                                <div className="text-gray-400">
-                                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-                                        <path d="M8 0V15M8 15L2 9M8 15L14 9" stroke="currentColor" strokeWidth="2" />
-                                    </svg>
+                            {/* Step 2 Card */}
+                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4 relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/5 rounded-full -mr-16 -mt-16 blur-xl"></div>
+                                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100/50">
+                                    <Smartphone size={20} />
+                                </div>
+                                <div className="pt-1 relative z-10">
+                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">2. You don't answer</h3>
+                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">If you're busy, on the other line, or after hours, you just let it ring.</p>
                                 </div>
                             </div>
 
-                            {/* Final result */}
-                            <div className="flex justify-end w-full max-w-[320px]">
-                                <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 text-center min-w-[140px]">
-                                    <Check size={16} className="text-blue-600 mx-auto mb-1" />
-                                    <p className="text-xs font-semibold text-gray-900">Get Summary<br />& Recording</p>
+                            {/* Step 3 Card - Premium AI Feel */}
+                            <div className="bg-gradient-to-br from-gray-900 to-black rounded-[1.5rem] p-5 shadow-xl flex items-start gap-4 relative overflow-hidden border border-gray-800">
+                                <div className="absolute right-0 bottom-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-12 -mb-12 blur-2xl"></div>
+                                <div className="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center shrink-0 border border-white/10 backdrop-blur-sm shadow-inner">
+                                    <Sparkles size={20} className="text-blue-400" />
+                                </div>
+                                <div className="pt-1 relative z-10">
+                                    <h3 className="text-base font-bold text-white mb-1 leading-none">3. Juno picks up</h3>
+                                    <p className="text-sm text-gray-400 leading-relaxed font-medium">Your AI answers immediately, taking messages and booking appointments.</p>
+                                </div>
+                            </div>
+
+                            {/* Step 4 Card */}
+                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/50">
+                                    <MessageSquare size={20} />
+                                </div>
+                                <div className="pt-1">
+                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">4. Get notified</h3>
+                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">Instantly receive a transcript, recording, and short summary of the call.</p>
                                 </div>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setOnboardingStep(1)}
-                            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-full font-bold text-lg mt-8 shadow-[0_12px_40px_-12px_rgba(37,99,235,0.6)] hover:shadow-[0_16px_50px_-10px_rgba(37,99,235,0.8)] hover:from-blue-700 hover:to-blue-600 active:scale-[0.97] transition-all duration-300"
+                            className="w-full bg-white text-gray-900 py-4 rounded-xl font-bold shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all mt-8 flex items-center justify-center gap-2"
                         >
-                            I Understand
+                            Get Started <ArrowRight size={18} />
                         </button>
                     </>
                 )}
+
                 {/* Step 1: Phone Entry */}
                 {onboardingStep === 1 && (
                     <>
@@ -262,13 +237,19 @@ export default function OnboardingView({
                 {/* Step 4: Trial */}
                 {onboardingStep === 4 && (
                     <>
-                        <div className="text-center mb-6"><div className="inline-block px-3 py-1 bg-blue-100 text-blue-700 font-bold text-xs rounded-full uppercase mb-4 tracking-wider">7 Day Free Trial</div><h2 className="text-3xl font-black text-gray-900 mb-2">Try JunoDesk Free</h2></div>
+                        <div className="text-center mb-6"><div className="inline-block px-3 py-1 bg-blue-100 text-blue-700 font-bold text-xs rounded-full uppercase mb-4 tracking-wider">7 Day Free Trial</div><h2 className="text-3xl font-black mb-2">Try <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span> Free</h2></div>
                         <div className="bg-gray-100 p-1 rounded-xl flex mb-6">
                             <button onClick={() => setPlanCycle('monthly')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${planCycle === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Monthly</button>
                             <button onClick={() => setPlanCycle('annual')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${planCycle === 'annual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Annual <span className="text-green-600 text-[10px]">SAVE 30%</span></button>
                         </div>
                         <div className="border-2 border-gray-100 bg-white p-6 rounded-3xl mb-6 shadow-sm">
-                            <div className="flex justify-between items-center mb-4"><div><div className="xl font-bold">Professional</div><div className="text-sm text-gray-500">All included</div></div><div className="text-right"><div className="text-3xl font-black text-gray-900">{planCycle === 'annual' ? '$14' : '$19'}<span className="text-sm font-medium">/mo</span></div></div></div>
+                            <div className="flex justify-between items-center mb-4">
+                                <div><div className="text-xl font-bold">Professional</div><div className="text-sm text-gray-500">All included</div></div>
+                                <div className="text-right">
+                                    <div className="text-3xl font-black text-gray-900">{planCycle === 'annual' ? '$17.49' : '$24.99'}<span className="text-sm font-medium">/mo</span></div>
+                                    {planCycle === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $209.88 annually</div>}
+                                </div>
+                            </div>
                             <ul className="space-y-3">{['24/7 AI Receptionist', 'Unlimited Minutes', 'Transcripts', 'Spam Blocking'].map(i => (<li key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-700"><Check size={14} className="text-green-600" />{i}</li>))}</ul>
                         </div>
                         <button onClick={async () => {
@@ -292,7 +273,7 @@ export default function OnboardingView({
                             {[
                                 { id: 'takeMessages', label: 'Take Detailed Messages', desc: 'Capture name, number, and reason.' },
                                 { id: 'scheduleAppointments', label: 'Schedule Appointments', desc: 'Book meetings directly on your calendar.' },
-                                { id: 'handleBilling', label: 'Handle Billing Inquiries', desc: 'Answer basic questions about invoices.' }
+                                { id: 'answerQuestions', label: 'Answer FAQs', desc: 'Answer common questions about your business.' }
                             ].map(cap => (
                                 <div key={cap.id} onClick={() => setOnboardingData({ ...onboardingData, capabilities: { ...onboardingData.capabilities, [cap.id]: !onboardingData.capabilities[cap.id] } })} className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${onboardingData.capabilities[cap.id] ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-white'}`}>
                                     <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center ${onboardingData.capabilities[cap.id] ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>{onboardingData.capabilities[cap.id] && <Check size={14} className="text-white" />}</div>
@@ -318,6 +299,23 @@ export default function OnboardingView({
                                 </select>
                             </div>
                             <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Website <span className="text-gray-300 font-normal normal-case">— optional</span></label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold"
+                                    placeholder="https://example.com"
+                                    value={onboardingData.website || ''}
+                                    onChange={(e) => setOnboardingData({ ...onboardingData, website: e.target.value })}
+                                    onBlur={(e) => {
+                                        let val = e.target.value.trim();
+                                        if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                                            val = 'https://' + val;
+                                            setOnboardingData(prev => ({ ...prev, website: val }));
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div>
                                 <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Timezone</label>
                                 <select
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold"
@@ -330,15 +328,49 @@ export default function OnboardingView({
                                 </select>
                             </div>
                         </div>
-                        <button disabled={!onboardingData.companyName} onClick={async () => {
-                            await saveOnboardingProfile({
-                                company_name: onboardingData.companyName,
-                                industry: userInfo.businessType,
-                                website: onboardingData.website,
-                                timezone: userInfo.timezone || DEFAULT_TIMEZONE
-                            });
-                            setOnboardingStep(7);
-                        }} className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg mt-8 disabled:opacity-50">Continue</button>
+                        <button disabled={!onboardingData.companyName || authLoading} onClick={async () => {
+                            setAuthLoading(true);
+                            try {
+                                await saveOnboardingProfile({
+                                    company_name: onboardingData.companyName,
+                                    industry: userInfo.businessType,
+                                    website: onboardingData.website,
+                                    timezone: userInfo.timezone || DEFAULT_TIMEZONE
+                                });
+
+                                if (onboardingData.website) {
+                                    showToast("Scanning website...");
+                                    try {
+                                        // Fire and forget, or wait? Waiting might take 5-10 seconds.
+                                        // It's better to wait so they don't test immediately before knowledge is ready
+                                        await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/scrape-website`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                url: onboardingData.website,
+                                                userId: session.user.id
+                                            })
+                                        });
+                                    } catch (scrapeErr) {
+                                        console.warn("Scrape error during onboarding:", scrapeErr);
+                                    }
+                                }
+
+                                setOnboardingStep(7);
+                            } catch (err) {
+                                console.error("Error saving business info:", err);
+                                showToast("Failed to complete setup");
+                            } finally {
+                                setAuthLoading(false);
+                            }
+                        }} className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg mt-8 disabled:opacity-50">
+                            {authLoading ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    Syncing Knowledge...
+                                </div>
+                            ) : 'Continue'}
+                        </button>
                     </>
                 )}
 
@@ -374,16 +406,198 @@ export default function OnboardingView({
                     </>
                 )}
 
-                {/* Step 8 & 10 are technical config steps, omitted brevity but logic is similar */}
-                {onboardingStep >= 8 && (
-                    <div className="text-center">
-                        <h2 className="text-2xl font-black mb-4">{onboardingStep === 8 ? 'Configure iPhone' : onboardingStep === 9 ? 'Activate Forwarding' : 'Ready to Test?'}</h2>
-                        <button onClick={() => (onboardingStep < 10 ? setOnboardingStep(s => s + 1) : setView('receptionist'))} className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg mt-8">
-                            {onboardingStep === 10 ? 'Start Using JunoDesk' : 'Continue'}
+                {/* Step 8: Connect Google Calendar */}
+                {onboardingStep === 8 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex justify-center mb-6">
+                            <div className="w-20 h-20 bg-white rounded-2xl shadow-xl flex items-center justify-center p-4 border border-gray-100">
+                                <img src={googleCalendarIcon} alt="Google Calendar" className="w-full h-full object-contain" />
+                            </div>
+                        </div>
+
+                        <h2 className="text-2xl font-black text-gray-900 mb-3 text-center tracking-tight">Connect your calendar</h2>
+                        <p className="text-center text-gray-500 font-medium mb-8 text-sm px-4">Let {personality?.name || 'Juno'} handle your bookings by syncing with your Google Calendar.</p>
+
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setAuthLoading(true);
+                                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/auth/google-url`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ userId: session.user.id })
+                                    });
+                                    const data = await res.json();
+
+                                    if (data.url) {
+                                        const popup = window.open(data.url, 'googleAuth', 'width=500,height=600');
+                                        const timer = setInterval(() => {
+                                            if (popup && popup.closed) {
+                                                clearInterval(timer);
+                                                showToast("Calendar connected successfully!");
+                                                setOnboardingStep(9);
+                                                setAuthLoading(false);
+                                            }
+                                        }, 1000);
+                                    } else {
+                                        showToast("Failed to initialize Google Auth");
+                                        setAuthLoading(false);
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                    showToast("Error connecting calendar. Try again.");
+                                    setAuthLoading(false);
+                                }
+                            }}
+                            disabled={authLoading}
+                            className={`w-full ${authLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'} text-white py-4 rounded-xl font-bold shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-2 mb-4`}
+                        >
+                            {authLoading ? 'Connecting...' : <>Connect Google Calendar <ArrowRight size={18} /></>}
+                        </button>
+
+                        <button
+                            onClick={() => setOnboardingStep(9)}
+                            className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center w-full mx-auto py-2"
+                        >
+                            Skip for now
                         </button>
                     </div>
                 )}
+
+                {/* Step 9: Turn off Live Voicemail */}
+                {onboardingStep === 9 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <h2 className="text-xl font-extrabold text-gray-900 mb-4">Turn off Live Voicemail</h2>
+                        <p className="text-sm text-gray-500 mb-8 font-medium">This ensures Juno picks up before Apple's voicemail.</p>
+
+                        <div className="bg-black rounded-2xl p-4 mb-8 text-white shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                                <div className="flex items-center space-x-2 text-blue-400 font-bold">
+                                    <ChevronLeft size={18} />
+                                    <span>Phone</span>
+                                </div>
+                                <span className="font-bold">Live Voicemail</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-gray-900/50 rounded-xl p-3 border border-gray-800">
+                                <span className="font-bold text-sm">Live Voicemail</span>
+                                <div className="w-11 h-6 bg-[#34C759] rounded-full relative shadow-inner">
+                                    <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-lg"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setOnboardingStep(10)}
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            Continue <ArrowRight size={18} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Step 10: Choose Carrier */}
+                {onboardingStep === 10 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <h2 className="text-xl font-extrabold text-gray-900 mb-6">Select Carrier</h2>
+                        <div className="space-y-3 mb-8">
+                            {carriers.map(carrier => (
+                                <div
+                                    key={carrier.name}
+                                    onClick={() => setSelectedCarrier(carrier.name)}
+                                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedCarrier === carrier.name
+                                        ? 'border-blue-500 bg-blue-50/50'
+                                        : 'border-gray-100 hover:border-gray-200'
+                                        }`}
+                                >
+                                    <span className={`font-bold text-sm ${selectedCarrier === carrier.name ? 'text-blue-600' : 'text-gray-900'}`}>{carrier.name}</span>
+                                    {selectedCarrier === carrier.name && <Check size={14} className="text-blue-500" />}
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => setOnboardingStep(11)}
+                            disabled={!selectedCarrier}
+                            className={`w-full py-3.5 rounded-xl font-bold shadow-xl transition-all ${selectedCarrier ? 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            Continue
+                        </button>
+                    </div>
+                )}
+
+                {/* Step 11: Activate Forwarding */}
+                {onboardingStep === 11 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <h2 className="text-lg font-extrabold text-gray-900 mb-6">Enable Call Forwarding</h2>
+                        <p className="text-sm text-gray-500 mb-8 font-medium">Final step: Activate the call forwarding code for your carrier.</p>
+
+                        <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-3.5 text-lg font-black tracking-widest text-gray-900 flex items-center justify-center space-x-3 mb-8 shadow-inner cursor-pointer hover:border-blue-300 transition-colors" onClick={() => {
+                            navigator.clipboard.writeText((currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680'));
+                            showToast("Copied to clipboard!");
+                        }}>
+                            <Copy size={18} className="text-gray-400" />
+                            <span className="break-all text-center">{(currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680')}</span>
+                        </div>
+
+                        <button
+                            onClick={() => setOnboardingStep(12)}
+                            className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                        >
+                            Verify Activation
+                        </button>
+                    </div>
+                )}
+
+                {/* Step 12: Test Mode (Glowing Circle) */}
+                {onboardingStep === 12 && (
+                    <div className="animate-in fade-in zoom-in duration-700 flex flex-col items-center justify-center min-h-[500px] h-full absolute inset-0 bg-white z-[60]">
+                        {/* Header */}
+                        <div className="absolute top-0 w-full pt-8 pb-5 px-6 flex justify-center items-center shrink-0 z-20">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-black tracking-tight">
+                                    <span className="text-gray-950">Juno</span><span className="text-blue-600">Desk</span>
+                                </h1>
+                                <div className="h-6 w-px bg-gray-200" />
+                                <span className="px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-extrabold text-gray-600 tracking-widest uppercase">
+                                    AI Receptionist
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="relative mt-12 mb-10 flex items-center justify-center mx-auto w-56 h-56">
+                            {/* Glowing rings */}
+                            <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20 duration-1000"></div>
+                            <div className="absolute inset-4 bg-blue-400 rounded-full animate-ping opacity-30" style={{ animationDelay: '300ms' }}></div>
+                            <div className="absolute inset-8 bg-blue-600 rounded-full shadow-[0_0_80px_rgba(37,99,235,0.7)] flex items-center justify-center z-10">
+                                <PhoneCall size={56} className="text-white animate-pulse" />
+                            </div>
+                        </div>
+
+                        <div className="text-center px-8 z-10 max-w-sm w-full">
+                            <h2 className="text-3xl font-black text-gray-950 mb-4 tracking-tight leading-tight">Your Receptionist <br /> is Active!</h2>
+                            <p className="text-gray-500 font-medium text-sm mb-10">Call your number now to test your new receptionist. Make sure you don't answer the phone.</p>
+
+                            <a
+                                href={`tel:${userInfo?.userPhoneNumber || ''}`}
+                                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 mb-6"
+                            >
+                                <PhoneCall size={20} className="animate-pulse" /> Call Now to Test
+                            </a>
+
+                            <button
+                                onClick={() => {
+                                    setView('receptionist');
+                                    showToast("Welcome to your dashboard! 🎉");
+                                }}
+                                className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center w-full gap-1 mx-auto"
+                            >
+                                I've finished testing <ArrowRight size={14} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
-        </div>
+        </div >
     );
 }

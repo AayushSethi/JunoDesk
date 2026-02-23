@@ -171,7 +171,17 @@ export const googleAuthCallback = async (req, res) => {
             return res.status(500).send("Database Error saving tokens.");
         }
 
-        res.redirect(process.env.CLIENT_URL || 'http://localhost:5173/');
+        res.send(`
+            <html>
+                <body>
+                    <h2>Google Calendar Connected!</h2>
+                    <p>You can safely close this window to continue your setup.</p>
+                    <script>
+                        setTimeout(() => { window.close(); }, 1500);
+                    </script>
+                </body>
+            </html>
+        `);
 
     } catch (err) {
         console.error("❌ Google Auth Error:", err);
