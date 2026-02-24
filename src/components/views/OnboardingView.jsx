@@ -89,64 +89,94 @@ export default function OnboardingView({
                 {/* Step 0: How it Works */}
                 {onboardingStep === 0 && (
                     <>
-                        <h2 className="text-3xl font-black text-gray-900 mb-2 text-center tracking-tight">How it works</h2>
-                        <p className="text-center text-gray-500 font-medium mb-8 text-sm">Your AI receptionist in action</p>
+                        <h2 className="text-3xl font-black text-gray-900 mb-8 text-center tracking-tight">How does it work?</h2>
 
-
-                        <div className="space-y-4">
-                            {/* Step 1 Card */}
-                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50 relative">
-                                    <PhoneCall size={20} />
-                                    <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
-                                </div>
-                                <div className="pt-1">
-                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">1. A customer calls</h3>
-                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">When someone calls your business number, their call comes through normally.</p>
-                                </div>
+                        <div className="flex flex-col items-center w-full max-w-[320px] mx-auto text-sm">
+                            {/* Call comes in */}
+                            <div className="w-[200px] bg-white rounded-[1.2rem] py-4 px-4 flex flex-col items-center shadow-sm border border-gray-200 mb-1 z-10">
+                                <PhoneCall size={24} className="text-blue-600 mb-2" />
+                                <h3 className="font-bold text-gray-900 text-[15px]">You receive a call</h3>
                             </div>
 
-                            {/* Step 2 Card */}
-                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4 relative overflow-hidden">
-                                <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/5 rounded-full -mr-16 -mt-16 blur-xl"></div>
-                                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100/50">
-                                    <Smartphone size={20} />
-                                </div>
-                                <div className="pt-1 relative z-10">
-                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">2. You don't answer</h3>
-                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">If you're busy, on the other line, or after hours, you just let it ring.</p>
-                                </div>
+                            <div className="flex flex-col items-center justify-center my-1 z-0">
+                                <div className="w-[1.5px] h-4 bg-gray-300"></div>
+                                <ChevronDown size={14} className="text-gray-400 -mt-1.5" strokeWidth={3} />
                             </div>
 
-                            {/* Step 3 Card - Premium AI Feel */}
-                            <div className="bg-gradient-to-br from-gray-900 to-black rounded-[1.5rem] p-5 shadow-xl flex items-start gap-4 relative overflow-hidden border border-gray-800">
-                                <div className="absolute right-0 bottom-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-12 -mb-12 blur-2xl"></div>
-                                <div className="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center shrink-0 border border-white/10 backdrop-blur-sm shadow-inner">
-                                    <Sparkles size={20} className="text-blue-400" />
-                                </div>
-                                <div className="pt-1 relative z-10">
-                                    <h3 className="text-base font-bold text-white mb-1 leading-none">3. Juno picks up</h3>
-                                    <p className="text-sm text-gray-400 leading-relaxed font-medium">Your AI answers immediately, taking messages and booking appointments.</p>
-                                </div>
-                            </div>
+                            <div className="font-bold text-gray-900 mb-1 z-10 text-[15px]">You decide</div>
 
-                            {/* Step 4 Card */}
-                            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/50">
-                                    <MessageSquare size={20} />
+                            <svg width="80" height="30" viewBox="0 0 80 30" fill="none" className="my-1 text-gray-400">
+                                <path d="M40 0 L15 25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path d="M11 20 L14.5 25.5 L20 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+
+                                <path d="M40 0 L65 25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path d="M69 20 L65.5 25.5 L60 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+
+                            <div className="w-full flex gap-3 items-start z-10">
+                                {/* Left Branch */}
+                                <div className="flex-[0.9] flex flex-col items-center">
+                                    <div className="w-full bg-white border-2 border-green-500 rounded-xl py-4 px-2 flex flex-col items-center shadow-sm mb-1">
+                                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white mb-2">
+                                            <Phone size={12} fill="currentColor" />
+                                        </div>
+                                        <h3 className="font-bold text-green-500 text-[14px]">Answer</h3>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center my-1">
+                                        <div className="w-[1.5px] h-4 bg-gray-300"></div>
+                                        <ChevronDown size={14} className="text-gray-400 -mt-1.5" strokeWidth={3} />
+                                    </div>
+
+                                    <div className="w-full bg-white border border-gray-200 rounded-xl py-4 px-2 flex flex-col items-center shadow-sm">
+                                        <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white mb-2">
+                                            <Check size={12} strokeWidth={3} />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 text-center text-[13px] leading-tight">You talk directly</h3>
+                                    </div>
                                 </div>
-                                <div className="pt-1">
-                                    <h3 className="text-base font-bold text-gray-900 mb-1 leading-none">4. Get notified</h3>
-                                    <p className="text-sm text-gray-500 leading-relaxed font-medium">Instantly receive a transcript, recording, and short summary of the call.</p>
+
+                                {/* Right Branch */}
+                                <div className="flex-[1.1] flex flex-col items-center">
+                                    <div className="w-full bg-white border-2 border-blue-600 rounded-xl py-4 px-2 flex flex-col items-center shadow-sm mb-1">
+                                        <div className="w-6 h-6 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-2">
+                                            <Phone size={14} className="rotate-[135deg]" fill="currentColor" />
+                                        </div>
+                                        <h3 className="font-bold text-blue-600 text-[14px]">Don't Answer</h3>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center my-1">
+                                        <div className="w-[1.5px] h-4 bg-gray-300"></div>
+                                        <ChevronDown size={14} className="text-gray-400 -mt-1.5" strokeWidth={3} />
+                                    </div>
+
+                                    <div className="w-full bg-white border border-gray-200 rounded-xl py-4 px-2 flex flex-col items-center shadow-sm mb-1">
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-blue-600 mb-2">
+                                            <Sparkles size={20} />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 text-center text-[13px] leading-tight px-1">JunoDesk answers for you</h3>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center my-1">
+                                        <div className="w-[1.5px] h-4 bg-gray-300"></div>
+                                        <ChevronDown size={14} className="text-gray-400 -mt-1.5" strokeWidth={3} />
+                                    </div>
+
+                                    <div className="w-full bg-white border border-gray-200 rounded-xl py-4 px-2 flex flex-col items-center shadow-sm">
+                                        <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white mb-2">
+                                            <Check size={12} strokeWidth={3} />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 text-center text-[13px] leading-tight px-1">Get Summary & Recording</h3>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setOnboardingStep(1)}
-                            className="w-full bg-white text-gray-900 py-4 rounded-xl font-bold shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all mt-8 flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white py-4 rounded-full font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all mt-8 flex items-center justify-center text-[17px]"
                         >
-                            Get Started <ArrowRight size={18} />
+                            Continue
                         </button>
                     </>
                 )}
