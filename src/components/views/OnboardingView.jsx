@@ -56,7 +56,7 @@ export default function OnboardingView({
     return (
         <div className="fixed inset-0 z-[9999] flex flex-col bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF]">
             {/* Navigation: Back */}
-            <div className="absolute top-6 left-6 z-50">
+            <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-6 z-50">
                 {onboardingStep >= 0 && onboardingStep < 10 && (
                     <button
                         onClick={() => {
@@ -76,7 +76,7 @@ export default function OnboardingView({
 
             {/* Progress Bar */}
             {onboardingStep > 0 && onboardingStep < 10 && (
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-100">
+                <div className="absolute top-[env(safe-area-inset-top,0px)] left-0 w-full h-1.5 bg-gray-100">
                     <div
                         className="h-full bg-blue-600 transition-all duration-500 ease-out"
                         style={{ width: `${((onboardingStep + 1) / 11) * 100}%` }}

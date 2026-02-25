@@ -40,7 +40,7 @@ export default function SettingsView({
         return (
             <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
                 {/* Header */}
-                <div className="px-6 pt-12 pb-4 flex items-center z-20">
+                <div className="px-6 pb-4 flex items-center z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
                     <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
                         <ChevronLeft size={24} className="mr-0.5" />
                         Back
@@ -83,7 +83,7 @@ export default function SettingsView({
         return (
             <div className="absolute inset-0 z-50 bg-transparent flex flex-col h-full animate-in slide-in-from-right duration-300">
                 {/* Header */}
-                <div className="px-6 pt-12 pb-4 flex items-center z-20">
+                <div className="px-6 pb-4 flex items-center z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
                     <button onClick={() => setView('settings')} className="flex items-center text-gray-900 font-bold -ml-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors big-click-area">
                         <ChevronLeft size={24} className="mr-0.5" />
                         Back
@@ -159,7 +159,7 @@ export default function SettingsView({
     return (
         <div className="flex flex-col h-full bg-transparent relative animate-in slide-in-from-right duration-300">
             {/* Header */}
-            <div className="pt-14 pb-6 px-6 flex justify-center items-center shrink-0 z-20">
+            <div className="pb-6 px-6 flex justify-center items-center shrink-0 z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-black tracking-tighter">
                         <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>

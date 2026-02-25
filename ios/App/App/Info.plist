@@ -47,5 +47,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>JunoDesk requires microphone access to let you converse with your AI Receptionist.</string>
 </dict>
 </plist>

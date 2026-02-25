@@ -69,7 +69,7 @@ export default function InboxView({
     return (
         <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
             {/* Header */}
-            <div className="pt-8 pb-5 px-6 flex justify-center items-center shrink-0 z-20">
+            <div className="pb-5 px-6 flex justify-center items-center shrink-0 z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-black tracking-tight">
                         <span className="text-gray-950">Juno</span><span className="text-blue-600">Desk</span>

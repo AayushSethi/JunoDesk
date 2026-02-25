@@ -2,7 +2,7 @@
 
 git status          # See what's changed
 git add .           # Stage all
-git commit -m "wizard fix"
+git commit -m "how it works wizard"
 git push
 
 

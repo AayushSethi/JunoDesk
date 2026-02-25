@@ -21,13 +21,13 @@ export default function LoginView({
     setView
 }) {
     return (
-        <div className="flex flex-col h-full items-center justify-between px-6 py-8 bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative overflow-hidden">
+        <div className="flex flex-col h-full items-center justify-between px-6 pb-8 pt-[max(2.5rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative overflow-hidden">
             {/* Background Decorative Rings */}
             <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-[-5%] left-[-10%] w-[300px] h-[300px] bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
             {/* Top Right - Back Button */}
-            <div className="w-full flex justify-end z-10">
+            <div className="w-full flex justify-end z-10 sticky top-0">
                 <button
                     onClick={() => {
                         if (showOtpInput) {
@@ -44,7 +44,7 @@ export default function LoginView({
             </div>
 
             {/* Center Section - Login Form */}
-            <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-md z-10">
+            <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-md z-10 mt-16 pb-12">
                 {/* Logo */}
                 <div className="mb-8">
                     <img src="/pics/JunoDesk_Logo.svg" alt="JunoDesk" className="w-20 h-20" />

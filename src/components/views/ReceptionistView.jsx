@@ -71,7 +71,7 @@ export default function ReceptionistView({
         <>
             <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
                 {/* --- Header Section (Centered Branding) --- */}
-                <header className="px-6 flex flex-col space-y-4 shrink-0 pt-10 pb-0">
+                <header className="px-6 flex flex-col space-y-4 shrink-0 pb-0 pt-[max(2.5rem,env(safe-area-inset-top))]">
                     <div className="flex justify-center items-center z-20">
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-black tracking-tighter">
