@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function LandingView({ setView, setOnboardingStep, session, supabase }) {
     return (
-        <div className="flex flex-col h-full items-center justify-between px-6 pb-8 pt-[max(2.5rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative">
+        <div className="flex flex-col h-full items-center justify-between px-6 pb-8 pt-[max(4rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative">
             {/* Top Right - Log In Button & Logout if session exists */}
             <div className="w-full flex justify-end gap-3">
                 {session && (

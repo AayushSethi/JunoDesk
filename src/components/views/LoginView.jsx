@@ -21,7 +21,7 @@ export default function LoginView({
     setView
 }) {
     return (
-        <div className="flex flex-col h-full items-center justify-between px-6 pb-8 pt-[max(2.5rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative overflow-hidden">
+        <div className="flex flex-col h-full items-center justify-between px-6 pb-8 pt-[max(4rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] relative overflow-hidden">
             {/* Background Decorative Rings */}
             <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-[-5%] left-[-10%] w-[300px] h-[300px] bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>

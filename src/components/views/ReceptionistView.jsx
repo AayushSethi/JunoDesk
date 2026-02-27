@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     AudioWaveform, Globe,
     Plus, X, RefreshCw, ChevronDown, Check, Phone,
-    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, PhoneCall, HelpCircle, Clock
+    Copy, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, PhoneCall, HelpCircle, Clock, Mail
 } from 'lucide-react';
 import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 
@@ -911,6 +911,23 @@ export default function ReceptionistView({
                                                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                                                 ))}
                                             </select>
+                                        </section>
+
+                                        {/* 6. Supabase Account Email */}
+                                        <section className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm mt-4">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white text-blue-600 flex items-center justify-center border border-gray-200 shadow-sm">
+                                                    <Mail size={16} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-900">Account Email</h3>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Your Supabase login email</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold tracking-tight flex items-center justify-center mb-3 text-gray-900 shadow-sm">
+                                                {session?.user?.email || 'No email associated'}
+                                            </div>
                                         </section>
                                     </div>
                                 ) : (

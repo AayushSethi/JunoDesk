@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     RefreshCw, Phone, UserPlus, Share2, Archive,
     Trash2, Play, Pause, ChevronDown, CalendarCheck,
-    FileText, Sparkles
+    FileText, Sparkles, MessageSquare
 } from 'lucide-react';
 
 export default function InboxView({
@@ -245,26 +245,38 @@ export default function InboxView({
                                                         </div>
 
                                                         {/* Actions */}
-                                                        <div className="flex items-center gap-2 mb-2 w-full">
+                                                        <div className="flex items-center gap-1.5 mb-2 w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
                                                             <button
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="bg-blue-600 text-white px-3 py-2 rounded-full font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all hover:bg-blue-700"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (call.number) window.location.href = `tel:${call.number}`;
+                                                                }}
+                                                                className="bg-blue-600 text-white px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-600/20 active:scale-95 transition-all hover:bg-blue-700 shrink-0"
                                                             >
-                                                                <Phone size={14} fill="white" /> Call
+                                                                <Phone size={12} fill="white" /> Call
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (call.number) window.location.href = `sms:${call.number}`;
+                                                                }}
+                                                                className="bg-white border border-gray-200 text-gray-900 px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-gray-50 shrink-0"
+                                                            >
+                                                                <MessageSquare size={12} /> Text
                                                             </button>
                                                             <button
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-full font-extrabold text-xs flex items-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-gray-50"
+                                                                className="bg-white border border-gray-200 text-gray-900 px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-gray-50 shrink-0"
                                                             >
-                                                                <UserPlus size={14} /> Add
+                                                                <UserPlus size={12} /> Add
                                                             </button>
 
-                                                            <div className="flex gap-1.5 ml-auto">
+                                                            <div className="flex gap-1.5 ml-auto shrink-0 pl-1">
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); showToast("Sharing..."); }}
-                                                                    className="w-10 h-10 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors"
+                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
                                                                 >
-                                                                    <Share2 size={16} />
+                                                                    <Share2 size={14} />
                                                                 </button>
                                                                 <button
                                                                     onClick={(e) => {
@@ -272,15 +284,15 @@ export default function InboxView({
                                                                         if (call.isArchived) handleUnarchiveCall(call.id);
                                                                         else handleArchiveCall(call.id);
                                                                     }}
-                                                                    className="w-10 h-10 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors"
+                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
                                                                 >
-                                                                    <Archive size={16} />
+                                                                    <Archive size={14} />
                                                                 </button>
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); handleDeleteCall(call.id); }}
-                                                                    className="w-10 h-10 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                                                 >
-                                                                    <Trash2 size={16} />
+                                                                    <Trash2 size={14} />
                                                                 </button>
                                                             </div>
                                                         </div>

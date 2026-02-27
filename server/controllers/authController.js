@@ -4,14 +4,15 @@ import { supabase } from '../config/supabase.js';
 
 export const devSignup = async (req, res) => {
     try {
-        const { phone } = req.body;
+        const { phone, email: providedEmail } = req.body;
         if (!phone) return res.status(400).json({ error: "Missing phone" });
 
         const phoneWithPlus = phone.startsWith('+') ? phone : `+1${phone}`;
-        const email = `dev_${phone}@junodesk.dev`;
+        // If email is provided, use it. Otherwise falback to generated (used by dev bypass)
+        const email = providedEmail ? providedEmail : `dev_${phone}@junodesk.dev`;
         const password = 'devpass_' + phone;
 
-        console.log(`🔧 Dev Signup for: ${phoneWithPlus}`);
+        console.log(`🔧 Dev Signup for: ${phoneWithPlus} (Email: ${email})`);
 
         let userId;
         let accessToken;

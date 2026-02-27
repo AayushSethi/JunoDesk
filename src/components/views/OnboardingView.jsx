@@ -54,9 +54,19 @@ export default function OnboardingView({
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF]">
-            {/* Navigation: Back */}
-            <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-6 z-50">
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] overflow-hidden">
+            {/* Progress Bar */}
+            {onboardingStep > 0 && onboardingStep < 10 && (
+                <div className="absolute top-[env(safe-area-inset-top,0px)] left-0 w-full h-1.5 bg-gray-100 z-50">
+                    <div
+                        className="h-full bg-blue-600 transition-all duration-500 ease-out"
+                        style={{ width: `${((onboardingStep + 1) / 11) * 100}%` }}
+                    ></div>
+                </div>
+            )}
+
+            {/* Header / Nav Container - using static layout so content is pushed down naturally */}
+            <div className="w-full pt-[max(4rem,env(safe-area-inset-top)+1rem)] px-6 shrink-0 flex items-center z-40 relative">
                 {onboardingStep >= 0 && onboardingStep < 10 && (
                     <button
                         onClick={() => {
@@ -74,17 +84,7 @@ export default function OnboardingView({
                 )}
             </div>
 
-            {/* Progress Bar */}
-            {onboardingStep > 0 && onboardingStep < 10 && (
-                <div className="absolute top-[env(safe-area-inset-top,0px)] left-0 w-full h-1.5 bg-gray-100">
-                    <div
-                        className="h-full bg-blue-600 transition-all duration-500 ease-out"
-                        style={{ width: `${((onboardingStep + 1) / 11) * 100}%` }}
-                    ></div>
-                </div>
-            )}
-
-            <div className="h-full flex flex-col p-6 max-w-md mx-auto w-full justify-center animate-in slide-in-from-right duration-500">
+            <div className="flex-1 flex flex-col p-6 pt-2 max-w-md mx-auto w-full justify-center animate-in slide-in-from-right duration-500 overflow-y-auto pb-12">
 
                 {/* Step 0: How it Works */}
                 {onboardingStep === 0 && (
@@ -200,6 +200,17 @@ export default function OnboardingView({
                                 />
                             </div>
 
+                            <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Email Address</label>
+                                <input
+                                    type="email"
+                                    className="w-full bg-transparent border-b-2 border-gray-200 text-2xl font-bold text-black focus:outline-none focus:border-blue-600 pb-2 placeholder-gray-300 transition-colors"
+                                    placeholder="you@company.com"
+                                    value={onboardingData.email || ''}
+                                    onChange={e => setOnboardingData({ ...onboardingData, email: e.target.value })}
+                                />
+                            </div>
+
                             {authError && (
                                 <div className="p-3 bg-red-50 text-red-600 font-medium text-sm rounded-xl flex items-center gap-2">
                                     <ShieldAlert size={16} /> {authError}
@@ -213,7 +224,7 @@ export default function OnboardingView({
                                         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/dev-signup`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ phone: authPhone })
+                                            body: JSON.stringify({ phone: authPhone, email: onboardingData.email })
                                         });
                                         const result = await res.json();
                                         if (!res.ok || result.error) throw new Error(result.error || 'Signup failed');
@@ -222,7 +233,7 @@ export default function OnboardingView({
                                         setOnboardingStep(2); showToast('Account created!');
                                     } catch (err) { setAuthError(err.message); } finally { setAuthLoading(false); }
                                 }}
-                                disabled={authLoading || authPhone.length < 10}
+                                disabled={authLoading || authPhone.length < 10 || !onboardingData.email || !onboardingData.email.includes('@')}
                                 className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)] disabled:opacity-50 mt-8 hover:shadow-[0_4px_25px_rgba(37,99,235,0.15)] transition-all"
                             >
                                 {authLoading ? 'Creating Account...' : 'Continue'}
