@@ -183,7 +183,8 @@ export const provision = async (req, res) => {
                 purchased = await twilioClient.incomingPhoneNumbers.create({
                     phoneNumber: available[0].phoneNumber,
                     friendlyName: `${profile.company_name} - JunoDesk`,
-                    voiceUrl: 'https://api.vapi.ai/twilio/inbound_call' // Ensure webhook is set immediately
+                    voiceUrl: 'https://api.vapi.ai/twilio/inbound_call',
+                    smsUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/twilio-sms`
                 });
                 console.log(`✅ Purchased NEW number: ${purchased.phoneNumber} (SID: ${purchased.sid})`);
 
@@ -220,10 +221,13 @@ export const provision = async (req, res) => {
                     sid: backupNumber.twilio_sid
                 };
 
-                // Optional: Update Twilio Friendly Name asynchronously (fire and forget)
+                // Optional: Update Twilio Friendly Name and SMS webhook asynchronously
                 twilioClient.incomingPhoneNumbers(purchased.sid)
-                    .update({ friendlyName: `${profile.company_name} - JunoDesk (Backup)` })
-                    .catch(e => console.warn("Failed to rename backup number:", e.message));
+                    .update({
+                        friendlyName: `${profile.company_name} - JunoDesk (Backup)`,
+                        smsUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/twilio-sms`
+                    })
+                    .catch(e => console.warn("Failed to rename/update backup number:", e.message));
 
                 console.log(`✅ Assigned BACKUP number: ${purchased.phoneNumber}`);
             }

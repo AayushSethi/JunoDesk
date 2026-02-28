@@ -7,6 +7,7 @@ import * as toolsController from '../controllers/toolsController.js';
 import * as voiceController from '../controllers/voiceController.js';
 import * as scrapeController from '../controllers/scrapeController.js';
 import * as subscriptionController from '../controllers/subscriptionController.js';
+import * as messageController from '../controllers/messageController.js';
 
 const router = express.Router();
 
@@ -30,6 +31,11 @@ router.all('/api/cron/refresh-all', assistantController.refreshAllAssistants);
 router.get('/api/calls', callController.getCalls);
 router.get('/api/sync-calls', callController.syncCalls);
 router.post('/api/webhook/vapi', callController.vapiWebhook);
+
+// --- Message Routes ---
+router.post('/api/webhook/twilio-sms', messageController.twilioSmsWebhook);
+router.get('/api/messages', messageController.getMessages);
+router.post('/api/messages/send', messageController.sendManualMessage);
 
 // --- Tool Routes ---
 router.post('/api/tools/check-availability', toolsController.checkAvailability);

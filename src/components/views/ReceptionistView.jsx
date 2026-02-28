@@ -78,9 +78,6 @@ export default function ReceptionistView({
                                 <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                             </h1>
                             <div className="h-6 w-px bg-gray-200"></div>
-                            <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                                AI Receptionist
-                            </span>
                         </div>
                     </div>
 

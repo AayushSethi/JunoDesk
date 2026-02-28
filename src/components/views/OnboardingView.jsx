@@ -106,11 +106,8 @@ export default function OnboardingView({
                             <div className="font-bold text-gray-900 mb-1 z-10 text-[15px]">You decide</div>
 
                             <svg width="80" height="30" viewBox="0 0 80 30" fill="none" className="my-1 text-gray-400">
-                                <path d="M40 0 L15 25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                <path d="M11 20 L14.5 25.5 L20 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-
-                                <path d="M40 0 L65 25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                <path d="M69 20 L65.5 25.5 L60 22" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M40 0 L15 25 L22 25 M15 25 L15 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M40 0 L65 25 L58 25 M65 25 L65 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
 
                             <div className="w-full flex gap-3 items-start z-10">
