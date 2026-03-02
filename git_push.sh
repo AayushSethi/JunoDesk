@@ -2,7 +2,7 @@
 
 git status          # See what's changed
 git add .           # Stage all
-git commit -m "inbox and email fix"
+git commit -m "messages"
 git push
 
 

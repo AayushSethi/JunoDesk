@@ -78,6 +78,7 @@ export default function ReceptionistView({
                                 <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
                             </h1>
                             <div className="h-6 w-px bg-gray-200"></div>
+
                         </div>
                     </div>
 

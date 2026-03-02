@@ -31,7 +31,7 @@ const VOICE_PREVIEWS = {
 import LandingView from './components/views/LandingView';
 import LoginView from './components/views/LoginView';
 import InboxView from './components/views/InboxView';
-import MessagesView from './components/views/MessagesView';
+
 import ReceptionistView from './components/views/ReceptionistView';
 import OnboardingView from './components/views/OnboardingView';
 import SettingsView from './components/views/SettingsView';
@@ -1049,15 +1049,7 @@ export default function App() {
                 />
             )}
 
-            {view === 'messages' && (
-                <div className="flex-1 overflow-hidden animate-in fade-in duration-300">
-                    <MessagesView
-                        userId={session?.user?.id}
-                        businessPhone={""}
-                        showToast={showToast}
-                    />
-                </div>
-            )}
+
 
 
 
