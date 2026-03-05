@@ -132,10 +132,19 @@ export const bookAppointment = async (req, res) => {
         const start = new Date(args.startTime);
         const end = new Date(start.getTime() + (args.durationMinutes || 30) * 60000);
 
+        const customerNumber = message.customer?.number || message.call?.customer?.number || 'Unknown Number';
+        const customerName = args.name || "Guest";
+
+        const eventDescription = `AI Receptionist Booking
+Caller Name: ${customerName}
+Caller Number: ${customerNumber}
+Summary: ${args.summary}`;
+
         const eventResponse = await calendar.events.insert({
             calendarId: profile.google_calendar_id || 'primary',
             requestBody: {
                 summary: args.summary,
+                description: eventDescription,
                 start: { dateTime: start.toISOString(), timeZone: profile.timezone || 'America/New_York' },
                 end: { dateTime: end.toISOString(), timeZone: profile.timezone || 'America/New_York' }
             }
@@ -151,8 +160,7 @@ export const bookAppointment = async (req, res) => {
         });
 
         // SMS Notification
-        const customerNumber = message.customer?.number || message.call?.customer?.number;
-        if (customerNumber && profile.vapi_phone_number) {
+        if (customerNumber !== 'Unknown Number' && profile.vapi_phone_number) {
             try {
                 const tz = profile.timezone || 'America/New_York';
                 const formattedDate = start.toLocaleString('en-US', {

@@ -397,6 +397,46 @@ export default function ReceptionistView({
                                     )}
                                 </div>
 
+                                {/* Emergency Call Transfer Card */}
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-900">Emergency Call Transfer</h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">Transfer callers to a human operator in emergencies</p>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                const newVal = !userInfo.useEmergencyNumber;
+                                                setUserInfo(prev => ({ ...prev, useEmergencyNumber: newVal }));
+                                                await supabase.from('business_profiles').update({ emergency_transfer_enabled: newVal }).eq('owner_user_id', session.user.id);
+                                                syncAssistant();
+                                                showToast(`Emergency transfer ${newVal ? 'enabled' : 'disabled'}`);
+                                            }}
+                                            className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${userInfo.useEmergencyNumber ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                        >
+                                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${userInfo.useEmergencyNumber ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                        </button>
+                                    </div>
+
+                                    {userInfo.useEmergencyNumber && (
+                                        <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Transfer Number</label>
+                                            <input
+                                                type="text"
+                                                value={userInfo.emergencyNumber || ''}
+                                                onChange={(e) => setUserInfo(prev => ({ ...prev, emergencyNumber: e.target.value }))}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('business_profiles').update({ emergency_phone: e.target.value }).eq('owner_user_id', session.user.id);
+                                                    syncAssistant();
+                                                    showToast("Emergency number saved");
+                                                }}
+                                                className="h-10 w-full text-sm font-medium text-gray-900 outline-none bg-white border border-gray-200 rounded-lg px-3 focus:border-blue-500 transition-colors placeholder-gray-400"
+                                                placeholder="e.g. +14155551234"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Spacer */}
                                 <div className="h-48"></div>
                             </div>

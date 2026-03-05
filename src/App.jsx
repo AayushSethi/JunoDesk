@@ -1046,6 +1046,7 @@ export default function App() {
                     showTranscript={showTranscript}
                     setShowTranscript={setShowTranscript}
                     userInfo={userInfo}
+                    openCallDetail={openCallDetail}
                 />
             )}
 
@@ -1114,6 +1115,7 @@ export default function App() {
                         selectedCall={selectedCall}
                         setView={setView}
                         showToast={showToast}
+                        handleDeleteCall={handleDeleteCall}
                     />
                 )
             }

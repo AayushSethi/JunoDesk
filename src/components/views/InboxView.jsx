@@ -26,7 +26,8 @@ export default function InboxView({
     setExpandedCallId,
     showTranscript,
     setShowTranscript,
-    userInfo
+    userInfo,
+    openCallDetail
 }) {
     if (view !== 'inbox') return null;
 
@@ -177,20 +178,17 @@ export default function InboxView({
                                         <div
                                             key={call.id}
                                             onClick={async () => {
-                                                const isCurrentlyExpanded = expandedCallId === call.id;
-                                                setExpandedCallId(isCurrentlyExpanded ? null : call.id);
-                                                setShowTranscript(false);
-
-                                                if (!isCurrentlyExpanded && !call.isRead) {
+                                                if (!call.isRead) {
                                                     setCalls(prev => prev.map(c => c.id === call.id ? { ...c, isRead: true } : c));
                                                     try {
                                                         await supabase.from('calls').update({ is_read: true }).eq('id', call.id);
                                                     } catch (err) { console.error(err); }
                                                 }
+                                                if (openCallDetail) openCallDetail(call);
                                             }}
                                             className="group cursor-pointer"
                                         >
-                                            <div className={`py-3 transition-all duration-300 ${isExpanded ? 'px-3 -mx-3 rounded-2xl bg-white shadow-md ring-1 ring-blue-100 my-2' : ''}`}>
+                                            <div className="py-3 transition-all duration-300">
                                                 {/* Call header */}
                                                 <div className="flex justify-between items-start mb-1">
                                                     <div className="flex-1">
@@ -222,131 +220,12 @@ export default function InboxView({
                                                 )}
 
                                                 {/* Collapsed preview */}
-                                                {!isExpanded && (
-                                                    <div className="flex items-center gap-2 px-1">
-                                                        <Sparkles size={14} className="text-blue-600" />
-                                                        <p className="text-[13px] text-gray-600 font-medium truncate">
-                                                            {call.summary}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {/* Expanded */}
-                                                {isExpanded && (
-                                                    <div className="mt-1 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                        <div className="p-3 rounded-2xl bg-white border border-gray-200 shadow-sm">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <Sparkles size={12} className="text-blue-600" />
-                                                                <span className="text-[9px] font-black uppercase tracking-wider text-gray-600">AI Summary</span>
-                                                            </div>
-                                                            <p className="text-[13px] leading-snug text-gray-800 font-medium">
-                                                                {call.summary}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-1.5 mb-2 w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (call.number) window.location.href = `tel:${call.number}`;
-                                                                }}
-                                                                className="bg-blue-600 text-white px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-lg shadow-blue-600/20 active:scale-95 transition-all hover:bg-blue-700 shrink-0"
-                                                            >
-                                                                <Phone size={12} fill="white" /> Call
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (call.number) window.location.href = `sms:${call.number}`;
-                                                                }}
-                                                                className="bg-white border border-gray-200 text-gray-900 px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-gray-50 shrink-0"
-                                                            >
-                                                                <MessageSquare size={12} /> Text
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="bg-white border border-gray-200 text-gray-900 px-2.5 py-1.5 rounded-full font-extrabold text-[11px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-gray-50 shrink-0"
-                                                            >
-                                                                <UserPlus size={12} /> Add
-                                                            </button>
-
-                                                            <div className="flex gap-1.5 ml-auto shrink-0 pl-1">
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); showToast("Sharing..."); }}
-                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
-                                                                >
-                                                                    <Share2 size={14} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (call.isArchived) handleUnarchiveCall(call.id);
-                                                                        else handleArchiveCall(call.id);
-                                                                    }}
-                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
-                                                                >
-                                                                    <Archive size={14} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteCall(call.id); }}
-                                                                    className="w-8 h-8 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Audio + Transcript */}
-                                                        <div className="space-y-3 mt-1" onClick={(e) => e.stopPropagation()}>
-                                                            {call.recordingUrl && (
-                                                                <RecordingPlayer
-                                                                    recordingUrl={call.recordingUrl}
-                                                                    callId={call.id}
-                                                                    playingVoiceId={playingVoiceId}
-                                                                    setPlayingVoiceId={setPlayingVoiceId}
-                                                                    audioProgress={audioProgress}
-                                                                    setAudioProgress={setAudioProgress}
-                                                                />
-                                                            )}
-
-                                                            <button
-                                                                onClick={() => { setShowTranscript(!showTranscript); }}
-                                                                className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-blue-600 transition-colors"
-                                                            >
-                                                                <FileText size={12} /> {showTranscript ? 'Hide' : 'View'} Transcript
-                                                                <ChevronDown size={10} className={`transition-transform duration-300 ${showTranscript ? 'rotate-180' : ''}`} />
-                                                            </button>
-
-                                                            {showTranscript && (
-                                                                <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl max-h-48 overflow-y-auto no-scrollbar animate-in slide-in-from-top-1">
-                                                                    {call.transcript ? (
-                                                                        <div className="space-y-2.5">
-                                                                            {call.transcript.split(/(?=AI:|Guest:|User:)/g).map((msg, i) => {
-                                                                                const isAI = msg.trim().startsWith("AI:");
-                                                                                const sender = isAI ? "Receptionist" : "Guest";
-                                                                                const content = msg.replace(/^(AI:|Guest:|User:)/i, '').trim();
-                                                                                if (!content) return null;
-                                                                                return (
-                                                                                    <div key={i} className={`flex flex-col ${isAI ? 'items-start text-left' : 'items-end text-right'}`}>
-                                                                                        <span className={`text-[10px] font-black uppercase tracking-wider mb-0.5 ${isAI ? 'text-blue-600' : 'text-gray-500'}`}>
-                                                                                            {sender}
-                                                                                        </span>
-                                                                                        <span className={`text-sm font-medium leading-relaxed max-w-[85%] ${isAI ? 'text-gray-900' : 'text-gray-700'}`}>
-                                                                                            {content}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest text-center py-1">No Transcript</p>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-2 px-1">
+                                                    <Sparkles size={14} className="text-blue-600 shrink-0" />
+                                                    <p className="text-[13px] text-gray-600 font-medium truncate">
+                                                        {call.summary}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     );

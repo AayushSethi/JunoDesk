@@ -61,6 +61,7 @@ export const vapiWebhook = async (req, res) => {
                 const durationSeconds = Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000);
                 const summaryText = (analysis?.summary || "").toLowerCase();
                 const isSpam = (durationSeconds < 5) || summaryText.includes('wrong number') || summaryText.includes('spam');
+                const structuredData = analysis?.structuredData || null;
 
                 await supabase.from('calls').upsert({
                     id: call.id,
@@ -72,7 +73,8 @@ export const vapiWebhook = async (req, res) => {
                     summary: analysis?.summary || "Processing...",
                     transcript: analysis?.transcript || "",
                     recording_url: artifact?.recordingUrl || call.recordingUrl,
-                    is_spam: isSpam
+                    is_spam: isSpam,
+                    structured_data: structuredData
                 }, { onConflict: 'id' });
                 console.log("✅ Saved Call to DB:", call.id);
             }
@@ -124,6 +126,7 @@ export const syncCalls = async (req, res) => {
             const safeDuration = isNaN(durationSeconds) ? 0 : durationSeconds;
             const summaryText = (call.analysis?.summary || call.summary || "").toLowerCase();
             const isSpam = (safeDuration < 5) || summaryText.includes('wrong number') || summaryText.includes('spam');
+            const structuredData = call.analysis?.structuredData || null;
 
             const { error } = await supabase.from('calls').upsert({
                 id: call.id,
@@ -135,7 +138,8 @@ export const syncCalls = async (req, res) => {
                 summary: call.analysis?.summary || call.summary || "Processing...",
                 transcript: call.transcript || call.analysis?.transcript || "",
                 recording_url: call.artifact?.recordingUrl || call.recordingUrl,
-                is_spam: isSpam
+                is_spam: isSpam,
+                structured_data: structuredData
             }, { onConflict: 'id' });
 
             if (!error) count++;

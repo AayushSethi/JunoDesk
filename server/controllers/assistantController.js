@@ -28,6 +28,21 @@ const SUMMARY_PLAN = {
     enabled: true
 };
 
+const STRUCTURED_DATA_PLAN = {
+    name: "Call Details",
+    schema: {
+        type: "object",
+        properties: {
+            callerName: { type: "string", description: "The name of the caller. If not provided, state 'Unknown'." },
+            callRegarding: { type: "string", description: "The main topic or reason for the call (e.g., Reservation, Support, Inquiry, Lead)." },
+            actionTaken: { type: "string", description: "The action that was taken during the call (e.g., Reservation placed, Message taken, None)." },
+            wasSuccessful: { type: "boolean", description: "Did the caller achieve the main goal of their call?" },
+            additionalNotes: { type: "string", description: "Any other important details concisely stated." }
+        },
+        required: ["callerName", "callRegarding", "actionTaken", "wasSuccessful"]
+    }
+};
+
 export const provision = async (req, res) => {
     try {
         const { userId, companyName, industry, userPhone, timezone } = req.body;
@@ -118,7 +133,7 @@ export const provision = async (req, res) => {
             const assistantPayload = {
                 name: `${profile.company_name} Receptionist`,
                 serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
-                analysisPlan: { summaryPlan: SUMMARY_PLAN },
+                analysisPlan: { summaryPlan: SUMMARY_PLAN, structuredDataPlan: STRUCTURED_DATA_PLAN },
                 hooks: SILENCE_HOOKS,
                 model: {
                     provider: "openai",
@@ -346,11 +361,15 @@ export const syncAssistantCore = async (userId, options = {}) => {
         systemPrompt += `\n- If caller asks what times are available: collect day + duration, then check 3 standard slots and offer up to 3 available options.`;
     }
 
+    if (profile.emergency_transfer_enabled && profile.emergency_phone) {
+        systemPrompt += `\n- EMERGENCY/HUMAN: If the caller has an emergency, explicitly asks to speak to a real person, or you cannot assist them, use the transferCall tool to route them immediately.`;
+    }
+
     // 3. Construct Payload
     const updatedPayload = {
         name: profile.assistant_name || `${profile.company_name} Receptionist`,
         serverUrl: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/webhook/vapi`,
-        analysisPlan: { summaryPlan: SUMMARY_PLAN },
+        analysisPlan: { summaryPlan: SUMMARY_PLAN, structuredDataPlan: STRUCTURED_DATA_PLAN },
         hooks: SILENCE_HOOKS,
         voice: {
             provider: "11labs",
@@ -388,14 +407,30 @@ export const syncAssistantCore = async (userId, options = {}) => {
                             parameters: {
                                 type: "object",
                                 properties: {
+                                    name: { type: "string", description: "The name of the caller booking the appointment" },
                                     summary: { type: "string" },
                                     startTime: { type: "string" },
                                     durationMinutes: { type: "number" }
                                 },
-                                required: ["summary", "startTime"]
+                                required: ["name", "summary", "startTime"]
                             }
                         },
                         server: { url: `${process.env.SERVER_URL || 'http://localhost:3000'}/api/tools/book-appointment` }
+                    }
+                ] : []),
+                ...(profile.emergency_transfer_enabled && profile.emergency_phone ? [
+                    {
+                        type: "transferCall",
+                        destinations: [
+                            {
+                                type: "number",
+                                number: profile.emergency_phone
+                            }
+                        ],
+                        function: {
+                            name: "transferCall",
+                            description: "Call this function to transfer the call to a human operator if the caller has an emergency, explicitly asks to speak to a real person, or if you cannot help them."
+                        }
                     }
                 ] : []),
                 {
