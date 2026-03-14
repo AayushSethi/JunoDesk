@@ -31,6 +31,8 @@ router.all('/api/cron/refresh-all', assistantController.refreshAllAssistants);
 router.get('/api/calls', callController.getCalls);
 router.get('/api/sync-calls', callController.syncCalls);
 router.post('/api/webhook/vapi', callController.vapiWebhook);
+router.post('/api/test-call', callController.initiateTestCall);
+router.get('/api/test-call/status', callController.getTestCallStatus);
 
 // --- Message Routes ---
 router.post('/api/webhook/twilio-sms', messageController.twilioSmsWebhook);

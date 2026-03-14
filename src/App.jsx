@@ -10,6 +10,8 @@ import {
     ShieldAlert, Archive, Trash2, Activity, Inbox, Users, PhoneOff, Lock, FileText, CalendarCheck, LayoutGrid
 } from 'lucide-react';
 import { supabase } from './supabase';
+import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { RevenueCatUI, PAYWALL_RESULT } from '@revenuecat/purchases-capacitor-ui';
 
 import Hope from './assets/avatars/Voices/Hope.mp3';
 import Jessica from './assets/avatars/Voices/Jessica.mp3';
@@ -90,6 +92,23 @@ export default function App() {
     const [selectedCall, setSelectedCall] = useState(null);
     const [playingVoiceId, setPlayingVoiceId] = useState(null); // Used for voice preview AND call recording playback
     const [audioProgress, setAudioProgress] = useState(0); // 0 to 100 for call recording progress
+
+    // --- RevenueCat Initialization ---
+    useEffect(() => {
+        const initRevenueCat = async () => {
+            try {
+                // Determine if we're theoretically running on mobile vs web
+                // For web/dev it might throw an error since it's a capacitor plugin
+                await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+                await Purchases.configure({ apiKey: "appl_GNfOqasXZJHTGmGLvPsQZqMvJtk" });
+                console.log("💳 RevenueCat initialized!");
+            } catch (e) {
+                console.warn("RevenueCat skipped (likely running on web):", e);
+            }
+        };
+        initRevenueCat();
+    }, []);
+
     // --- Auth Effect ---
     useEffect(() => {
         const checkUser = async () => {

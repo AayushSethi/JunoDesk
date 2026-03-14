@@ -29,7 +29,6 @@ const SUMMARY_PLAN = {
 };
 
 const STRUCTURED_DATA_PLAN = {
-    name: "Call Details",
     schema: {
         type: "object",
         properties: {
@@ -99,7 +98,7 @@ export const provision = async (req, res) => {
         }
 
         // --- MOCK MODE: Bypass Twilio & Vapi for Demo/Testing Onboarding
-        const MOCK_PROVISIONING = false;
+        const MOCK_PROVISIONING = process.env.MOCK_APIS === 'true';
         if (MOCK_PROVISIONING) {
             console.log("⚠️ MOCK PROVISIONING ENABLED: Skipping Twilio and Vapi...");
 

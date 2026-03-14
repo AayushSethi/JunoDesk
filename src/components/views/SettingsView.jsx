@@ -3,6 +3,7 @@ import {
     Users, Bell, CreditCard, MessageSquare, Lock, LogOut,
     Trash2, ChevronRight, ChevronLeft, Check
 } from 'lucide-react';
+import { RevenueCatUI, PAYWALL_RESULT } from '@revenuecat/purchases-capacitor-ui';
 
 export default function SettingsView({
     view,
@@ -141,7 +142,20 @@ export default function SettingsView({
                     </div>
 
                     <button
-                        onClick={() => showToast('Subscription management coming soon')}
+                        onClick={async () => {
+                            try {
+                                const { result } = await RevenueCatUI.presentPaywall();
+                                if (result === PAYWALL_RESULT.PURCHASED) {
+                                    showToast("Subscription Activated!");
+                                    // You can trigger a refetch here if needed
+                                } else if (result === PAYWALL_RESULT.RESTORED) {
+                                    showToast("Purchases restored!");
+                                }
+                            } catch (e) {
+                                console.error('Paywall error:', e);
+                                showToast("Failed to open upgrade screen.");
+                            }
+                        }}
                         className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-[0.98] transition-all"
                     >
                         Update Subscription

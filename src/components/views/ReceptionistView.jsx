@@ -71,18 +71,19 @@ export default function ReceptionistView({
         <>
             <div className="flex flex-col h-full bg-transparent overflow-y-auto no-scrollbar animate-in fade-in duration-500">
                 {/* --- Header Section (Centered Branding) --- */}
-                <header className="px-6 flex flex-col space-y-4 shrink-0 pb-0 pt-[max(2.5rem,env(safe-area-inset-top))]">
-                    <div className="flex justify-center items-center z-20">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-black tracking-tighter">
-                                <span className="text-gray-900">Juno</span><span className="text-blue-600">Desk</span>
-                            </h1>
-                            <div className="h-6 w-px bg-gray-200"></div>
-
-                        </div>
+                <div className="pb-5 px-6 flex justify-center items-center shrink-0 z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-black tracking-tight">
+                            <span className="text-gray-950">Juno</span><span className="text-blue-600">Desk</span>
+                        </h1>
+                        <div className="h-6 w-px bg-gray-200" />
+                        <span className="px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-extrabold text-gray-600 tracking-widest uppercase">
+                            AI Receptionist
+                        </span>
                     </div>
+                </div>
 
-
+                <header className="px-6 flex flex-col space-y-4 shrink-0 pb-0">
                     {/* --- Navigation Tabs (Underline Style) --- */}
                     <nav className="flex space-x-6 justify-center">
                         {['Instructions', 'Knowledge', 'Phone'].map(tab => {

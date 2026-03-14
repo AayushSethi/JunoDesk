@@ -1,8 +1,11 @@
-
 import { supabase } from '../config/supabase.js';
+import { twilioClient } from '../config/twilio.js';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_TOKEN = process.env.VAPI_PRIVATE_KEY;
+
+const mockCalls = new Map();
+
 
 export const vapiWebhook = async (req, res) => {
     try {
@@ -151,5 +154,87 @@ export const syncCalls = async (req, res) => {
     } catch (e) {
         console.error("Sync Error:", e);
         res.status(500).json({ error: e.message });
+    }
+};
+
+export const initiateTestCall = async (req, res) => {
+    try {
+        const { userId, userPhone, vapiPhone } = req.body;
+        if (!userId || !userPhone || !vapiPhone) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        let toPhone = userPhone;
+        if (!toPhone.startsWith('+')) toPhone = '+1' + toPhone.replace(/\D/g, '');
+        let fromPhone = vapiPhone;
+        if (!fromPhone.startsWith('+')) fromPhone = '+1' + fromPhone.replace(/\D/g, '');
+
+        if (process.env.MOCK_APIS === 'true') {
+            console.log(`⚠️ MOCK API: Skipping Twilio Test Call to ${toPhone}`);
+            mockCalls.set(userId, Date.now());
+            return res.json({ success: true, callSid: "mock_call_sid_" + Date.now() });
+        }
+
+        const call = await twilioClient.calls.create({
+            twiml: '<Response><Say>This is a test call from Juno Desk. Please decline this call now to test your AI Receptionist.</Say><Pause length="15"/><Say>Please decline the call.</Say><Pause length="15"/></Response>',
+            to: toPhone,
+            from: fromPhone
+        });
+
+        res.json({ success: true, callSid: call.sid });
+    } catch (err) {
+        console.error("Test Call Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getTestCallStatus = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) return res.status(400).json({ error: "Missing userId" });
+
+        if (process.env.MOCK_APIS === 'true') {
+            const startTime = mockCalls.get(userId);
+            if (!startTime) return res.json({ status: 'failed' });
+
+            const ageMs = Date.now() - startTime;
+            // Fake the progression: 4s calling -> 11s active -> completed
+            if (ageMs > 15000) {
+                return res.json({ status: 'completed' });
+            } else if (ageMs > 4000) {
+                return res.json({ status: 'in-progress' });
+            } else {
+                return res.json({ status: 'calling' });
+            }
+        }
+
+        const { data: profile } = await supabase.from('business_profiles').select('vapi_assistant_id').eq('owner_user_id', userId).single();
+        if (!profile?.vapi_assistant_id) return res.json({ status: 'failed' });
+
+        const vapiRes = await fetch(`${VAPI_BASE_URL}/call?assistantId=${profile.vapi_assistant_id}&limit=5`, {
+            headers: { 'Authorization': `Bearer ${VAPI_TOKEN}` }
+        });
+
+        if (!vapiRes.ok) throw new Error("Vapi Fetch Error");
+        const callsList = await vapiRes.json();
+
+        // Find if any call is currently active or recently created (within last 60s)
+        const recentCall = callsList.find(c => {
+            const ageMs = Date.now() - new Date(c.createdAt).getTime();
+            return ageMs < 60000;
+        });
+
+        if (recentCall) {
+            if (recentCall.status === 'ended' || recentCall.status === 'completed') {
+                return res.json({ status: 'completed' });
+            } else {
+                return res.json({ status: 'in-progress' });
+            }
+        }
+
+        res.json({ status: 'calling' });
+    } catch (err) {
+        console.error("Test Call Status Error:", err);
+        res.status(500).json({ error: err.message });
     }
 };

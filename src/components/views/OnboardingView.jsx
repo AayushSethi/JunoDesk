@@ -40,6 +40,21 @@ export default function OnboardingView({
     session,
     supabase
 }) {
+    const [testCallState, setTestCallState] = React.useState('idle'); // 'idle', 'calling', 'active', 'success', 'error'
+    const [testCallDuration, setTestCallDuration] = React.useState(0);
+
+    React.useEffect(() => {
+        if (onboardingStep === 13) {
+            if (testCallState === 'error') {
+                const tmr = setTimeout(() => setOnboardingStep(14), 1500);
+                return () => clearTimeout(tmr);
+            } else if (testCallState === 'success') {
+                const tmr = setTimeout(() => setOnboardingStep(15), 1500);
+                return () => clearTimeout(tmr);
+            }
+        }
+    }, [testCallState, onboardingStep, setOnboardingStep]);
+
     // Helper to save profile info
     const saveOnboardingProfile = async (data) => {
         try {
@@ -53,34 +68,63 @@ export default function OnboardingView({
         }
     };
 
+    const setupPhase = onboardingStep === 9 ? 1 : (onboardingStep >= 10 && onboardingStep <= 11) ? 2 : (onboardingStep >= 12 && onboardingStep <= 13) ? 3 : 4;
+
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] overflow-hidden">
-            {/* Progress Bar */}
-            {onboardingStep > 0 && onboardingStep < 10 && (
+        <div className={`fixed inset-0 z-[9999] flex flex-col transition-colors duration-500 overflow-hidden bg-gradient-to-b from-[#F5F6FA] via-[#EEF2FF] to-[#E6ECFF] text-gray-900`}>
+            {/* Progress Bar (Standard) */}
+            {onboardingStep > 0 && onboardingStep < 9 && (
                 <div className="absolute top-[env(safe-area-inset-top,0px)] left-0 w-full h-1.5 bg-gray-100 z-50">
                     <div
                         className="h-full bg-blue-600 transition-all duration-500 ease-out"
-                        style={{ width: `${((onboardingStep + 1) / 11) * 100}%` }}
+                        style={{ width: `${((onboardingStep + 1) / 9) * 100}%` }}
                     ></div>
                 </div>
             )}
 
-            {/* Header / Nav Container - using static layout so content is pushed down naturally */}
-            <div className="w-full pt-[max(4rem,env(safe-area-inset-top)+1rem)] px-6 shrink-0 flex items-center z-40 relative">
-                {onboardingStep >= 0 && onboardingStep < 10 && (
-                    <button
-                        onClick={() => {
-                            if (onboardingStep === 0 || onboardingStep === 1) {
-                                setView('auth');
-                            } else {
-                                setOnboardingStep(s => s - 1);
-                            }
-                        }}
-                        className="px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-full text-gray-600 font-semibold text-sm hover:bg-white hover:text-gray-900 transition-all flex items-center gap-1 shadow-sm"
-                    >
-                        <ChevronLeft size={16} />
-                        Back
-                    </button>
+            {/* Header / Nav Container */}
+            <div className="w-full pt-[max(4rem,env(safe-area-inset-top)+1rem)] px-6 shrink-0 flex flex-col items-center z-40 relative">
+                {onboardingStep >= 0 && onboardingStep < 9 && (
+                    <div className="w-full flex">
+                        <button
+                            onClick={() => {
+                                if (onboardingStep === 0 || onboardingStep === 1) {
+                                    setView('auth');
+                                } else if (onboardingStep === 8.1) {
+                                    setOnboardingStep(8);
+                                } else if (onboardingStep === 8.2) {
+                                    setOnboardingStep(8.1);
+                                } else if (onboardingStep === 9) {
+                                    setOnboardingStep(8.2);
+                                } else {
+                                    setOnboardingStep(s => s - 1);
+                                }
+                            }}
+                            className="px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-full text-gray-600 font-semibold text-sm hover:bg-white hover:text-gray-900 transition-all flex items-center gap-1 shadow-sm"
+                        >
+                            <ChevronLeft size={16} />
+                            Back
+                        </button>
+                    </div>
+                )}
+
+                {/* Progress Stepper (Phone Setup Phase) */}
+                {onboardingStep >= 9 && onboardingStep <= 14 && (
+                    <div className="w-full max-w-xs mx-auto flex items-center justify-between mb-4">
+                        {[1, 2, 3, 4].map(step => (
+                            <React.Fragment key={step}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm z-10 transition-all shadow-sm border ${setupPhase >= step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-200'}`}>
+                                    {step}
+                                </div>
+                                {step < 4 && (
+                                    <div className="flex-1 h-[3px] mx-1 relative rounded-full overflow-hidden">
+                                        <div className="absolute inset-0 bg-gray-200"></div>
+                                        <div className="absolute left-0 top-0 bottom-0 bg-blue-600 transition-all duration-500 ease-out" style={{ width: setupPhase > step ? '100%' : '0%' }}></div>
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 )}
             </div>
 
@@ -473,7 +517,7 @@ export default function OnboardingView({
                                             if (popup && popup.closed) {
                                                 clearInterval(timer);
                                                 showToast("Calendar connected successfully!");
-                                                setOnboardingStep(9);
+                                                setOnboardingStep(8.1);
                                                 setAuthLoading(false);
                                             }
                                         }, 1000);
@@ -494,7 +538,7 @@ export default function OnboardingView({
                         </button>
 
                         <button
-                            onClick={() => setOnboardingStep(9)}
+                            onClick={() => setOnboardingStep(8.1)}
                             className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center w-full mx-auto py-2"
                         >
                             Skip for now
@@ -502,34 +546,106 @@ export default function OnboardingView({
                     </div>
                 )}
 
+                {/* Step 8.1: Enable Notifications */}
+                {onboardingStep === 8.1 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex justify-center mb-6">
+                            <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-sm relative overflow-hidden">
+                                <div className="absolute inset-0 bg-blue-600 opacity-10 animate-pulse"></div>
+                                <MessageSquare size={36} className="text-blue-600 relative z-10" fill="currentColor" />
+                                <div className="absolute top-4 right-4 w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>
+                            </div>
+                        </div>
+
+                        <h2 className="text-3xl font-black text-gray-900 mb-3 text-center tracking-tight">Stay in the loop</h2>
+                        <p className="text-center text-gray-500 font-medium mb-12 text-[15px] px-6">Get instantly notified the second your AI receptionist takes a message or books a meeting.</p>
+
+                        <button
+                            onClick={() => {
+                                if ('Notification' in window) {
+                                    Notification.requestPermission();
+                                }
+                                setOnboardingStep(8.2);
+                            }}
+                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all text-lg mb-4"
+                        >
+                            Enable Notifications
+                        </button>
+
+                        <button
+                            onClick={() => setOnboardingStep(8.2)}
+                            className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors w-full text-center py-2"
+                        >
+                            MAYBE LATER
+                        </button>
+                    </div>
+                )}
+
+                {/* Step 8.2: Sync Contacts */}
+                {onboardingStep === 8.2 && (
+                    <div className="animate-in zoom-in duration-300">
+                        <div className="flex justify-center mb-6">
+                            <div className="w-24 h-24 bg-purple-50 rounded-2xl flex flex-wrap items-center justify-center gap-1 p-3 transform rotate-3 shadow-sm border border-purple-100">
+                                <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-xs">JD</div>
+                                <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">AM</div>
+                                <div className="w-8 h-8 rounded-full bg-pink-200 flex items-center justify-center text-pink-700 font-bold text-xs">SK</div>
+                            </div>
+                        </div>
+
+                        <h2 className="text-3xl font-black text-gray-900 mb-3 text-center tracking-tight">Who's calling?</h2>
+                        <p className="text-center text-gray-500 font-medium mb-12 text-[15px] px-6">Allow contact access so your AI receptionist can greet your regular customers by name.</p>
+
+                        <button
+                            onClick={() => {
+                                // Web API for contacts, or mock for now
+                                setOnboardingStep(9);
+                            }}
+                            className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all text-lg mb-4 flex items-center justify-center gap-2"
+                        >
+                            <User size={18} /> Sync Contacts
+                        </button>
+
+                        <button
+                            onClick={() => setOnboardingStep(9)}
+                            className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors w-full text-center py-2"
+                        >
+                            SKIP FOR NOW
+                        </button>
+                    </div>
+                )}
+
                 {/* Step 9: Turn off Live Voicemail */}
                 {onboardingStep === 9 && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h2 className="text-xl font-extrabold text-gray-900 mb-4">Turn off Live Voicemail</h2>
-                        <p className="text-sm text-gray-500 mb-8 font-medium">This ensures Juno picks up before Apple's voicemail.</p>
+                        <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 mb-8 text-gray-900 shadow-sm">
+                            <h2 className="text-[22px] font-black tracking-tight mb-2">Step 1: Disable<br />Live Voicemail</h2>
+                            <p className="text-[15px] text-gray-500 mb-8 font-medium pr-4 leading-relaxed">To let your AI assistant answer your missed calls, you need to turn Live Voicemail OFF.</p>
 
-                        <div className="bg-black rounded-2xl p-4 mb-8 text-white shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
-                                <div className="flex items-center space-x-2 text-blue-400 font-bold">
-                                    <ChevronLeft size={18} />
-                                    <span>Phone</span>
+                            <div className="space-y-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-[13px] shrink-0">1</div>
+                                    <div className="text-[15px] text-gray-700 font-medium pt-0.5">Open your Settings</div>
                                 </div>
-                                <span className="font-bold">Live Voicemail</span>
-                            </div>
-                            <div className="flex items-center justify-between bg-gray-900/50 rounded-xl p-3 border border-gray-800">
-                                <span className="font-bold text-sm">Live Voicemail</span>
-                                <div className="w-11 h-6 bg-[#34C759] rounded-full relative shadow-inner">
-                                    <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-lg"></div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-[13px] shrink-0">2</div>
+                                    <div className="text-[15px] text-gray-700 font-medium pt-0.5">Scroll and go to Apps<br />-&gt; Phone</div>
+                                </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-[13px] shrink-0">3</div>
+                                    <div className="text-[15px] text-gray-700 font-medium pt-0.5">Select Live Voicemail</div>
+                                </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-[13px] shrink-0">4</div>
+                                    <div className="text-[15px] text-gray-700 font-medium pt-0.5">Turn Live Voicemail OFF</div>
                                 </div>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setOnboardingStep(10)}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black active:scale-[0.98] transition-all text-lg flex items-center justify-center"
                         >
-                            Continue <ArrowRight size={18} />
+                            Continue
                         </button>
                     </div>
                 )}
@@ -537,19 +653,19 @@ export default function OnboardingView({
                 {/* Step 10: Choose Carrier */}
                 {onboardingStep === 10 && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h2 className="text-xl font-extrabold text-gray-900 mb-6">Select Carrier</h2>
+                        <h2 className="text-[28px] font-black text-gray-900 mb-6 tracking-tight text-center">Select Carrier</h2>
                         <div className="space-y-3 mb-8">
                             {carriers.map(carrier => (
                                 <div
                                     key={carrier.name}
                                     onClick={() => setSelectedCarrier(carrier.name)}
-                                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedCarrier === carrier.name
-                                        ? 'border-blue-500 bg-blue-50/50'
-                                        : 'border-gray-100 hover:border-gray-200'
+                                    className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedCarrier === carrier.name
+                                        ? 'border-blue-600 bg-blue-50/50'
+                                        : 'border-transparent bg-white shadow-sm hover:border-blue-200'
                                         }`}
                                 >
-                                    <span className={`font-bold text-sm ${selectedCarrier === carrier.name ? 'text-blue-600' : 'text-gray-900'}`}>{carrier.name}</span>
-                                    {selectedCarrier === carrier.name && <Check size={14} className="text-blue-500" />}
+                                    <span className={`font-bold text-[15px] ${selectedCarrier === carrier.name ? 'text-blue-600' : 'text-gray-900'}`}>{carrier.name}</span>
+                                    {selectedCarrier === carrier.name && <Check size={18} className="text-blue-600" />}
                                 </div>
                             ))}
                         </div>
@@ -557,82 +673,291 @@ export default function OnboardingView({
                         <button
                             onClick={() => setOnboardingStep(11)}
                             disabled={!selectedCarrier}
-                            className={`w-full py-3.5 rounded-xl font-bold shadow-xl transition-all ${selectedCarrier ? 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                            className={`w-full py-4 rounded-xl font-bold shadow-sm transition-all text-lg flex items-center justify-center ${selectedCarrier ? 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                         >
                             Continue
                         </button>
                     </div>
                 )}
 
-                {/* Step 11: Activate Forwarding */}
+                {/* Step 11: Setup Call Forwarding */}
                 {onboardingStep === 11 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h2 className="text-lg font-extrabold text-gray-900 mb-6">Enable Call Forwarding</h2>
-                        <p className="text-sm text-gray-500 mb-8 font-medium">Final step: Activate the call forwarding code for your carrier.</p>
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 text-center pt-4">
+                        <h2 className="text-[28px] font-black text-gray-900 mb-3 tracking-tight">Call Forwarding</h2>
+                        <p className="text-[15px] text-gray-500 mb-10 font-medium px-4">Call this code to forward missed calls to your AI receptionist.</p>
 
-                        <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-3.5 text-lg font-black tracking-widest text-gray-900 flex items-center justify-center space-x-3 mb-8 shadow-inner cursor-pointer hover:border-blue-300 transition-colors" onClick={() => {
-                            navigator.clipboard.writeText((currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680'));
-                            showToast("Copied to clipboard!");
-                        }}>
-                            <Copy size={18} className="text-gray-400" />
-                            <span className="break-all text-center">{(currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680')}</span>
+                        <a
+                            href={`tel:${encodeURIComponent((currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680'))}`}
+                            className="w-40 h-40 mx-auto rounded-full bg-blue-600 flex flex-col items-center justify-center gap-2 mb-8 shadow-xl shadow-blue-200 active:scale-[0.95] transition-all hover:bg-blue-700"
+                        >
+                            <Phone size={36} className="text-white" fill="currentColor" />
+                        </a>
+
+                        <div className="text-sm font-medium text-gray-500 mb-2">Code to dial:</div>
+                        <div className="text-2xl font-black text-gray-900 tracking-wider mb-10">
+                            {(currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680')}
                         </div>
+
+                        <p className="text-gray-500 text-[14px] mb-8 font-medium px-4">After calling, a grey confirmation screen will appear. Tap Dismiss to finish.</p>
 
                         <button
                             onClick={() => setOnboardingStep(12)}
-                            className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                            className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black active:scale-[0.98] transition-all text-lg flex items-center justify-center"
                         >
-                            Verify Activation
+                            Continue
                         </button>
                     </div>
                 )}
 
-                {/* Step 12: Test Mode (Glowing Circle) */}
-                {onboardingStep === 12 && (
-                    <div className="animate-in fade-in zoom-in duration-700 flex flex-col items-center justify-center min-h-[500px] h-full absolute inset-0 bg-white z-[60]">
-                        {/* Header */}
-                        <div className="absolute top-0 w-full pt-8 pb-5 px-6 flex justify-center items-center shrink-0 z-20">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-2xl font-black tracking-tight">
-                                    <span className="text-gray-950">Juno</span><span className="text-blue-600">Desk</span>
-                                </h1>
-                                <div className="h-6 w-px bg-gray-200" />
-                                <span className="px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-extrabold text-gray-600 tracking-widest uppercase">
-                                    AI Receptionist
-                                </span>
-                            </div>
+                {/* Step 15: Setup Complete */}
+                {onboardingStep === 15 && (
+                    <div className="animate-in zoom-in duration-500 flex flex-col items-center justify-center text-center mt-10">
+                        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-green-100/50">
+                            <Check size={40} className="text-green-600" strokeWidth={3} />
                         </div>
 
-                        <div className="relative mt-12 mb-10 flex items-center justify-center mx-auto w-56 h-56">
-                            {/* Glowing rings */}
-                            <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20 duration-1000"></div>
-                            <div className="absolute inset-4 bg-blue-400 rounded-full animate-ping opacity-30" style={{ animationDelay: '300ms' }}></div>
-                            <div className="absolute inset-8 bg-blue-600 rounded-full shadow-[0_0_80px_rgba(37,99,235,0.7)] flex items-center justify-center z-10">
-                                <PhoneCall size={56} className="text-white animate-pulse" />
-                            </div>
-                        </div>
+                        <h2 className="text-3xl font-black text-gray-950 mb-4 tracking-tight leading-tight">Setup Complete! 🎉</h2>
+                        <p className="text-gray-500 font-medium text-sm mb-10">Your AI receptionist is fully activated and ready to handle your missed calls.</p>
 
-                        <div className="text-center px-8 z-10 max-w-sm w-full">
-                            <h2 className="text-3xl font-black text-gray-950 mb-4 tracking-tight leading-tight">Your Receptionist <br /> is Active!</h2>
-                            <p className="text-gray-500 font-medium text-sm mb-10">Call your number now to test your new receptionist. Make sure you don't answer the phone.</p>
-
-                            <a
-                                href={`tel:${userInfo?.userPhoneNumber || ''}`}
-                                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 mb-6"
-                            >
-                                <PhoneCall size={20} className="animate-pulse" /> Call Now to Test
-                            </a>
-
+                        <div className="w-full space-y-3">
                             <button
                                 onClick={() => {
                                     setView('receptionist');
                                     showToast("Welcome to your dashboard! 🎉");
                                 }}
-                                className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center w-full gap-1 mx-auto"
+                                className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-xl hover:bg-black active:scale-[0.98] transition-all"
                             >
-                                I've finished testing <ArrowRight size={14} />
+                                Go to Dashboard
                             </button>
+
+                            <a
+                                href={`tel:${userInfo?.vapiPhoneNumber || ''}`}
+                                className="w-full bg-blue-50 text-blue-600 py-3.5 rounded-xl font-bold hover:bg-blue-100 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            >
+                                <Phone size={18} fill="currentColor" /> Call Your Receptionist
+                            </a>
                         </div>
+                    </div>
+                )}
+
+                {/* Step 12: Let's test your setup */}
+                {onboardingStep === 12 && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 text-center mt-6">
+                        <h2 className="text-[28px] font-black text-gray-900 mb-3 tracking-tight">Let's test your setup</h2>
+                        <p className="text-[16px] text-gray-500 mb-12 font-medium px-4">We'll place a quick test call to your number to confirm call forwarding works.</p>
+
+                        <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex flex-col items-center justify-center gap-2 mb-10 shadow-xl shadow-blue-200">
+                            <Phone size={36} className="text-white ml-2" fill="currentColor" />
+                        </div>
+
+                        <div className="text-[15px] font-medium text-gray-500 mb-1">We'll call:</div>
+                        <div className="text-2xl font-black text-gray-900 tracking-wider mb-10">
+                            {authPhone || '(555) 123-4567'}
+                        </div>
+
+                        <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 mb-8 w-full text-left flex flex-col gap-1 shadow-sm">
+                            <div className="flex items-center gap-2 font-bold text-gray-900 text-[15px]">
+                                <Smartphone size={16} className="text-gray-400" />
+                                When your phone rings:
+                            </div>
+                            <p className="text-gray-500 text-[14px] pl-6">Press decline or let it ring — don't answer.</p>
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                setOnboardingStep(13);
+                                setTestCallState('calling');
+                                setTestCallDuration(0);
+
+                                try {
+                                    await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/test-call`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ userId: session.user.id, userPhone: authPhone, vapiPhone: userInfo?.vapiPhoneNumber })
+                                    });
+
+                                    let attempts = 0;
+                                    const pollInterval = setInterval(async () => {
+                                        attempts++;
+                                        try {
+                                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/test-call/status?userId=${session.user.id}`);
+                                            const data = await res.json();
+
+                                            if (data.status === 'in-progress') {
+                                                setTestCallState('active');
+                                                setTestCallDuration(prev => prev + 2);
+                                            } else if (data.status === 'completed') {
+                                                setTestCallState('success');
+                                                clearInterval(pollInterval);
+                                            } else if (data.status === 'failed' || attempts > 30) {
+                                                setTestCallState('error');
+                                                clearInterval(pollInterval);
+                                            }
+                                        } catch (e) {
+                                            if (attempts > 30) {
+                                                setTestCallState('error');
+                                                clearInterval(pollInterval);
+                                            }
+                                        }
+                                    }, 2000);
+                                } catch (err) {
+                                    console.error(err);
+                                    setTestCallState('error');
+                                }
+                            }}
+                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all text-lg mb-4 shadow-sm flex items-center justify-center"
+                        >
+                            Start Test Call
+                        </button>
+
+                        <button
+                            onClick={() => setOnboardingStep(15)}
+                            className="text-gray-400 font-bold text-xs hover:text-gray-600 transition-colors uppercase tracking-wider py-2"
+                        >
+                            Skip & Go to Dashboard
+                        </button>
+                    </div>
+                )}
+
+                {/* Step 13: Testing Your Assistant (Active Test) */}
+                {onboardingStep === 13 && (
+                    <div className="animate-in fade-in duration-300 text-center mt-6">
+                        <h2 className="text-[28px] font-black text-gray-900 mb-2 tracking-tight">Testing Your Assistant</h2>
+                        <p className="text-[16px] text-gray-500 mb-12 font-medium">Watching the magic happen...</p>
+
+                        <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center relative mb-12 shadow-xl shadow-blue-200">
+                            {(testCallState === 'calling') && (
+                                <Phone size={36} className="text-white ml-2 animate-pulse" fill="currentColor" />
+                            )}
+                            {(testCallState === 'active' || testCallState === 'success') && (
+                                <>
+                                    <User size={38} className="text-white relative z-10" fill="currentColor" />
+                                    <div className="absolute top-2 right-2 bg-blue-800 rounded-full p-0.5 border-2 border-white">
+                                        <AudioWaveform size={12} className="text-white animate-pulse" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="text-[15px] font-medium text-gray-500 mb-4 h-6">
+                            {testCallState === 'calling' ? 'Placing test call...' : `0:0${testCallDuration % 10} Your assistant is on the line`}
+                        </div>
+
+                        <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 w-full text-left space-y-5 shadow-sm">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${testCallState === 'idle' ? 'bg-gray-100 text-gray-400' : 'bg-[#34C759] text-white'}`}>
+                                    {testCallState !== 'idle' ? <Check size={14} strokeWidth={3} /> : <span className="text-[13px] font-bold">1</span>}
+                                </div>
+                                <span className={`font-medium text-[15px] ${testCallState === 'idle' ? 'text-gray-400' : 'text-gray-900'}`}>Placing test call</span>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${testCallState === 'active' || testCallState === 'success' ? 'bg-[#34C759] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                    {testCallState === 'active' || testCallState === 'success' ? <Check size={14} strokeWidth={3} /> : <span className="text-[13px] font-bold">2</span>}
+                                </div>
+                                <span className={`font-medium text-[15px] ${testCallState === 'active' || testCallState === 'success' ? 'text-gray-900' : 'text-gray-400'}`}>Call declined & routing to assistant</span>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${testCallState === 'success' ? 'bg-[#34C759] text-white' : (testCallState === 'active' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400')}`}>
+                                    {testCallState === 'success' ? <Check size={14} strokeWidth={3} /> : (testCallState === 'active' ? <AudioWaveform size={16} className="animate-spin" /> : <span className="text-[13px] font-bold">3</span>)}
+                                </div>
+                                <span className={`font-medium text-[15px] ${testCallState === 'success' ? 'text-gray-900' : (testCallState === 'active' ? 'text-blue-600 font-bold' : 'text-gray-400')}`}>Assistant handling call</span>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${testCallState === 'success' ? 'bg-[#34C759] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                    {testCallState === 'success' ? <Check size={14} strokeWidth={3} /> : <span className="text-[13px] font-bold">4</span>}
+                                </div>
+                                <span className={`font-medium text-[15px] ${testCallState === 'success' ? 'text-gray-900' : 'text-gray-400'}`}>Generating summary & recording</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 14: Error / Fix Setup */}
+                {onboardingStep === 14 && (
+                    <div className="animate-in fade-in slide-in-from-bottom flex flex-col items-center">
+                        <h2 className="text-[28px] font-black text-red-600 mb-2 mt-4 tracking-tight">Assistant Didn't Answer</h2>
+                        <p className="text-[17px] text-gray-500 mb-8 font-medium">Let's fix your setup:</p>
+
+                        <div className="space-y-4 w-full px-2">
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 w-full shadow-sm text-left">
+                                <div className="flex gap-4">
+                                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                        <span className="text-[13px] font-bold">1</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-[16px] text-gray-900 mb-1">Turn off live voicemail</div>
+                                        <div className="text-gray-500 text-[13px] mb-4">Go to Phone {'>'} Live Voicemail {'>'} Off</div>
+                                        <button
+                                            onClick={() => setOnboardingStep(9)}
+                                            className="w-full bg-blue-50 text-blue-600 py-3 rounded-xl font-bold active:scale-[0.98] transition-all text-[15px]"
+                                        >
+                                            Open Settings
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 w-full shadow-sm text-left">
+                                <div className="flex gap-4">
+                                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                        <span className="text-[13px] font-bold">2</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-[16px] text-gray-900 mb-1">Activate call forwarding</div>
+                                        <div className="text-gray-500 text-[13px] mb-4">This refreshes your carrier settings. After calling, a grey confirmation screen will appear. Tap Dismiss to finish.</div>
+                                        <a
+                                            href={`tel:${encodeURIComponent((currentCarrierConfig?.code || '').replace('(513) 327-7680', userInfo?.vapiPhoneNumber || '(513) 327-7680'))}`}
+                                            className="w-full flex items-center justify-center bg-gray-900 text-white py-3 rounded-xl font-bold active:scale-[0.98] transition-all text-[15px]"
+                                        >
+                                            Dial Code
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 w-full shadow-sm text-left">
+                                <div className="flex gap-4">
+                                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                        <span className="text-[13px] font-bold">3</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-[16px] text-gray-900 mb-1">Try the test call again</div>
+                                        <div className="text-gray-500 text-[13px] mb-4">We'll call you once more</div>
+                                        <button
+                                            onClick={() => setOnboardingStep(12)}
+                                            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold active:scale-[0.98] transition-all text-[15px] shadow-sm"
+                                        >
+                                            Start Test
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 w-full shadow-sm text-left">
+                                <div className="flex gap-4 items-center">
+                                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                        <span className="text-[13px] font-bold">4</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-[16px] text-gray-900 mb-1">When it rings: decline or ignore</div>
+                                        <div className="text-gray-500 text-[13px] leading-tight mt-1">Don't answer! Let it forward to assistant</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setView('receptionist');
+                                showToast("Welcome to your dashboard! 🎉");
+                            }}
+                            className="mt-8 text-gray-400 font-bold text-[13px] hover:text-gray-600 transition-colors tracking-wide underline decoration-gray-400 underline-offset-4"
+                        >
+                            Skip & Go to Dashboard
+                        </button>
                     </div>
                 )}
             </div>

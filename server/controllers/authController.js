@@ -18,8 +18,8 @@ export const devSignup = async (req, res) => {
         let accessToken;
         let refreshToken;
 
-        // 1. Try to sign in first (returning user)
-        const { data: signInData } = await supabase.auth.signInWithPassword({
+        // 1. Try to sign in first (returning user perfectly matching email & password)
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
             email, password
         });
 
@@ -29,19 +29,29 @@ export const devSignup = async (req, res) => {
             refreshToken = signInData.session.refresh_token;
             console.log("✅ Existing dev user signed in:", userId);
         } else {
-            // 2. Check if phone is already used by another auth user
-            const { data: existingUsers } = await supabase.auth.admin.listUsers();
-            const existingByPhone = existingUsers?.users?.find(u => u.phone === phoneWithPlus);
+            // 2. Fetch all users because we might have a collision on either phone or email
+            const { data: existingUsersData } = await supabase.auth.admin.listUsers();
+            const allUsers = existingUsersData?.users || [];
 
-            if (existingByPhone) {
-                // Phone exists on another user - update that user's email/password for dev login
-                console.log("📱 Phone already registered, updating user for dev access:", existingByPhone.id);
-                await supabase.auth.admin.updateUser(existingByPhone.id, {
+            // Check collisions
+            let existingUser = allUsers.find(u => u.email === email);
+            if (!existingUser) {
+                existingUser = allUsers.find(u => u.phone === phoneWithPlus);
+            }
+
+            if (existingUser) {
+                // We found a collision! Let's forcefully overwrite the password and phone so dev mode continues
+                console.log("📱 User collision found (email or phone), updating user for dev access:", existingUser.id);
+                const { error: updateErr } = await supabase.auth.admin.updateUserById(existingUser.id, {
                     email,
+                    phone: phoneWithPlus,
                     password,
-                    email_confirm: true
+                    email_confirm: true,
+                    phone_confirm: true
                 });
-                userId = existingByPhone.id;
+
+                if (updateErr) throw new Error("Updated user failed: " + updateErr.message);
+                userId = existingUser.id;
 
                 // Sign in with new credentials
                 const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
@@ -51,7 +61,7 @@ export const devSignup = async (req, res) => {
                 accessToken = loginData.session.access_token;
                 refreshToken = loginData.session.refresh_token;
             } else {
-                // 3. Create brand new user (no phone conflict)
+                // 3. Create brand new user (no collision at all)
                 const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
                     email,
                     password,
