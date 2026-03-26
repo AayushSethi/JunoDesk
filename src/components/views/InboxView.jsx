@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     RefreshCw, Phone, UserPlus, Share2, Archive,
     Trash2, Play, Pause, ChevronDown, CalendarCheck,
-    FileText, Sparkles, MessageSquare
+    FileText, Sparkles, MessageSquare, Send
 } from 'lucide-react';
 
 export default function InboxView({
@@ -30,6 +30,31 @@ export default function InboxView({
     openCallDetail
 }) {
     if (view !== 'inbox') return null;
+
+    const [mainTab, setMainTab] = useState('calls'); // 'calls' or 'texts'
+    const [chats, setChats] = useState([]);
+    const [loadingChats, setLoadingChats] = useState(false);
+
+    // Fetch Chats when Texts tab is active
+    React.useEffect(() => {
+        if (mainTab === 'texts' && userInfo?.profileId) {
+            setLoadingChats(true);
+            const fetchChats = async () => {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/chats?userId=${userInfo.profileId}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        setChats(data.conversations);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch chats:", err);
+                } finally {
+                    setLoadingChats(false);
+                }
+            };
+            fetchChats();
+        }
+    }, [mainTab, userInfo]);
 
     // Helper: Date Formatter
     const fmtDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -71,18 +96,25 @@ export default function InboxView({
         <div className="flex flex-col h-full bg-white overflow-y-auto no-scrollbar animate-in fade-in duration-500">
             {/* Header */}
             <div className="pb-5 px-6 flex justify-center items-center shrink-0 z-20 pt-[max(2.5rem,env(safe-area-inset-top))]">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-black tracking-tight">
-                        <span className="text-gray-950">Juno</span><span className="text-blue-600">Desk</span>
-                    </h1>
-                    <div className="h-6 w-px bg-gray-200" />
-                    <span className="px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-extrabold text-gray-600 tracking-widest uppercase">
-                        AI Receptionist
-                    </span>
+                <div className="flex bg-gray-100 p-1 rounded-full items-center">
+                    <button 
+                        onClick={() => setMainTab('calls')}
+                        className={`px-4 py-1.5 rounded-full text-[13px] font-extrabold tracking-tight transition-all ${mainTab === 'calls' ? 'bg-white shadow-sm text-gray-950' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                        Calls
+                    </button>
+                    <button 
+                        onClick={() => setMainTab('texts')}
+                        className={`px-4 py-1.5 rounded-full text-[13px] font-extrabold tracking-tight transition-all ${mainTab === 'texts' ? 'bg-white shadow-sm text-gray-950' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                        Texts
+                    </button>
                 </div>
             </div>
 
-            <header className="px-6 flex flex-col space-y-4 shrink-0">
+            {mainTab === 'calls' ? (
+                <>
+                <header className="px-6 flex flex-col space-y-4 shrink-0">
                 {/* Status Cards */}
                 <div className="grid grid-cols-2 gap-3">
                     <button className="flex flex-col p-2.5 bg-white border border-gray-200 rounded-xl text-left shadow-sm transition-all active:scale-95">
@@ -236,6 +268,50 @@ export default function InboxView({
                 })}
                 <div className="h-40" />
             </main>
+            </>
+            ) : (
+                <main className="flex-1 overflow-y-auto no-scrollbar px-6">
+                    {loadingChats ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-4">
+                            <RefreshCw className="animate-spin" size={24} />
+                            <span className="text-sm font-semibold">Loading messages...</span>
+                        </div>
+                    ) : chats.length === 0 ? (
+                        <div className="text-center py-20">
+                            <MessageSquare className="mx-auto mb-4 text-gray-300" size={48} />
+                            <p className="text-gray-500 text-sm font-semibold">No messages yet</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-gray-200">
+                            {chats.map(chat => {
+                                const lastMsg = chat.lastMessage;
+                                const isUnread = lastMsg && lastMsg.direction === 'inbound';
+                                const timeStr = new Date(chat.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                                
+                                return (
+                                    <div key={chat.phone} className="py-4 cursor-pointer group hover:bg-gray-50/50 transition-all rounded-xl -mx-2 px-2">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div className="flex-1">
+                                                <h3 className={`text-[17px] font-black tracking-tight flex items-center gap-2 ${isUnread ? 'text-gray-950' : 'text-gray-700'}`}>
+                                                    {chat.phone}
+                                                    {isUnread && <span className="w-2 h-2 bg-blue-600 rounded-full shrink-0" />}
+                                                </h3>
+                                            </div>
+                                            <span className="text-[13px] font-semibold text-gray-400 tabular-nums">
+                                                {timeStr}
+                                            </span>
+                                        </div>
+                                        <p className="text-[13px] text-gray-500 font-medium truncate">
+                                            {lastMsg?.direction.includes('outbound') ? 'You/AI: ' : ''}{lastMsg?.content || "No messages"}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="h-40" />
+                </main>
+            )}
         </div>
     );
 }

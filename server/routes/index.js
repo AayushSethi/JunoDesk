@@ -8,6 +8,7 @@ import * as voiceController from '../controllers/voiceController.js';
 import * as scrapeController from '../controllers/scrapeController.js';
 import * as subscriptionController from '../controllers/subscriptionController.js';
 import * as messageController from '../controllers/messageController.js';
+import * as chatController from '../controllers/chatController.js';
 
 const router = express.Router();
 
@@ -38,6 +39,11 @@ router.get('/api/test-call/status', callController.getTestCallStatus);
 router.post('/api/webhook/twilio-sms', messageController.twilioSmsWebhook);
 router.get('/api/messages', messageController.getMessages);
 router.post('/api/messages/send', messageController.sendManualMessage);
+
+// --- Chat Routes ---
+router.get('/api/chats', chatController.getChats);
+router.post('/api/chats/send', chatController.sendChatMessage);
+router.post('/api/chats/create-vapi', chatController.createVapiChat);
 
 // --- Tool Routes ---
 router.post('/api/tools/check-availability', toolsController.checkAvailability);

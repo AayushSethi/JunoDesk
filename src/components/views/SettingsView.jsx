@@ -3,7 +3,8 @@ import {
     Users, Bell, CreditCard, MessageSquare, Lock, LogOut,
     Trash2, ChevronRight, ChevronLeft, Check
 } from 'lucide-react';
-import { RevenueCatUI, PAYWALL_RESULT } from '@revenuecat/purchases-capacitor-ui';
+import { Purchases } from '@revenuecat/purchases-capacitor';
+import { Capacitor } from '@capacitor/core';
 
 export default function SettingsView({
     view,
@@ -128,8 +129,8 @@ export default function SettingsView({
                                 <div className="text-sm text-gray-500">All included</div>
                             </div>
                             <div className="text-right">
-                                <div className="text-3xl font-black text-gray-900">{activePlan === 'annual' ? '$17.49' : '$24.99'}<span className="text-sm font-medium">/mo</span></div>
-                                {activePlan === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $209.88 annually</div>}
+                                <div className="text-3xl font-black text-gray-900">{activePlan === 'annual' ? '$33.25' : '$49.00'}<span className="text-sm font-medium">/mo</span></div>
+                                {activePlan === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $399.00 annually</div>}
                             </div>
                         </div>
                         <ul className="space-y-3">
@@ -143,17 +144,37 @@ export default function SettingsView({
 
                     <button
                         onClick={async () => {
+                            if (typeof Capacitor !== 'undefined' && Capacitor.getPlatform() === 'web') {
+                                showToast("Web dev bypass: Pretending to purchase");
+                                return;
+                            }
+
                             try {
-                                const { result } = await RevenueCatUI.presentPaywall();
-                                if (result === PAYWALL_RESULT.PURCHASED) {
-                                    showToast("Subscription Activated!");
-                                    // You can trigger a refetch here if needed
-                                } else if (result === PAYWALL_RESULT.RESTORED) {
-                                    showToast("Purchases restored!");
+                                showToast("Loading secure checkout...");
+                                const offerings = await Purchases.getOfferings();
+                                if (offerings.current && offerings.current.availablePackages.length > 0) {
+                                    const pkgToBuy = activePlan === 'annual' ? offerings.current.annual : offerings.current.monthly;
+                                    if (!pkgToBuy) {
+                                        showToast("Plan not found. Try again later.");
+                                        return;
+                                    }
+
+                                    const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkgToBuy });
+                                    const activeEntitlements = Object.keys(customerInfo.entitlements.active);
+
+                                    if (activeEntitlements.length > 0) {
+                                        showToast("Subscription Activated!");
+                                    } else {
+                                        showToast("Purchase completed, but features weren't unlocked.");
+                                    }
+                                } else {
+                                    showToast("No packages available. Check RevenueCat setup.");
                                 }
                             } catch (e) {
-                                console.error('Paywall error:', e);
-                                showToast("Failed to open upgrade screen.");
+                                if (!e.userCancelled) {
+                                    console.error('Purchase error:', e);
+                                    showToast("Failed to process subscription.");
+                                }
                             }
                         }}
                         className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-[0.98] transition-all"

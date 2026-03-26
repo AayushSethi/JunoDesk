@@ -2,7 +2,7 @@
 
 git status          # See what's changed
 git add .           # Stage all
-git commit -m "removed messages"
+git commit -m "added paywall"
 git push
 
 

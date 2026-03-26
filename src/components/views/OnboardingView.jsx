@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { TIMEZONES, DEFAULT_TIMEZONE } from '../../constants/timezones';
 import googleCalendarIcon from '../../assets/avatars/Logos/Google_Calendar_icon.svg';
+import { Purchases } from '@revenuecat/purchases-capacitor';
+import { Capacitor } from '@capacitor/core';
 
 export default function OnboardingView({
     onboardingStep,
@@ -328,22 +330,72 @@ export default function OnboardingView({
                             <div className="flex justify-between items-center mb-4">
                                 <div><div className="text-xl font-bold">Professional</div><div className="text-sm text-gray-500">All included</div></div>
                                 <div className="text-right">
-                                    <div className="text-3xl font-black text-gray-900">{planCycle === 'annual' ? '$17.49' : '$24.99'}<span className="text-sm font-medium">/mo</span></div>
-                                    {planCycle === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $209.88 annually</div>}
+                                    <div className="text-3xl font-black text-gray-900">{planCycle === 'annual' ? '$33.25' : '$49.00'}<span className="text-sm font-medium">/mo</span></div>
+                                    {planCycle === 'annual' && <div className="text-xs text-gray-500 font-medium">Billed $399.00 annually</div>}
                                 </div>
                             </div>
                             <ul className="space-y-3">{['24/7 AI Receptionist', 'Unlimited Minutes', 'Transcripts', 'Spam Blocking'].map(i => (<li key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-700"><Check size={14} className="text-green-600" />{i}</li>))}</ul>
                         </div>
                         <button onClick={async () => {
-                            setAuthLoading(true);
-                            try {
+                            if (typeof Capacitor !== 'undefined' && Capacitor.getPlatform() === 'web') {
+                                showToast("Web dev bypass: Pretending to purchase package");
+                                setAuthLoading(true);
                                 await saveOnboardingProfile({ subscription_type: planCycle });
                                 const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/provision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
                                 const d = await res.json();
                                 if (d.success) setUserInfo(prev => ({ ...prev, vapiPhoneNumber: d.phoneNumber, vapiAssistantId: d.assistantId, profileId: d.profileId }));
+                                setAuthLoading(false);
                                 setOnboardingStep(5);
-                            } catch (e) { setOnboardingStep(5); } finally { setAuthLoading(false); }
-                        }} className="w-full bg-white text-blue-600 border border-gray-100 py-4 rounded-full font-bold text-lg">Start trial</button>
+                                return;
+                            }
+
+                            try {
+                                setAuthLoading(true);
+                                showToast("Loading secure checkout...");
+                                const offerings = await Purchases.getOfferings();
+                                if (offerings.current && offerings.current.availablePackages.length > 0) {
+                                    const pkgToBuy = planCycle === 'annual' ? offerings.current.annual : offerings.current.monthly;
+                                    if (!pkgToBuy) {
+                                        showToast("Plan not found. Try again later.");
+                                        setAuthLoading(false);
+                                        return;
+                                    }
+
+                                    const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkgToBuy });
+                                    const activeEntitlements = Object.keys(customerInfo.entitlements.active);
+
+                                    if (activeEntitlements.length > 0) {
+                                        await saveOnboardingProfile({ subscription_type: planCycle });
+                                        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/provision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: session.user.id, subscriptionType: planCycle }) });
+                                        const d = await res.json();
+                                        if (d.success) setUserInfo(prev => ({ ...prev, vapiPhoneNumber: d.phoneNumber, vapiAssistantId: d.assistantId, profileId: d.profileId }));
+                                        setOnboardingStep(5);
+                                    } else {
+                                        showToast("Purchase completed, but features weren't unlocked.");
+                                    }
+                                } else {
+                                    showToast("No packages available. Check RevenueCat setup.");
+                                }
+                            } catch (e) {
+                                if (!e.userCancelled) {
+                                    console.error('Purchase error:', e);
+                                    showToast("Failed to process subscription.");
+                                }
+                            } finally {
+                                setAuthLoading(false);
+                            }
+                        }} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-xl shadow-blue-200 active:scale-[0.98] transition-all text-lg mb-4 flex items-center justify-center">
+                            {authLoading ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Processing...
+                                </div>
+                            ) : "Start 14-Day Free Trial"}
+                        </button>
+                        <div className="text-center mt-2 flex justify-center gap-4 text-xs font-semibold text-gray-400">
+                            <a href="https://example.com/terms" target="_blank" rel="noreferrer" className="hover:text-gray-600">Terms of Service</a>
+                            <a href="https://example.com/privacy" target="_blank" rel="noreferrer" className="hover:text-gray-600">Privacy Policy</a>
+                        </div>
                     </>
                 )}
 
